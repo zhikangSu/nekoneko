@@ -1,8 +1,8 @@
 # AGENTS.md
 
-Project: **A Multi-Agent Collaborative Companion Robot for Older Adults**
-Working name: **User-Named Elderly AI Companion**
-Course: **CityU MSDS SDSC6002 Research Project, Summer 2026**
+Project: **A Multi-Agent Collaborative Companion Robot for Older Adults**  
+Working name: **User-Named Elderly AI Companion**  
+Course: **CityU MSDS SDSC6002 Research Project, Summer 2026**  
 Current stage: **course-level software demo / HCI research prototype**
 
 This file gives global instructions for AI coding agents such as Codex, Claude Code, Cursor agents, or other automated contributors working in this repository.
@@ -19,13 +19,19 @@ docs/01_prd_elderly_multi_agent_companion_ai.md
 docs/02_technical_roadmap_elderly_multi_agent_companion_ai.md
 docs/03_fxy_integration_review.md
 docs/04_engagement_agent_optimization_review.md
+docs/05_reference_project_structure.md
+docs/06_collaboration_workflow.md
 ```
 
-Treat these files as product and research specifications. Do **not** rewrite them unless the task explicitly asks for documentation changes.
+Also follow:
+
+```text
+.github/pull_request_template.md
+```
 
 Core slogan:
 
-> **愿意回来，放心使用。陪伴优先，必要时查询，安全始终在线。**
+> **愿意回来，放心使用。陪伴优先，必要时查询，安全始终在线。**  
 > **Return willingly, use safely. Companionship first, retrieval when needed, safety always.**
 
 ---
@@ -36,140 +42,200 @@ The goal is not to build a generic assistant, a search engine, a medical chatbot
 
 The goal is to build a **relationship-first voice companion AI prototype for older adults** that helps users feel heard, remembered, safe, and in control.
 
-The target audience is the broad older adult population. Do not narrow product behavior, UI, or test assumptions to any single subgroup. Living situation, age subgroup, technical familiarity, and care needs are scenario variables, not eligibility constraints.
-
-The system should support:
-
-```text
-voice-first interaction
-+ stable relationship persona
-+ emotionally grounded conversation
-+ controllable long-term memory
-+ reminders and daily assistance
-+ mock sensor-driven proactive check-ins
-+ controlled factual retrieval when needed
-+ explicit safety boundaries
-+ visible agent trace for explainability
-```
+The target audience is the broad older adult population. Do not narrow behavior, UI, or testing assumptions to a single subgroup such as only isolated, frail, or high-risk users.
 
 The MVP evaluates **interaction feasibility, trust, perceived companionship, willingness to continue use, and perceived appropriateness of proactive care**. It does **not** evaluate clinical effectiveness.
 
 ---
 
-## 3. Non-negotiable design principles
+## 3. Current collaboration model
 
-### 3.1 Role-first, not assistant-first
+Use `docs/06_collaboration_workflow.md` as the execution guide.
 
-The user-facing companion persona must be **user-named, not hardcoded**:
+Current practical model:
 
 ```text
-Use `companion_display_name` as a configurable user setting chosen by the user during onboarding or settings.
-If the user has not named the companion yet, use neutral labels such as “the companion AI” / “this companion role” or first-person “I”; do not invent a fixed name.
-Relationship feel: familiar community junior / kind neighbor / patient old friend.
-Tone: short, clear, slow, respectful, emotionally grounding.
-Boundary: human-like enough to feel warm, but never pretending to be a real person.
+one main completer advances P0 vertical slices
+reviewer checks PR behavior and safety asynchronously, usually in daily batches
+other contributors may add non-blocking docs / QA / test cases if and when available
 ```
 
-Avoid cold assistant language such as “How may I assist you today?” as the default opening. The system should first respond to the person, then the task.
+Do not assume traditional four-person parallel ownership. Issues are an ordered task queue, not a strict personal assignment table.
 
-Do not hardcode any default user-facing name. Store the companion display name as user-controlled profile/settings data, for example `companion_display_name`. Tests may use a neutral placeholder or participant-chosen names.
+### 3.1 Mainline execution order
 
-Use `companion_display_name` as a user setting. It may be empty. If empty, UI and prompts should use the neutral label “陪伴 AI / AI Companion”. Do not hardcode a user-facing companion name in prompts, tests, seed data, or UI copy.
+Follow P0 vertical slices in this order unless the user explicitly changes priority:
 
-### 3.2 Optimize for well-being, not stickiness
+```text
+Slice 1: #1 docs entry → #2 frontend shell → #3 FastAPI chat baseline
+Slice 2: #21 first-run onboarding → #6 CompanionAgent persona
+Slice 3: #5 Coordinator → #8 Safety → #9 Agent Trace
+Slice 4: #10 Memory → #11 Reminder
+Slice 5: #22 SensorAdapter / StateEvent → #12 GuardianAgent
+Slice 6: #13 controlled retrieval
+Slice 7: #4 mock voice UI → #23 real ASR/TTS provider
+Slice 8: #14 tests → #16 final demo materials
+```
+
+Do not start P1 issues until the relevant P0 slice is stable.
+
+### 3.2 PR workflow
+
+Make non-trivial changes on branches and open PRs using `.github/pull_request_template.md`.
+
+A main completer may open several small PRs before reviewer feedback arrives, as long as:
+
+```text
+- each PR is issue-scoped or slice-scoped;
+- PR dependencies are clearly stated;
+- unrelated files are not refactored;
+- DEMO_MODE=true remains runnable;
+- no fixed companion name, medical advice, or real emergency action is introduced.
+```
+
+At the end of every AI coding session, leave a handoff in the PR or issue:
+
+```md
+Completed:
+- ...
+
+Tested:
+- ...
+
+Not done:
+- ...
+
+Risks / questions:
+- ...
+
+Next recommended step:
+- ...
+```
+
+---
+
+## 4. Non-negotiable design principles
+
+### 4.1 Role-first, not assistant-first
+
+The user-facing companion persona must be **user-named, not hardcoded**.
+
+Use `companion_display_name` as a configurable user setting chosen by the user during onboarding or settings.
+
+If the user has not named the companion yet, use neutral labels such as:
+
+```text
+陪伴 AI / AI Companion
+```
+
+Do not invent or hardcode a fixed default name in prompts, UI copy, seed data, tests, snapshots, or demo scripts.
+
+The relationship feel should be like a familiar community junior, kind neighbor, or patient old friend. It can feel warm and human-like, but must never pretend to be a real person, doctor, family member, or caregiver.
+
+### 4.2 Optimize for well-being, not stickiness
 
 Do not optimize for addiction, dependency, endless engagement, or emotional lock-in.
 
 The system must:
 
-- allow users to stop, pause, reject, or disable proactive check-ins;
-- encourage real-world support from family, friends, doctors, community services, or caregivers when appropriate;
-- avoid language that implies “only I understand you” or “you do not need other people”;
-- avoid over-personalized emotional manipulation;
-- evaluate possible overdependence risk when designing proactive behavior.
-
-### 3.3 Companionship first, retrieval when needed
-
-Do not browse or retrieve facts for emotional disclosure, reminiscence, routine chit-chat, memory management, or simple reminders.
-
-Use controlled retrieval only when the user needs time-sensitive or external facts, such as:
-
 ```text
-today / now / latest / recent / nearby / weather / community service / public opening hours / news / factual verification
+allow users to stop, pause, reject, or disable proactive check-ins
+encourage real-world support from family, friends, doctors, community services, or caregivers when appropriate
+avoid language like “only I understand you” or “you do not need other people”
+avoid over-personalized emotional manipulation
 ```
 
-Health-related retrieval must remain general and non-diagnostic.
+### 4.3 Companionship first, retrieval when needed
 
-### 3.4 Safety always
+Do not call external realtime retrieval for emotional disclosure, reminiscence, routine chit-chat, memory management, or simple reminders.
+
+Call retrieval only for time-sensitive or external facts such as:
+
+```text
+today / now / latest / recent / nearby / weather / air quality / community service / opening hours / factual verification
+```
+
+Here, “default not online” means **do not call web search / browser / external retrieval tools**. It does **not** mean the app cannot call a hosted LLM API.
+
+### 4.4 Safety always
 
 The system must never provide:
 
-- medical diagnosis;
-- medication dosage changes;
-- treatment recommendations;
-- claims that mock sensor data proves illness;
-- real emergency service dispatch;
-- fabricated family, hospital, or caregiver information;
-- overconfident mental health crisis handling.
+```text
+medical diagnosis
+medication dosage changes
+treatment recommendations
+claims that mock sensor data proves illness
+real emergency service dispatch
+fabricated family, hospital, or caregiver information
+overconfident mental health crisis handling
+```
 
 High-risk content must trigger the safety path.
 
 ---
 
-## 4. Agent vs tool distinction
+## 5. Agent vs tool distinction
 
 Do not call every module an agent. In reports, code, and trace UI, use this distinction.
 
-### 4.1 Autonomous agents
+### 5.1 Autonomous agents
 
 A module may be called an **Agent** only if it has a goal, cross-turn state or policy, contextual decision-making power, and explainable decisions.
 
 MVP autonomous agents:
 
-| Name | Role |
-|---|---|
-| `CoordinatorAgent` | Maintains graph state, routes requests, decides which agents/tools run. |
-| `CompanionAgent` | Maintains the user-named companion persona, relationship state, emotional grounding, conversation continuation. |
-| `GuardianAgent` | Maintains welfare/proactive state, decides whether to check in or refrain. |
-| `SafetyCriticAgent` | Critiques, rewrites, or blocks risky drafts in health/safety scenarios. |
+```text
+CoordinatorAgent
+CompanionAgent
+GuardianAgent
+SafetyCriticAgent
+```
 
-### 4.2 Tools and services
+### 5.2 Tools and services
 
-These are **not** autonomous agents unless explicitly redesigned:
+These are tools/services, not autonomous agents:
 
-| Name | Type |
-|---|---|
-| `EmotionClassifierTool` | label + style token only |
-| `MemoryTool` / `MemoryStore` | CRUD, retrieval, summarization |
-| `ReminderTool` / `ReminderScheduler` | reminder CRUD and due-event triggers |
-| `InfoRetrievalTool` | weather/search/public factual retrieval |
-| `SensorSimulatorTool` | mock wearable snapshots and presets |
-| `InputRuleGuard` / `OutputRuleGuard` | rule-based safety checks |
-| `VoiceIOService` | ASR, TTS, playback, transcript |
-| `LLMProvider` | model API wrapper |
+```text
+EmotionClassifierTool
+MemoryTool / MemoryStore
+ReminderTool / ReminderScheduler
+InfoRetrievalTool
+SensorSimulatorTool
+SensorAdapter / StateEncoder
+InputRuleGuard / OutputRuleGuard
+VoiceIOService
+ASRService
+TTSService
+LLMProvider
+```
 
-Agent trace must show this distinction clearly.
+Agent Trace must clearly distinguish:
+
+```text
+Agent / Tool / Guard / StateEvent / Retrieval / Memory
+```
 
 ---
 
-## 5. MVP scope
+## 6. MVP scope
 
-### 5.1 P0 features to implement first
+P0 first:
 
 ```text
 1. Text chat core before voice.
-2. Coordinator + Companion + Guardian + SafetyCritic skeleton.
-3. Agent trace for every chat turn.
-4. Stable user-named companion persona and neutral assistant comparison mode.
+2. First-run onboarding and user-named companion persona.
+3. Coordinator + Companion + Guardian + SafetyCritic skeleton.
+4. Agent trace for every chat turn.
 5. Memory Center: view / add / delete / pause memory.
 6. Reminder CRUD: medication, hydration, schedule reminders.
-7. Sensor Simulator: poor sleep, low activity, medication missed, elevated HR mock, no response, low mood text trigger.
+7. SensorAdapter + Sensor Simulator + Guardian proactive check-ins.
 8. Controlled retrieval: weather / time-sensitive factual query only.
 9. Input/output rule guards and high-risk safety templates.
-10. Voice I/O: ASR + TTS after text pipeline is stable.
+10. Voice I/O: mock first, real ASR/TTS provider after text pipeline is stable.
 ```
 
-### 5.2 P1 features only after P0 is stable
+P1 only after P0 is stable:
 
 ```text
 VAD / interruption detection
@@ -182,7 +248,7 @@ trace-visible vs trace-hidden study condition
 more proactive personalization
 ```
 
-### 5.3 Future work / do not implement unless explicitly requested
+Future work / do not implement unless explicitly requested:
 
 ```text
 real Apple Watch / HealthKit integration
@@ -199,7 +265,7 @@ full-duplex realtime voice
 
 ---
 
-## 6. Recommended technical stack
+## 7. Recommended technical stack
 
 Use this unless a task explicitly changes it:
 
@@ -209,18 +275,17 @@ Backend: Python 3.11+ + FastAPI + Pydantic v2
 Agent orchestration: LangGraph or a compatible graph/state-machine abstraction
 Database: SQLite for MVP, Postgres optional later
 Memory: markdown-first source of truth + SQLite structured data + optional vector index
-Vector index: Chroma or FAISS, optional for P0
 Scheduler: APScheduler or simple event loop
 Runtime LLM: configurable provider, fake provider by default in tests
 ASR/TTS: mock provider first, API provider later
 Deployment: local demo first, cloud optional
 ```
 
-Keep all external providers behind interfaces so the demo can run in `DEMO_MODE=true` without paid APIs.
+Keep external providers behind interfaces so the demo can run in `DEMO_MODE=true` without paid APIs.
 
 ---
 
-## 7. Environment and secrets
+## 8. Environment and secrets
 
 Never hardcode secrets. Never commit real API keys.
 
@@ -252,7 +317,7 @@ Tests must not call real LLM, ASR, TTS, or web APIs.
 
 ---
 
-## 8. Safety architecture
+## 9. Safety architecture
 
 Safety must not be a single final prompt slapped on every answer.
 
@@ -268,10 +333,6 @@ InputRuleGuard
   → final response
 ```
 
-### 8.1 Always-on guards
-
-Input and output rule guards should be deterministic and cheap.
-
 High-risk triggers include but are not limited to:
 
 ```text
@@ -281,104 +342,73 @@ High-risk triggers include but are not limited to:
 救命 / 帮帮我 / 联系急救
 ```
 
-### 8.2 SafetyCriticAgent escalation
-
-Call the LLM-based SafetyCriticAgent only when:
-
-- input guard detects health, medication, emergency, or self-harm risk;
-- output guard detects unsafe wording in the draft;
-- Coordinator marks the turn as high uncertainty;
-- Guardian proactive action may be intrusive or risky.
-
-### 8.3 Safe response rules
-
-When risky health or medication content appears:
-
-- do not diagnose;
-- do not infer cause;
-- do not advise dosage;
-- encourage contacting doctor, pharmacist, family, caregiver, or emergency services;
-- offer safe assistance such as recording the event, setting a reminder, or contacting a mock emergency contact in demo mode.
-
-### 8.4 Emergency handling in MVP
-
-Do **not** implement real emergency calls.
-
-Implement `EmergencyContactMock` only:
-
-```text
-Show a prominent UI state.
-Display “This is a demo. No real emergency call has been placed.”
-Optionally show a configured mock contact card.
-Suggest contacting local emergency services or trusted contacts.
-```
+Do not implement real phone calls, SMS, hospital dispatch, caregiver notification, or emergency automation. Implement mock emergency UI only.
 
 ---
 
-## 9. Memory and privacy rules
+## 10. Memory and privacy rules
 
 Use transparent, user-controllable memory.
 
-### 9.1 Memory layers
+Memory Center should support:
 
 ```text
-Short-term state: current LangGraph thread / chat session.
-Markdown memory: human-readable source of truth.
-SQLite memory: structured profile, consent, reminders, audit metadata.
-Vector memory: optional derived index from approved markdown/SQLite summaries.
+view
+edit if applicable
+delete
+pause / disable categories
 ```
 
-### 9.2 Memory categories
-
-Memory Center should show at least:
+Memory layers:
 
 ```text
-Profile memory: name, preferences, routines, safe personal facts.
-Event memory: past conversation summaries and future events.
-Reminder memory: medication, hydration, schedule reminders.
-Consent / settings: proactive care, quiet hours, retrieval preference.
+Short-term state: current LangGraph thread / chat session
+Markdown memory: human-readable source of truth
+SQLite memory: structured profile, consent, reminders, audit metadata
+Vector memory: optional derived index from approved summaries
 ```
-
-### 9.3 Do not save automatically
 
 Do not automatically save:
 
-- passwords, ID numbers, financial details;
-- sensitive health details;
-- unverified inferences;
-- private family conflicts;
-- temporary emotional venting;
-- anything the user asks the system to forget.
+```text
+passwords
+ID numbers
+financial information
+sensitive health details
+unverified emotional inference
+family conflict
+temporary negative mood
+anything the user asks the system to forget
+```
 
 Whenever uncertain, ask for confirmation or do not save.
 
+`companion_display_name` belongs to UserProfile / onboarding, not ordinary event memory.
+
 ---
 
-## 10. Proactive care / Guardian rules
+## 11. Guardian and proactive care rules
 
 GuardianAgent is responsible for proactive but restrained check-ins.
 
-It must maintain cross-turn welfare/proactive state, for example:
+Important boundary:
 
-```json
-{
-  "checkins_today": 1,
-  "last_checkin_at": "2026-06-14T10:20:00",
-  "last_checkin_type": "poor_sleep",
-  "recent_refusal_until": null,
-  "quiet_hours": ["22:00", "07:00"],
-  "overdependence_risk": "low"
-}
+```text
+raw/mock signal → SensorAdapter / StateEncoder → StateEvent → GuardianAgent decision
 ```
 
-Before a proactive check-in, it must produce:
+GuardianAgent must not directly interpret raw sensor values or make medical claims from sensor presets.
+
+Required Guardian output should include:
 
 ```json
 {
-  "care_proposal": "Why a check-in may help now.",
-  "restraint_critique": "Why not interrupting may be better.",
-  "decision": "check_in | defer | do_not_check_in",
-  "reason": "Short explanation for trace UI."
+  "care_proposal": "...",
+  "restraint_critique": "...",
+  "decision": "check_in | defer | silent_log | safety_escalation",
+  "reason": "...",
+  "cooldown_applied": true,
+  "trace_visible_summary": "..."
 }
 ```
 
@@ -392,11 +422,24 @@ user refusal: pause same topic for 24 hours
 night voice output: off by default unless explicitly enabled
 ```
 
-Do not claim sensor data proves health conditions. Use soft, uncertain wording.
+Use soft, uncertain wording such as:
+
+```text
+看起来可能比平时少一点
+如果现在方便，我可以陪您聊两句
+```
+
+Avoid:
+
+```text
+您今天身体不好
+您可能生病了
+您一定很孤独
+```
 
 ---
 
-## 11. Controlled retrieval rules
+## 12. Controlled retrieval rules
 
 InfoRetrievalTool may be called only when the Coordinator has a reason.
 
@@ -419,143 +462,71 @@ Do not retrieve for:
 忘记我喜欢粤剧这件事
 ```
 
-All retrieved facts must be integrated warmly and cautiously by CompanionAgent. Do not dump search results.
+Medication dosage questions must not search for dosage answers. Route to safety.
 
 ---
 
-## 12. Agent trace requirements
+## 13. Agent trace requirements
 
 Every `/api/chat` response must include an `agent_trace` object, even in demo mode.
 
 Trace should include:
 
-```json
-{
-  "turn_id": "t001",
-  "mode": "role_first",
-  "route": "retrieval_supported_companion_response",
-  "risk_level": "low",
-  "agents": [
-    {
-      "name": "CoordinatorAgent",
-      "type": "agent",
-      "decision": "Call CompanionAgent with InfoRetrievalTool",
-      "reason": "User asked whether walking this afternoon is suitable."
-    },
-    {
-      "name": "CompanionAgent",
-      "type": "agent",
-      "decision": "Generate warm response using user-named companion persona",
-      "reason": "Maintain role-first tone and use the user-selected companion name when available."
-    }
-  ],
-  "tools": [
-    {
-      "name": "InfoRetrievalTool",
-      "type": "tool",
-      "called": true,
-      "reason": "Weather is time-sensitive."
-    }
-  ],
-  "guards": [
-    {
-      "name": "InputRuleGuard",
-      "risk_hit": false
-    },
-    {
-      "name": "OutputRuleGuard",
-      "risk_hit": false
-    }
-  ],
-  "memory_used": [],
-  "web_used": true,
-  "safety_critic_used": false
-}
+```text
+turn_id
+mode
+route
+risk_level
+agents
+tools
+guards
+state_event if any
+memory_used
+retrieval_used
+safety_critic_used
 ```
 
-The trace is a product feature and a research artifact. Keep it stable.
+The trace is both a product feature and a research artifact. Keep it stable.
 
 ---
 
-## 13. Coding guidelines
+## 14. Coding guidelines
 
-### 13.1 General
+General:
 
-- Work issue by issue.
-- Prefer small, reviewable diffs.
-- Do not introduce large frameworks unless needed.
-- Keep P0 simple and stable before P1.
-- Add type hints and validation at API boundaries.
-- Keep business logic separate from UI rendering.
-- Avoid hidden side effects in agent/tool functions.
-- Do not run real paid API calls in tests.
+```text
+work issue by issue
+prefer small, reviewable diffs
+avoid broad refactors
+keep P0 simple and stable before P1
+add type hints and validation at API boundaries
+do not run real paid API calls in tests
+```
 
-### 13.2 Backend
+Backend:
 
-- Use Pydantic schemas for all request/response payloads.
-- Keep autonomous agents under `backend/app/agents/`.
-- Keep tools under `backend/app/tools/`.
-- Keep external API wrappers under `backend/app/services/`.
-- Keep graph construction under `backend/app/graph/`.
-- Keep prompts as markdown/text files under `backend/app/prompts/`.
-- Keep safety templates under `backend/app/safety/templates/`.
-- Add pytest tests for routing, memory, reminders, safety, and guardian cooldowns.
+```text
+agents under backend/app/agents/
+tools under backend/app/tools/
+external wrappers under backend/app/services/
+graph construction under backend/app/graph/
+prompts under backend/app/prompts/
+safety templates under backend/app/safety/templates/
+```
 
-### 13.3 Frontend
+Frontend:
 
-- Use large buttons and accessible typography.
-- Keep voice controls obvious: record, stop, replay, cancel.
-- Always show transcript as fallback.
-- Provide Memory Center with delete/pause controls.
-- Show Agent Trace Panel in demo mode.
-- Avoid dense UI and small controls.
-- Do not use youth slang, memes, or overly playful copy.
-
-### 13.4 Prompts
+```text
+large buttons
+accessible typography
+clear voice controls
+transcript fallback
+Memory Center with delete/pause controls
+Agent Trace Panel in demo mode
+no youth slang, memes, or overly playful copy
+```
 
 Prompts should be versioned as files, not buried inside code.
-
-Recommended files:
-
-```text
-backend/app/prompts/companion_role_first.md
-backend/app/prompts/companion_neutral_assistant.md
-backend/app/prompts/coordinator.md
-backend/app/prompts/guardian.md
-backend/app/prompts/safety_critic.md
-backend/app/prompts/memory_extraction.md
-```
-
----
-
-## 14. Development order
-
-Recommended implementation sequence:
-
-```text
-1. Project skeleton and local dev commands.
-2. Backend health check.
-3. Fake LLM provider.
-4. /api/chat text endpoint.
-5. AgentTrace schema.
-6. Coordinator routing with fake outputs.
-7. CompanionAgent role_first and neutral_assistant modes.
-8. InputRuleGuard and OutputRuleGuard.
-9. SafetyCriticAgent and high-risk templates.
-10. MemoryTool and Memory Center API.
-11. ReminderTool and scheduler mock.
-12. SensorSimulatorTool.
-13. GuardianAgent proactive decision.
-14. InfoRetrievalTool mock, then optional real provider.
-15. Frontend chat UI.
-16. Agent Trace Panel.
-17. Memory Center UI.
-18. Reminder Panel.
-19. Sensor Simulator Panel.
-20. ASR/TTS integration.
-21. Demo mode hardening.
-22. HCI evaluation logging.
-```
 
 ---
 
@@ -564,14 +535,14 @@ Recommended implementation sequence:
 A feature is done only when:
 
 ```text
-- It satisfies the PRD acceptance criteria.
-- It works in DEMO_MODE=true without external paid API calls.
-- It has relevant unit or integration tests.
-- It produces trace entries if it affects chat behavior.
-- It respects safety, memory, and proactive care rules.
-- It has no hardcoded secrets.
-- It does not expand scope into P1/Future without explicit approval.
-- It is documented if it changes public API, prompts, or data models.
+it satisfies the PRD acceptance criteria
+it works in DEMO_MODE=true without external paid API calls
+it has relevant unit or integration tests, or explains why tests are not available yet
+it produces trace entries if it affects chat behavior
+it respects safety, memory, naming, retrieval, and proactive care rules
+it has no hardcoded secrets
+it does not expand scope into P1/Future without explicit approval
+it is documented if it changes public API, prompts, or data models
 ```
 
 ---
@@ -580,15 +551,17 @@ A feature is done only when:
 
 Do not:
 
-- turn the user-named companion persona into a generic assistant;
-- remove the safety boundary because it makes conversation easier;
-- call tools “agents” in trace or docs;
-- make every response call web search;
-- make every response call SafetyCritic LLM;
-- silently save private or sensitive memories;
-- implement real emergency calling;
-- claim the system detects illness, depression, loneliness, or falls;
-- add large unrequested features;
-- overwrite canonical docs or backups unless asked;
-- commit `.env`, API keys, raw participant data, or real recordings.
-
+```text
+turn the user-named companion persona into a generic assistant
+hardcode a fixed companion name
+remove safety boundaries
+call tools agents in trace or docs
+make every response call web search
+make every response call SafetyCritic LLM
+silently save private or sensitive memories
+implement real emergency calling
+claim the system detects illness, depression, loneliness, or falls
+add large unrequested features
+overwrite canonical docs or backups unless asked
+commit .env, API keys, raw participant data, or real recordings
+```
