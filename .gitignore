@@ -2,3 +2,27 @@
 .env
 .env.*
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local generated data (keep .gitkeep placeholders)
+/data/app.db
+/data/traces/*.json
+/data/audio_cache/*
+!/data/**/.gitkeep
