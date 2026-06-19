@@ -69,6 +69,21 @@ def coordinator_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 
 def memory_read_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    # Master privacy switch from the profile/onboarding (#21): when the user has
+    # turned memory off, never read it.
+    if not state.user_profile.memory_enabled:
+        state.memory_context = []
+        state.memory_used = False
+        state.tools.append(
+            TraceStep(
+                kind=TraceEntryKind.memory,
+                name=deps.memory_tool.name,
+                summary="记忆功能已关闭（memory_enabled=false），未读取",
+                detail={"memory_enabled": False},
+            )
+        )
+        return state
+
     entries = deps.memory_tool.load_context(state.user_id)
     contents = [e.content for e in entries]
     state.memory_context = contents
@@ -147,6 +162,10 @@ def proactive_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 
 def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    # Respect the profile master switch (#21) in addition to the Memory Center
+    # pause (checked inside remember_from_text).
+    if not state.user_profile.memory_enabled:
+        return state
     saved = deps.memory_tool.remember_from_text(state.user_id, state.user_input)
     if saved:
         contents = [e.content for e in saved]

@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MemoryCategory(str, Enum):
@@ -29,6 +29,14 @@ class MemoryEntry(BaseModel):
 class MemoryCreate(BaseModel):
     category: MemoryCategory = MemoryCategory.event_memory
     content: str = Field(min_length=1, max_length=500)
+
+    @field_validator("content")
+    @classmethod
+    def _content_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("content must not be blank")
+        return stripped
 
 
 class MemorySettings(BaseModel):

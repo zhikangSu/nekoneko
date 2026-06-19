@@ -68,3 +68,31 @@ def test_paused_chat_does_not_extract(client):
     ).json()
     assert not any(s["detail"].get("saved") for s in body["agent_trace"]["tools"])
     assert client.get(f"/api/memory/{uid}").json()["memories"] == []
+
+
+def test_chat_respects_profile_memory_disabled(client):
+    # The profile master switch (memory_enabled=false) skips both read and write.
+    uid = "mem_disabled_demo"
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={"memory_enabled": False, "onboarding_completed": True},
+    )
+    body = client.post(
+        "/api/chat", json={"user_id": uid, "message": "我喜欢听评书"}
+    ).json()
+    trace = body["agent_trace"]
+    assert trace["memory_used"] is False
+    # nothing written
+    assert not any(s["detail"].get("saved") for s in trace["tools"])
+    assert client.get(f"/api/memory/{uid}").json()["memories"] == []
+    # the trace explains memory was off
+    mem_steps = [s for s in trace["tools"] if s["name"] == "MemoryTool"]
+    assert any(s["detail"].get("memory_enabled") is False for s in mem_steps)
+
+
+def test_blank_memory_content_rejected(mem_client):
+    response = mem_client.post(
+        "/api/memory/demo_user",
+        json={"category": "event_memory", "content": "   "},
+    )
+    assert response.status_code == 422

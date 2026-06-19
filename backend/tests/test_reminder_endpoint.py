@@ -49,6 +49,13 @@ def test_trigger_missing_returns_404(rem_client):
     assert rem_client.post("/api/reminders/demo_user/missing/trigger").status_code == 404
 
 
+def test_blank_content_rejected(rem_client):
+    response = rem_client.post(
+        "/api/reminders/demo_user", json={"content": "   ", "time": "08:00"}
+    )
+    assert response.status_code == 422
+
+
 # --- chat integration (default store shared via conftest) -------------------
 
 

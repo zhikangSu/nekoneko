@@ -39,6 +39,14 @@ class ReminderCreate(BaseModel):
     recurrence: Recurrence = Recurrence.daily
     date: Optional[str] = None
 
+    @field_validator("content")
+    @classmethod
+    def _content_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("content must not be blank")
+        return stripped
+
     @field_validator("time")
     @classmethod
     def _valid_time(cls, value: str) -> str:
