@@ -4,6 +4,7 @@ import { useChat } from "@/hooks/useChat";
 import type { AgentTrace } from "@/types/trace";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
+import { DEFAULT_USER_ID } from "@/lib/constants";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
 
@@ -30,7 +31,11 @@ export function ChatExperience() {
           onSend={send}
           companionDisplayName={companionDisplayName}
         />
-        <AgentTracePanel trace={latestTrace} />
+        <AgentTracePanel
+          latestTrace={latestTrace}
+          userId={DEFAULT_USER_ID}
+          refreshKey={messages.length}
+        />
       </div>
     </div>
   );

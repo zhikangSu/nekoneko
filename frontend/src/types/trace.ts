@@ -29,3 +29,22 @@ export interface AgentTrace {
   retrieval_used: boolean;
   safety_critic_used: boolean;
 }
+
+// A persisted trace returned by GET /api/traces/{turn_id} (#9).
+export interface TraceRecord {
+  turn_id: string;
+  user_id: string;
+  created_at: string;
+  trace: AgentTrace;
+}
+
+// A compact row from GET /api/traces?user_id=&limit= (#9).
+export interface TraceSummary {
+  turn_id: string;
+  user_id: string;
+  created_at: string;
+  route: string;
+  risk_level: string;
+  safety_critic_used: boolean;
+  retrieval_used: boolean;
+}
