@@ -3,6 +3,11 @@ import type { ChatRequest, ChatResponse } from "@/types/chat";
 import type { MemoryCategory, MemoryEntry, MemoryView } from "@/types/memory";
 import type { ProfileUpdate, UserProfile } from "@/types/profile";
 import type { Reminder, ReminderCreate } from "@/types/reminder";
+import type {
+  ApplyPresetResponse,
+  SensorPreset,
+  StateEventType,
+} from "@/types/sensor";
 import type { TraceRecord, TraceSummary } from "@/types/trace";
 
 async function jsonOrThrow<T>(response: Response, what: string): Promise<T> {
@@ -179,4 +184,41 @@ export async function triggerReminder(
     }),
     "Trigger reminder",
   );
+}
+
+// --- Sensors / proactive care (#22, #12) ------------------------------------
+
+export async function getSensorPresets(): Promise<SensorPreset[]> {
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/sensors/presets`),
+    "Get presets",
+  );
+}
+
+export async function applyPreset(
+  userId: string,
+  presetId: string,
+): Promise<ApplyPresetResponse> {
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/sensors/apply-preset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, preset_id: presetId }),
+    }),
+    "Apply preset",
+  );
+}
+
+export async function refuseCare(
+  userId: string,
+  eventType: StateEventType,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/sensors/refuse`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, event_type: eventType }),
+  });
+  if (!response.ok) {
+    throw new Error(`Refuse care failed with status ${response.status}`);
+  }
 }

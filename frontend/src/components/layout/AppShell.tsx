@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/chat", label: "聊天" },
   { href: "/memory", label: "记忆" },
   { href: "/reminders", label: "提醒" },
+  { href: "/sensors", label: "关怀" },
 ];
 
 function NavLink({ href, label }: { href: string; label: string }) {
