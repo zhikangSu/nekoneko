@@ -1,0 +1,53 @@
+"""Graph state shared across nodes (issue #5).
+
+A lightweight, framework-free state object that mirrors a LangGraph state so the
+runner can be swapped for real LangGraph later without changing nodes. Holds the
+turn inputs plus everything the nodes accumulate (risk, route, draft, trace
+steps). The trace lists keep the Agent / Tool / Guard distinction.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from app.core.constants import CompanionMode, Route
+from app.safety.risk_classifier import RiskClassification
+from app.schemas.profile import UserProfile
+from app.schemas.trace import TraceStep
+
+
+@dataclass
+class GraphState:
+    # Inputs
+    turn_id: str
+    user_id: str
+    user_input: str
+    mode: CompanionMode
+    user_profile: UserProfile
+
+    # Populated by #22 / #10 / #13 later; present now so routing is stable.
+    state_event: Optional[dict[str, Any]] = None
+    memory_context: Optional[Any] = None
+    retrieval_needed: bool = False
+
+    # Filled during the run
+    risk: RiskClassification = field(default_factory=RiskClassification)
+    route: Optional[Route] = None
+    draft_reply: str = ""
+    response_text: str = ""
+
+    # Result flags (mirror AgentTrace)
+    memory_used: bool = False
+    retrieval_used: bool = False
+    safety_critic_used: bool = False
+
+    # Trace accumulation, kept separated by kind
+    agents: list[TraceStep] = field(default_factory=list)
+    tools: list[TraceStep] = field(default_factory=list)
+    guards: list[TraceStep] = field(default_factory=list)
+    state_event_step: Optional[TraceStep] = None
+
+    @property
+    def has_state_event(self) -> bool:
+        return self.state_event is not None

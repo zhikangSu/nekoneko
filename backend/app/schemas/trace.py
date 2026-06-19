@@ -36,3 +36,24 @@ class AgentTrace(BaseModel):
     memory_used: bool = False
     retrieval_used: bool = False
     safety_critic_used: bool = False
+
+
+class TraceRecord(BaseModel):
+    """A persisted trace: the per-turn AgentTrace plus who/when (issue #9)."""
+
+    turn_id: str
+    user_id: str
+    created_at: str  # ISO-8601 UTC
+    trace: AgentTrace
+
+
+class TraceSummary(BaseModel):
+    """Compact row for the trace history list."""
+
+    turn_id: str
+    user_id: str
+    created_at: str
+    route: Route
+    risk_level: RiskLevel
+    safety_critic_used: bool = False
+    retrieval_used: bool = False

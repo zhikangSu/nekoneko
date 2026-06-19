@@ -84,8 +84,8 @@ def test_chat_endpoint_uses_profile_name(tmp_path):
                 "mode": "role_first",
             },
         ).json()
-        step = body["agent_trace"]["agents"][0]
-        assert step["name"] == "CompanionAgent"
+        agents = body["agent_trace"]["agents"]
+        step = next(s for s in agents if s["name"] == "CompanionAgent")
         assert step["detail"]["companion_display_name"] == "小南"
         assert step["detail"]["named_by_user"] is True
     finally:

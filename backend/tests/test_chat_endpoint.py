@@ -23,9 +23,16 @@ def test_chat_returns_response_and_trace(client):
     assert trace["safety_critic_used"] is False
     assert trace["memory_used"] is False
     # Agent / Tool / Guard distinction is visible.
-    assert any(step["kind"] == "agent" for step in trace["agents"])
+    agent_names = [s["name"] for s in trace["agents"]]
+    assert "CoordinatorAgent" in agent_names
+    assert "CompanionAgent" in agent_names
+    assert all(s["kind"] == "agent" for s in trace["agents"])
+    # Both rule guards run every turn (low-risk here, so they pass).
+    guard_names = [s["name"] for s in trace["guards"]]
+    assert "InputRuleGuard" in guard_names
+    assert "OutputRuleGuard" in guard_names
+    assert all(s["kind"] == "guard" for s in trace["guards"])
     assert trace["tools"] == []
-    assert trace["guards"] == []
 
 
 def test_chat_defaults_mode_and_user(client):

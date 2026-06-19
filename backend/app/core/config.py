@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Storage
     profile_dir: str = "./data/profiles"
+    trace_log_dir: str = "./data/traces"
 
     # CORS: comma-separated list of allowed frontend origins.
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
