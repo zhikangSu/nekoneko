@@ -44,6 +44,28 @@ def test_apply_no_response_escalates(client):
     ).json()
     assert body["state_event"]["event_type"] == "LONG_NO_RESPONSE"
     assert body["guardian_decision"]["decision"] == "safety_escalation"
+    # An escalation must not show risk_level "low".
+    assert body["agent_trace"]["risk_level"] == "high"
+
+
+def test_poor_sleep_trace_risk_is_low(client):
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": "sensor_risk_low", "preset_id": "poor_sleep"},
+    ).json()
+    assert body["agent_trace"]["risk_level"] == "low"
+
+
+def test_profile_disabled_silences_checkin(client):
+    uid = "sensor_proactive_off"
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={"proactive_checkin_enabled": False, "onboarding_completed": True},
+    )
+    body = client.post(
+        "/api/sensors/apply-preset", json={"user_id": uid, "preset_id": "poor_sleep"}
+    ).json()
+    assert body["guardian_decision"]["decision"] == "silent_log"
 
 
 def test_refuse_then_defer(client):

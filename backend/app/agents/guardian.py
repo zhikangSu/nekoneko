@@ -55,7 +55,12 @@ class GuardianAgent:
         self._settings = settings
 
     def decide(
-        self, *, user_id: str, state_event: StateEvent, now: datetime
+        self,
+        *,
+        user_id: str,
+        state_event: StateEvent,
+        now: datetime,
+        user_proactive_enabled: bool = True,
     ) -> GuardianDecision:
         event = state_event.event_type
         name = event.value
@@ -74,7 +79,12 @@ class GuardianAgent:
 
         is_escalation = event in _ESCALATION_EVENTS
 
-        if self._store.is_refused(user_id, name, now):
+        # User preference and refusal suppress only casual check-ins — a
+        # safety_escalation (e.g. long no-response) is never silenced by them.
+        if not is_escalation and not user_proactive_enabled:
+            return self._silent(name, "用户已在设置中关闭主动关怀问候")
+
+        if not is_escalation and self._store.is_refused(user_id, name, now):
             return self._defer(name, "用户近期拒绝了同类关怀，正处于暂停期内")
 
         if not is_escalation and _in_quiet_hours(

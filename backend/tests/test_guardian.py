@@ -107,3 +107,34 @@ def test_refusal_pauses_same_type(tmp_path):
         user_id="u", state_event=_event(StateEventType.POOR_SLEEP), now=_NOON
     )
     assert decision.decision == GuardianDecisionType.defer
+
+
+def test_user_disabled_suppresses_checkin(tmp_path):
+    decision = _guardian(tmp_path).decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+        user_proactive_enabled=False,
+    )
+    assert decision.decision == GuardianDecisionType.silent_log
+
+
+def test_user_disabled_does_not_suppress_escalation(tmp_path):
+    decision = _guardian(tmp_path).decide(
+        user_id="u",
+        state_event=_event(StateEventType.LONG_NO_RESPONSE, Severity.medium),
+        now=_NOON,
+        user_proactive_enabled=False,
+    )
+    assert decision.decision == GuardianDecisionType.safety_escalation
+
+
+def test_refusal_does_not_suppress_escalation(tmp_path):
+    store = GuardianStateStore(tmp_path)
+    store.record_refusal("u", "LONG_NO_RESPONSE", _NOON + timedelta(hours=10))
+    decision = GuardianAgent(store, Settings()).decide(
+        user_id="u",
+        state_event=_event(StateEventType.LONG_NO_RESPONSE, Severity.medium),
+        now=_NOON,
+    )
+    assert decision.decision == GuardianDecisionType.safety_escalation

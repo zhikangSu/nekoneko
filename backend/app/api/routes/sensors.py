@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.agents.guardian import GuardianAgent
-from app.api.deps import get_guardian_store, get_trace_store
+from app.api.deps import get_guardian_store, get_profile_store, get_trace_store
 from app.core.config import Settings, get_settings
 from app.core.constants import CompanionMode, RiskLevel, Route, TraceEntryKind
 from app.schemas.sensor import (
@@ -26,9 +26,11 @@ from app.schemas.sensor import (
     GuardianDecisionType,
     RefuseRequest,
     SensorPreset,
+    Severity,
 )
 from app.schemas.trace import AgentTrace, TraceRecord, TraceStep
 from app.stores.guardian_state_store import GuardianStateStore
+from app.stores.profile_store import ProfileStore
 from app.stores.trace_store import TraceStore
 from app.tools.sensor_adapter import SensorAdapter
 from app.tools.sensor_simulator import SensorSimulatorTool
@@ -37,6 +39,20 @@ router = APIRouter(prefix="/sensors", tags=["sensors"])
 
 _simulator = SensorSimulatorTool()
 _adapter = SensorAdapter()
+
+_SEVERITY_TO_RISK = {
+    Severity.none: RiskLevel.low,
+    Severity.low: RiskLevel.low,
+    Severity.medium: RiskLevel.medium,
+    Severity.high: RiskLevel.high,
+}
+
+
+def _risk_level(state_event, decision) -> RiskLevel:
+    # A safety escalation is never "low"; otherwise follow the event severity.
+    if decision.decision == GuardianDecisionType.safety_escalation:
+        return RiskLevel.high
+    return _SEVERITY_TO_RISK[state_event.severity]
 
 
 @router.get("/presets", response_model=list[SensorPreset])
@@ -49,6 +65,7 @@ def apply_preset(
     request: ApplyPresetRequest,
     settings: Settings = Depends(get_settings),
     guardian_store: GuardianStateStore = Depends(get_guardian_store),
+    profile_store: ProfileStore = Depends(get_profile_store),
     trace_store: TraceStore = Depends(get_trace_store),
 ) -> ApplyPresetResponse:
     preset = _simulator.get(request.preset_id)
@@ -56,10 +73,14 @@ def apply_preset(
         raise HTTPException(status_code=404, detail="unknown preset")
 
     now = datetime.now(timezone.utc)
+    profile = profile_store.get(request.user_id)
     state_event = _adapter.encode(preset.raw_signal, now=now)
     guardian = GuardianAgent(guardian_store, settings)
     decision = guardian.decide(
-        user_id=request.user_id, state_event=state_event, now=now
+        user_id=request.user_id,
+        state_event=state_event,
+        now=now,
+        user_proactive_enabled=profile.proactive_checkin_enabled,
     )
 
     turn_id = f"t_{uuid.uuid4().hex[:8]}"
@@ -67,7 +88,7 @@ def apply_preset(
         turn_id=turn_id,
         mode=CompanionMode.role_first,
         route=Route.proactive_checkin,
-        risk_level=RiskLevel.low,
+        risk_level=_risk_level(state_event, decision),
         agents=[
             TraceStep(
                 kind=TraceEntryKind.agent,
