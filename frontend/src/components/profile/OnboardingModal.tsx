@@ -67,7 +67,7 @@ export function OnboardingModal() {
               value={companionName}
               onChange={(event) => setCompanionName(event.target.value)}
               maxLength={40}
-              placeholder="例如：阿南、老朋友…（可不填）"
+              placeholder="可以留空，之后也能再设置"
               className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
             />
           </div>
