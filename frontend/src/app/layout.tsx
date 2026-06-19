@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { ProfileProvider } from "@/components/profile/ProfileProvider";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -17,8 +18,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
-        {/* companionDisplayName comes from onboarding (#21); fallback for now. */}
-        <AppShell>{children}</AppShell>
+        <ProfileProvider>
+          <AppShell>{children}</AppShell>
+        </ProfileProvider>
       </body>
     </html>
   );
