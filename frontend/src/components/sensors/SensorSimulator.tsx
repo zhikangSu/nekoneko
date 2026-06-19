@@ -71,7 +71,9 @@ export function SensorSimulator() {
   }
 
   const decision = result?.guardian_decision.decision;
-  const canRefuse = decision === "check_in" || decision === "safety_escalation";
+  // Only casual check-ins are refusable; a safety_escalation must not be
+  // silenceable by "我现在不想被打扰".
+  const canRefuse = decision === "check_in";
 
   return (
     <div className="space-y-6">
