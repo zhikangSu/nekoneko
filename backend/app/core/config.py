@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     max_llm_calls_per_turn: int = 2
     max_web_calls_per_turn: int = 1
 
+    # Storage
+    profile_dir: str = "./data/profiles"
+
     # CORS: comma-separated list of allowed frontend origins.
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 

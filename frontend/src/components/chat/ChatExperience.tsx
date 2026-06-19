@@ -3,17 +3,15 @@
 import { useChat } from "@/hooks/useChat";
 import type { AgentTrace } from "@/types/trace";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
+import { useProfile } from "@/components/profile/ProfileProvider";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
 
-// Composes the Slice-1 chat surface: safety banner slot, chat window, and the
-// live Agent Trace panel. `companionDisplayName` will come from UserProfile /
-// onboarding (#21); until then it is undefined and the neutral fallback shows.
-export function ChatExperience({
-  companionDisplayName,
-}: {
-  companionDisplayName?: string | null;
-}) {
+// Composes the chat surface: safety banner slot, chat window, and the live Agent
+// Trace panel. The companion name comes from the user profile (#21); the neutral
+// fallback shows until the user names it.
+export function ChatExperience() {
+  const { companionDisplayName } = useProfile();
   const { messages, mode, setMode, isSending, send } = useChat();
 
   const latestTrace: AgentTrace | undefined = [...messages]

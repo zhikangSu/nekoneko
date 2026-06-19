@@ -25,4 +25,5 @@ yarn-error.log*
 /data/app.db
 /data/traces/*.json
 /data/audio_cache/*
+/data/profiles/
 !/data/**/.gitkeep
