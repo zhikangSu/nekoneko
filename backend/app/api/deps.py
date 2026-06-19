@@ -10,8 +10,8 @@ from app.stores.trace_store import TraceStore
 
 
 def get_profile_store(settings: Settings = Depends(get_settings)) -> ProfileStore:
-    return ProfileStore(settings.profile_dir)
+    return ProfileStore(settings.resolved_profile_dir)
 
 
 def get_trace_store(settings: Settings = Depends(get_settings)) -> TraceStore:
-    return TraceStore(settings.trace_log_dir)
+    return TraceStore(settings.resolved_trace_log_dir)

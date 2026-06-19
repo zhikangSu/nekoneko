@@ -27,3 +27,5 @@ yarn-error.log*
 /data/audio_cache/*
 /data/profiles/
 !/data/**/.gitkeep
+# Defensive: never commit generated data even if a store runs from backend/.
+/backend/data/

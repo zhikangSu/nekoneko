@@ -9,8 +9,18 @@ repo root or from ``backend/``.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root = backend/app/core/config.py → parents[3]. Used to resolve relative
+# data dirs to one canonical location regardless of the launch CWD.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_under_root(path_str: str) -> str:
+    path = Path(path_str)
+    return str(path if path.is_absolute() else (_REPO_ROOT / path))
 
 
 class Settings(BaseSettings):
@@ -41,7 +51,8 @@ class Settings(BaseSettings):
     max_llm_calls_per_turn: int = 2
     max_web_calls_per_turn: int = 1
 
-    # Storage
+    # Storage. Relative paths resolve under the repo root (not the launch CWD),
+    # so data always lands in <repo>/data/ — the one location that is gitignored.
     profile_dir: str = "./data/profiles"
     trace_log_dir: str = "./data/traces"
 
@@ -51,6 +62,14 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def resolved_profile_dir(self) -> str:
+        return _resolve_under_root(self.profile_dir)
+
+    @property
+    def resolved_trace_log_dir(self) -> str:
+        return _resolve_under_root(self.trace_log_dir)
 
 
 @lru_cache
