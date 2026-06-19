@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
 from app.core.config import Settings
 from app.core.constants import CompanionMode
@@ -22,11 +23,17 @@ _FAKE_PROVIDER_NAMES = {"fake", "mock"}
 
 @dataclass
 class CompanionReplyInput:
-    """Everything the provider needs to draft a baseline companion reply."""
+    """Everything the provider needs to draft a companion reply.
+
+    ``system_prompt`` is the persona prompt rendered by ``CompanionAgent`` (#6).
+    Real providers use it as the system message; the fake provider ignores it
+    and returns a deterministic template.
+    """
 
     message: str
     mode: CompanionMode
     companion_display_name: str
+    system_prompt: Optional[str] = None
 
 
 class LLMProvider(ABC):
