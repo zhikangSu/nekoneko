@@ -15,6 +15,8 @@ os.environ["LLM_PROVIDER"] = "fake"
 # data/. (Endpoint tests that assert persistence override the store per-test.)
 os.environ["PROFILE_DIR"] = tempfile.mkdtemp(prefix="qaq_test_profiles_")
 os.environ["TRACE_LOG_DIR"] = tempfile.mkdtemp(prefix="qaq_test_traces_")
+os.environ["MEMORY_ROOT"] = tempfile.mkdtemp(prefix="qaq_test_memory_")
+os.environ["REMINDER_DIR"] = tempfile.mkdtemp(prefix="qaq_test_reminders_")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

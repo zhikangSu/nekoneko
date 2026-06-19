@@ -5,9 +5,9 @@ whether a StateEvent is present. It is an *agent* (it owns the routing policy an
 its decisions are explainable), not a tool. It never calls an LLM and never runs
 SafetyCritic itself — low-risk turns simply route to the companion path.
 
-Slice-3 wires the companion, safety, and (dormant) proactive routes. The
-reminder / memory / retrieval routes exist in the Route vocabulary and hook in
-with their slices (#10 / #11 / #13); #22 populates ``state_event``.
+Wires the companion, safety, (dormant) proactive, and reminder routes. Memory is
+read/written on the companion path (#10); the retrieval route hooks in with #13;
+#22 populates ``state_event``.
 """
 
 from __future__ import annotations
@@ -33,7 +33,8 @@ class CoordinatorAgent:
         self,
         *,
         classification: RiskClassification,
-        has_state_event: bool,
+        has_state_event: bool = False,
+        reminder_intent: bool = False,
     ) -> RouteDecision:
         if (
             classification.level == RiskLevel.crisis
@@ -51,6 +52,14 @@ class CoordinatorAgent:
                     f"检测到高风险（{classification.category}/"
                     f"{classification.level.value}），进入安全路径"
                 ),
+            )
+
+        # Reminder requests are low-risk; medication dosage questions are caught
+        # by the risk checks above, so they never reach here.
+        if reminder_intent:
+            return RouteDecision(
+                route=Route.reminder_management,
+                reason="检测到提醒请求，路由到 ReminderTool 管理路径",
             )
 
         if has_state_event:

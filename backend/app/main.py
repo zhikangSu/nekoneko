@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import chat, health, traces, users
+from app.api.routes import chat, health, memory, reminders, traces, users
 from app.core.config import get_settings
 
 
@@ -35,6 +35,8 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(traces.router, prefix="/api")
+    app.include_router(memory.router, prefix="/api")
+    app.include_router(reminders.router, prefix="/api")
     return app
 
 

@@ -32,7 +32,8 @@ def test_chat_returns_response_and_trace(client):
     assert "InputRuleGuard" in guard_names
     assert "OutputRuleGuard" in guard_names
     assert all(s["kind"] == "guard" for s in trace["guards"])
-    assert trace["tools"] == []
+    # Memory read runs on the companion path (kind=memory, in the tools list).
+    assert any(s["name"] == "MemoryTool" for s in trace["tools"])
 
 
 def test_chat_defaults_mode_and_user(client):

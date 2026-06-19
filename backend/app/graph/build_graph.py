@@ -1,9 +1,11 @@
-"""Graph assembly + runner (issue #5).
+"""Graph assembly + runner (issues #5, #10, #11).
 
-A framework-free sequential runner with one conditional branch. Structured like
-a LangGraph build so it can be swapped for real LangGraph later:
+A framework-free sequential runner with conditional branching. Structured like a
+LangGraph build so it can be swapped for real LangGraph later:
 
-    input_guard → coordinator → (companion | safety | proactive) → output_guard
+    input_guard → coordinator → response_pipeline(route) → output_guard
+
+where the companion pipeline is memory_read → companion → memory_write.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from app.agents.companion import CompanionAgent
 from app.agents.coordinator import CoordinatorAgent
 from app.agents.safety_critic import SafetyCriticAgent
 from app.core.config import Settings
-from app.graph.edges import select_response_node
+from app.graph.edges import response_pipeline
 from app.graph.nodes import (
     GraphDeps,
     coordinator_node,
@@ -21,8 +23,12 @@ from app.graph.nodes import (
 )
 from app.graph.state import GraphState
 from app.services.llm_provider import get_llm_provider
+from app.stores.memory_store import MemoryStore
+from app.stores.reminder_store import ReminderStore
 from app.tools.input_rule_guard import InputRuleGuard
+from app.tools.memory_tool import MemoryTool
 from app.tools.output_rule_guard import OutputRuleGuard
+from app.tools.reminder_tool import ReminderTool
 
 
 def build_deps(settings: Settings) -> GraphDeps:
@@ -32,12 +38,15 @@ def build_deps(settings: Settings) -> GraphDeps:
         coordinator=CoordinatorAgent(),
         companion=CompanionAgent(get_llm_provider(settings)),
         safety_critic=SafetyCriticAgent(),
+        memory_tool=MemoryTool(MemoryStore(settings.resolved_memory_root)),
+        reminder_tool=ReminderTool(ReminderStore(settings.resolved_reminder_dir)),
     )
 
 
 def run_turn(state: GraphState, deps: GraphDeps) -> GraphState:
     input_guard_node(state, deps)
     coordinator_node(state, deps)
-    select_response_node(state.route)(state, deps)
+    for node in response_pipeline(state.route):
+        node(state, deps)
     output_guard_node(state, deps)
     return state

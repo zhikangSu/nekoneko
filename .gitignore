@@ -26,6 +26,9 @@ yarn-error.log*
 /data/traces/*.json
 /data/audio_cache/*
 /data/profiles/
+/data/reminders/
+/data/memory/users/*/memories.json
+/data/memory/users/*/memory.md
 !/data/**/.gitkeep
 # Defensive: never commit generated data even if a store runs from backend/.
 /backend/data/

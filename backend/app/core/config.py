@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     # so data always lands in <repo>/data/ — the one location that is gitignored.
     profile_dir: str = "./data/profiles"
     trace_log_dir: str = "./data/traces"
+    memory_root: str = "./data/memory"
+    reminder_dir: str = "./data/reminders"
 
     # CORS: comma-separated list of allowed frontend origins.
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -70,6 +72,14 @@ class Settings(BaseSettings):
     @property
     def resolved_trace_log_dir(self) -> str:
         return _resolve_under_root(self.trace_log_dir)
+
+    @property
+    def resolved_memory_root(self) -> str:
+        return _resolve_under_root(self.memory_root)
+
+    @property
+    def resolved_reminder_dir(self) -> str:
+        return _resolve_under_root(self.reminder_dir)
 
 
 @lru_cache

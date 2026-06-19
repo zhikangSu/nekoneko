@@ -35,6 +35,8 @@ uvicorn app.main:app --reload      # http://localhost:8000
 - Chat: `POST /api/chat`
 - Profile: `GET|PATCH /api/users/{user_id}/profile`
 - Traces: `GET /api/traces/{turn_id}`, `GET /api/traces?user_id=&limit=`
+- Memory: `GET|POST /api/memory/{user_id}`, `DELETE /api/memory/{user_id}/{memory_id}`, `PATCH /api/memory/{user_id}/settings`
+- Reminders: `GET|POST /api/reminders/{user_id}`, `DELETE /…/{id}`, `POST /…/{id}/confirm`, `POST /…/{id}/trigger`
 
 ```bash
 curl -s -X POST http://localhost:8000/api/chat \
@@ -106,11 +108,18 @@ hardcoded.
 
 `CoordinatorAgent` picks one route per turn from `InputRuleGuard`'s risk level:
 high-risk health/medication → `safety_response`; crisis (fall / help) →
-`emergency_mock`; a present `state_event` → `proactive_checkin` (Guardian path,
-dormant until #12/#22); otherwise → `companion_chat`. `SafetyCriticAgent` runs
-**only** on flagged risk and returns a safe template (no diagnosis, no dosage, no
-real emergency action). Every turn's trace is persisted under
-`TRACE_LOG_DIR` and readable via `/api/traces`.
+`emergency_mock`; a reminder request → `reminder_management`; a present
+`state_event` → `proactive_checkin` (Guardian path, dormant until #12/#22);
+otherwise → `companion_chat`. `SafetyCriticAgent` runs **only** on flagged risk
+and returns a safe template (no diagnosis, no dosage, no real emergency action).
+Every turn's trace is persisted under `TRACE_LOG_DIR` and readable via
+`/api/traces`.
+
+On the companion path, `MemoryTool` reads long-term memory before the reply
+(`memory_used`) and extracts new preferences after it (skipped while the user has
+paused extraction). The `reminder_management` route parses a phrase like
+「每天早上8点提醒我吃药」into a reminder and restates it; medication reminders say
+only "按医嘱" — dosage questions are caught earlier and routed to safety.
 
 ## Layout
 
@@ -119,23 +128,26 @@ app/
   main.py                  FastAPI app factory + CORS
   core/config.py           Settings (env / .env), DEMO_MODE, providers, dirs
   core/constants.py        Enums: CompanionMode / RiskLevel / Route / TraceEntryKind
-  api/routes/            health · chat · users · traces
-  api/deps.py              get_profile_store / get_trace_store
+  api/routes/            health · chat · users · traces · memory · reminders
+  api/deps.py              get_*_store (profile / trace / memory / reminder)
   agents/                coordinator · companion · safety_critic
-  tools/                 input_rule_guard · output_rule_guard
+  tools/                 input_rule_guard · output_rule_guard · memory_tool · reminder_tool
   safety/                risk_keywords · risk_classifier · templates/*.md
   graph/                 state · nodes · edges · build_graph (run_turn)
-  schemas/               chat · trace · profile
-  stores/                profile_store · trace_store
+  schemas/               chat · trace · profile · memory · reminder
+  stores/                profile_store · trace_store · memory_store · reminder_store
   services/              llm_provider · fake_llm_provider
   prompts/               companion_role_first.md · companion_neutral_assistant.md
-tests/                     guards · coordinator routing · safety · trace store/API · ...
+tests/                     guards · routing · safety · trace · memory · reminder · ...
 ```
+
+Memory is markdown-first: each user's `memory.md` is the human-readable source of
+truth, with a `memories.json` index for CRUD (under `MEMORY_ROOT/users/{id}/`).
 
 ## Not yet (later slices)
 
-GuardianAgent consuming StateEvent (#12/#22), MemoryTool / Memory Center (#10),
-ReminderTool (#11), controlled retrieval (#13), real ASR/TTS (#4/#23). The
-Coordinator's reminder / memory / retrieval routes and the `graph/` boundary are
+GuardianAgent consuming StateEvent (#12/#22), controlled retrieval (#13), real
+ASR/TTS (#4/#23). The Coordinator's retrieval route and the `graph/` boundary are
 shaped so those slot in. Real LLM provider wiring uses the `system_prompt` the
-CompanionAgent already renders.
+CompanionAgent already renders. Memory / reminders persist as JSON + markdown;
+SQLite is the planned structured upgrade.
