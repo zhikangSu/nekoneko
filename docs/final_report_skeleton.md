@@ -45,7 +45,7 @@ contribution is the *design stance*, not a feature count.
 
 ## 5. Implementation
 - Stack: FastAPI + Pydantic v2; Next.js 14 + TypeScript + Tailwind. Stores: JSON + markdown under `data/`.
-- `DEMO_MODE` = fully offline (fake/mock providers); real providers behind the same interfaces. [repo layout, key modules.]
+- `DEMO_MODE` = fully offline: companion replies and retrieval use **fake/mock** providers (the demo's chat intelligence is deterministic, not a live LLM). Real **xiaomimimo ASR/TTS** is implemented behind the voice provider interface (opt-in via `DEMO_MODE=false`, mock fallback kept); a real **LLM** and **retrieval** provider remain future work behind the same provider-interface seam. [repo layout, key modules.]
 
 ## 6. Evaluation
 - 6.1 Method — the six demo scenarios (`docs/demo_script.md`) run end-to-end; automated demo-acceptance + safety regression suite ([N] tests, all offline). [Optional: heuristic/qualitative walkthrough per `docs/evaluation_plan.md`.]
@@ -56,7 +56,8 @@ contribution is the *design stance*, not a feature count.
 - What the design stance buys (trust, restraint, explainability); trade-offs (mock providers, restraint vs. helpfulness); where the LLM is and isn't trusted.
 
 ## 8. Limitations
-- Mock sensors and single-user demo; not medical/emergency; provider rate limits; mock retrieval data; ASR/TTS quality not formally evaluated.
+- Companion replies are **template-based** (FakeLLMProvider), not LLM-generated; retrieval data is mock — so language quality and factual retrieval are not representative of a real-provider deployment.
+- Mock sensors and single-user demo; not medical/emergency; provider rate limits; ASR/TTS quality not formally evaluated.
 
 ## 9. Ethics & safety
 - Boundaries enforced (no diagnosis/dosage/real emergency/caregiver action); well-being-first; memory privacy and user control; honest demo disclaimers.

@@ -51,8 +51,12 @@ columns.
      dosage/fall handled by safe templates and a *mock* emergency.
 6. **Implementation**
    - FastAPI + Pydantic backend; Next.js + TypeScript frontend.
-   - `DEMO_MODE` runs fully offline (fake/mock providers); real LLM + xiaomimimo
-     ASR/TTS behind the same interfaces, mock fallback preserved.
+   - `DEMO_MODE` runs fully offline — companion replies and retrieval use
+     **fake/mock providers** (the demo's intelligence is deterministic, not a
+     live LLM). Real **xiaomimimo ASR/TTS** is implemented behind the voice
+     provider interface (opt-in via `DEMO_MODE=false`, mock fallback kept). A
+     real **LLM** and a real **retrieval** provider are future work behind the
+     same provider-interface seam.
 
 ## Column 3 — Does it work, and what's next
 
@@ -69,6 +73,8 @@ columns.
    - Mock sensors / single-user demo; not a medical or emergency system;
      provider rate limits; mock retrieval data.
 10. **Future work**
+    - Real **LLM** and **retrieval** providers behind the existing provider
+      interfaces (so companion replies are model-generated, not template-based).
     - P1: voice experience enhancement, proactive preferences / quiet-hours /
       topic library, caregiver mock dashboard, evaluation export.
     - Real wearables behind the `SensorAdapter`; multi-user; richer evaluation.

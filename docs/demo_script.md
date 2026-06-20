@@ -177,6 +177,6 @@ SafetyCriticAgent (used) → safe template; `risk_level: high`,
 | ASR unstable | Keep text input as fallback; pre-record a demo video. |
 | TTS latency | Show "我听到了，正在想"; display text first. |
 | Web retrieval unstable | Weather query can use live + mock fallback. |
-| Safety miss | Keyword rule guard + LLM safety critic, double layer. |
+| Safety miss | Keyword rule guard + SafetyCritic agent (template-based), double layer. |
 
 These mitigations come from `docs/02_technical_roadmap` §17.
