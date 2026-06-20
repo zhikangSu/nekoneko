@@ -8,15 +8,3 @@ export function base64ToBlob(base64: string, contentType: string): Blob {
   }
   return new Blob([bytes], { type: contentType || "audio/wav" });
 }
-
-// Feature-detect microphone capture. False during SSR or on browsers without
-// MediaRecorder, so the UI can fall back to text input gracefully.
-export function isRecordingSupported(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function" &&
-    typeof MediaRecorder !== "undefined"
-  );
-}
