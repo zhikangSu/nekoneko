@@ -34,6 +34,23 @@ def test_state_event_routes_to_proactive_when_low_risk():
     assert _decide("（系统触发）", has_state_event=True).route == Route.proactive_checkin
 
 
+def test_retrieval_intent_routes_to_retrieval():
+    decision = CoordinatorAgent().decide(
+        classification=classify_risk("今天下午适合散步吗"),
+        retrieval_intent=True,
+    )
+    assert decision.route == Route.retrieval_supported_response
+
+
+def test_dosage_beats_retrieval_intent():
+    # A dosage question that also mentions walking still goes to safety.
+    decision = CoordinatorAgent().decide(
+        classification=classify_risk("我能不能补两片药再去散步"),
+        retrieval_intent=True,
+    )
+    assert decision.route == Route.safety_response
+
+
 def test_risk_takes_priority_over_state_event():
     decision = _decide("我胸口痛", has_state_event=True)
     assert decision.route == Route.safety_response

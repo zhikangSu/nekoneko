@@ -35,6 +35,7 @@ class CoordinatorAgent:
         classification: RiskClassification,
         has_state_event: bool = False,
         reminder_intent: bool = False,
+        retrieval_intent: bool = False,
     ) -> RouteDecision:
         if (
             classification.level == RiskLevel.crisis
@@ -60,6 +61,15 @@ class CoordinatorAgent:
             return RouteDecision(
                 route=Route.reminder_management,
                 reason="检测到提醒请求，路由到 ReminderTool 管理路径",
+            )
+
+        # Only time-sensitive external facts (weather / air quality) retrieve.
+        # Emotional / reminiscence turns never reach here (no retrieval intent),
+        # and dosage questions were already routed to safety above.
+        if retrieval_intent:
+            return RouteDecision(
+                route=Route.retrieval_supported_response,
+                reason="检测到时效性外部信息需求，调用 InfoRetrievalTool",
             )
 
         if has_state_event:

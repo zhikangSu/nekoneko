@@ -25,6 +25,7 @@ from app.graph.state import GraphState
 from app.services.llm_provider import get_llm_provider
 from app.stores.memory_store import MemoryStore
 from app.stores.reminder_store import ReminderStore
+from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
 from app.tools.memory_tool import MemoryTool
 from app.tools.output_rule_guard import OutputRuleGuard
@@ -40,6 +41,7 @@ def build_deps(settings: Settings) -> GraphDeps:
         safety_critic=SafetyCriticAgent(),
         memory_tool=MemoryTool(MemoryStore(settings.resolved_memory_root)),
         reminder_tool=ReminderTool(ReminderStore(settings.resolved_reminder_dir)),
+        info_retrieval=InfoRetrievalTool(settings.retrieval_provider),
     )
 
 

@@ -16,6 +16,7 @@ from app.graph.nodes import (
     memory_write_node,
     proactive_node,
     reminder_node,
+    retrieval_node,
     safety_node,
 )
 from app.graph.state import GraphState
@@ -32,6 +33,10 @@ def response_pipeline(route: Route | None) -> list[Node]:
         return [reminder_node]
     if route == Route.proactive_checkin:
         return [proactive_node]
-    # companion_chat (and, until their slices land, memory / retrieval) answer
-    # via the companion path, reading and extracting memory around the reply.
+    if route == Route.retrieval_supported_response:
+        # Retrieve the external fact first, then let the companion rewrite it
+        # (with memory) into an elderly-friendly reply.
+        return [retrieval_node, memory_read_node, companion_node, memory_write_node]
+    # companion_chat answers via the companion path, reading and extracting
+    # memory around the reply.
     return [memory_read_node, companion_node, memory_write_node]

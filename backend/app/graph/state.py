@@ -30,6 +30,7 @@ class GraphState:
     state_event: Optional[dict[str, Any]] = None
     memory_context: Optional[Any] = None
     retrieval_needed: bool = False
+    retrieval_context: Optional[str] = None
 
     # Filled during the run
     risk: RiskClassification = field(default_factory=RiskClassification)

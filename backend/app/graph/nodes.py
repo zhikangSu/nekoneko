@@ -15,6 +15,7 @@ from app.agents.safety_critic import SafetyCriticAgent
 from app.core.constants import TraceEntryKind
 from app.graph.state import GraphState
 from app.schemas.trace import TraceStep
+from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
 from app.tools.memory_tool import MemoryTool
 from app.tools.output_rule_guard import OutputRuleGuard
@@ -30,6 +31,7 @@ class GraphDeps:
     safety_critic: SafetyCriticAgent
     memory_tool: MemoryTool
     reminder_tool: ReminderTool
+    info_retrieval: InfoRetrievalTool
 
 
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -55,6 +57,7 @@ def coordinator_node(state: GraphState, deps: GraphDeps) -> GraphState:
         classification=state.risk,
         has_state_event=state.has_state_event,
         reminder_intent=deps.reminder_tool.is_reminder_request(state.user_input),
+        retrieval_intent=deps.info_retrieval.is_retrieval_query(state.user_input),
     )
     state.route = decision.route
     state.agents.append(
@@ -103,12 +106,36 @@ def memory_read_node(state: GraphState, deps: GraphDeps) -> GraphState:
     return state
 
 
+def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    result = deps.info_retrieval.retrieve(state.user_input)
+    state.retrieval_used = True
+    state.retrieval_context = result.summary if result.found else None
+    state.tools.append(
+        TraceStep(
+            kind=TraceEntryKind.retrieval,
+            name=deps.info_retrieval.name,
+            summary=(
+                f"调用外部检索（{result.query_kind}，来源 {result.source}"
+                f"{'，mock' if result.mock else ''}）：{result.summary[:40]}"
+            ),
+            detail={
+                "query_kind": result.query_kind,
+                "source": result.source,
+                "mock": result.mock,
+                "found": result.found,
+            },
+        )
+    )
+    return state
+
+
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
+        retrieval_context=state.retrieval_context,
     )
     state.draft_reply = result.reply_text
     state.agents.append(

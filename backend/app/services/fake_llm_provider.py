@@ -30,6 +30,14 @@ class FakeLLMProvider(LLMProvider):
     name = "fake"
 
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
+        # Retrieval turn: surface the external fact warmly (a real LLM would
+        # rewrite it; the fake provider wraps it in a gentle template).
+        if payload.retrieval_context:
+            return (
+                f"我帮您看了一下：{payload.retrieval_context}"
+                "如果您愿意，待会儿我可以陪您一起出去走走。"
+            )
+
         replies = (
             _ROLE_FIRST_REPLIES
             if payload.mode == CompanionMode.role_first

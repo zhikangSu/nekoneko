@@ -109,9 +109,10 @@ hardcoded.
 
 `CoordinatorAgent` picks one route per turn from `InputRuleGuard`'s risk level:
 high-risk health/medication → `safety_response`; crisis (fall / help) →
-`emergency_mock`; a reminder request → `reminder_management`; a present
-`state_event` → `proactive_checkin` (Guardian path, dormant until #12/#22);
-otherwise → `companion_chat`. `SafetyCriticAgent` runs **only** on flagged risk
+`emergency_mock`; a reminder request → `reminder_management`; a time-sensitive
+external-fact question (weather / air quality) → `retrieval_supported_response`;
+a present `state_event` → `proactive_checkin`; otherwise → `companion_chat`.
+`SafetyCriticAgent` runs **only** on flagged risk
 and returns a safe template (no diagnosis, no dosage, no real emergency action).
 Every turn's trace is persisted under `TRACE_LOG_DIR` and readable via
 `/api/traces`.
@@ -121,6 +122,14 @@ On the companion path, `MemoryTool` reads long-term memory before the reply
 paused extraction). The `reminder_management` route parses a phrase like
 「每天早上8点提醒我吃药」into a reminder and restates it; medication reminders say
 only "按医嘱" — dosage questions are caught earlier and routed to safety.
+
+The `retrieval_supported_response` route runs `InfoRetrievalTool` (mock weather /
+air quality in DEMO_MODE) **before** the companion reply, so the companion
+rewrites the external fact warmly with memory. "Default no web" means no web
+search / browser call unless the turn needs a time-sensitive external fact — it
+does **not** mean "no LLM". Emotional / reminiscence turns never retrieve; dosage
+questions go to safety, never search for a dose. The trace shows whether
+retrieval happened and the mock source.
 
 ### Proactive care (sensors → StateEvent → Guardian)
 
@@ -143,7 +152,7 @@ app/
   api/routes/            health · chat · users · traces · memory · reminders · sensors
   api/deps.py              get_*_store (profile / trace / memory / reminder / guardian)
   agents/                coordinator · companion · safety_critic · guardian
-  tools/                 input/output_rule_guard · memory_tool · reminder_tool · sensor_adapter · sensor_simulator
+  tools/                 input/output_rule_guard · memory_tool · reminder_tool · info_retrieval · sensor_adapter · sensor_simulator
   safety/                risk_keywords · risk_classifier · templates/*.md
   graph/                 state · nodes · edges · build_graph (run_turn)
   schemas/               chat · trace · profile · memory · reminder · sensor
@@ -158,8 +167,8 @@ truth, with a `memories.json` index for CRUD (under `MEMORY_ROOT/users/{id}/`).
 
 ## Not yet (later slices)
 
-Controlled retrieval (#13), real ASR/TTS (#4/#23). The Coordinator's retrieval
-route and the `graph/` boundary are shaped so those slot in. Real LLM provider
-wiring uses the `system_prompt` the CompanionAgent already renders. Stores persist
-as JSON + markdown; SQLite is the planned structured upgrade. Real wearable APIs
-would only replace the `SensorAdapter` input — the `StateEvent` contract stays.
+Real ASR/TTS (#4/#23) and a real LLM/retrieval provider — the `graph/` boundary
+and the `system_prompt` the CompanionAgent renders are shaped so those slot in
+(`InfoRetrievalTool` already has a mock→real seam). Stores persist as JSON +
+markdown; SQLite is the planned structured upgrade. Real wearable APIs would only
+replace the `SensorAdapter` input — the `StateEvent` contract stays.

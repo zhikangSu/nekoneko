@@ -46,3 +46,11 @@ def test_most_severe_category_wins():
     cls = classify_risk("我想死，还要不要换药？")
     assert cls.level == RiskLevel.crisis
     assert cls.category == "emotional_crisis"
+
+
+def test_dosage_phrasing_not_in_keywords_is_caught():
+    # 「补两片」isn't a literal keyword but the dosage regex catches it (#13).
+    for text in ("我能不能补两片药？", "要不要多吃三颗", "再吃两粒可以吗"):
+        cls = classify_risk(text)
+        assert cls.level == RiskLevel.high
+        assert cls.category == "medication"

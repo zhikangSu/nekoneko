@@ -34,6 +34,8 @@ class CompanionReplyInput:
     mode: CompanionMode
     companion_display_name: str
     system_prompt: Optional[str] = None
+    # External fact from InfoRetrievalTool (#13) to weave into the reply.
+    retrieval_context: Optional[str] = None
 
 
 class LLMProvider(ABC):
