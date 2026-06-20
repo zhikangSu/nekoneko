@@ -35,7 +35,7 @@ class FakeLLMProvider(LLMProvider):
         if payload.retrieval_context:
             return (
                 f"我帮您看了一下：{payload.retrieval_context}"
-                "如果您愿意，待会儿我可以陪您一起出去走走。"
+                "您要是想出门，我可以帮您一起看看怎么安排，比如提醒您带把伞或带点水。"
             )
 
         replies = (

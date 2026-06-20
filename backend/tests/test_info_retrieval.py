@@ -14,6 +14,17 @@ def test_is_not_retrieval_query_for_emotional_or_reminiscence():
     assert tool.is_retrieval_query("每天早上8点提醒我吃药") is False
 
 
+def test_outdoor_word_alone_does_not_trigger():
+    # Companionship / reminiscence about walking must NOT retrieve; only a
+    # walking question with a time/weather context does.
+    tool = InfoRetrievalTool()
+    assert tool.is_retrieval_query("我喜欢散步") is False
+    assert tool.is_retrieval_query("我年轻时每天散步") is False
+    assert tool.is_retrieval_query("出去走走对身体好") is False
+    assert tool.is_retrieval_query("今天下午适合散步吗") is True
+    assert tool.is_retrieval_query("现在出门要带伞吗") is True
+
+
 def test_retrieve_weather():
     result = InfoRetrievalTool().retrieve("今天下午适合散步吗？")
     assert result.found is True

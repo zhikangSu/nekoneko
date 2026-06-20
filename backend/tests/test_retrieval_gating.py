@@ -37,6 +37,13 @@ def test_reminiscence_turn_does_not_use_retrieval(client):
     assert body["agent_trace"]["retrieval_used"] is False
 
 
+def test_liking_walking_does_not_use_retrieval(client):
+    # 「我喜欢散步」is companionship, not a weather question.
+    body = client.post("/api/chat", json={"message": "我喜欢散步"}).json()
+    assert body["agent_trace"]["route"] == "companion_chat"
+    assert body["agent_trace"]["retrieval_used"] is False
+
+
 def test_dosage_question_routes_to_safety_not_retrieval(client):
     body = client.post(
         "/api/chat", json={"message": "我能不能补两片药？"}
