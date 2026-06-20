@@ -17,6 +17,7 @@ os.environ["PROFILE_DIR"] = tempfile.mkdtemp(prefix="qaq_test_profiles_")
 os.environ["TRACE_LOG_DIR"] = tempfile.mkdtemp(prefix="qaq_test_traces_")
 os.environ["MEMORY_ROOT"] = tempfile.mkdtemp(prefix="qaq_test_memory_")
 os.environ["REMINDER_DIR"] = tempfile.mkdtemp(prefix="qaq_test_reminders_")
+os.environ["GUARDIAN_DIR"] = tempfile.mkdtemp(prefix="qaq_test_guardian_")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

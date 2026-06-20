@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     trace_log_dir: str = "./data/traces"
     memory_root: str = "./data/memory"
     reminder_dir: str = "./data/reminders"
+    guardian_dir: str = "./data/guardian"
+
+    # Proactive care defaults (GuardianAgent, #12)
+    proactive_enabled: bool = True
+    proactive_max_checkins_per_day: int = 3
+    proactive_same_topic_cooldown_minutes: int = 120
+    proactive_refusal_pause_hours: int = 24
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "07:00"
 
     # CORS: comma-separated list of allowed frontend origins.
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -80,6 +89,10 @@ class Settings(BaseSettings):
     @property
     def resolved_reminder_dir(self) -> str:
         return _resolve_under_root(self.reminder_dir)
+
+    @property
+    def resolved_guardian_dir(self) -> str:
+        return _resolve_under_root(self.guardian_dir)
 
 
 @lru_cache

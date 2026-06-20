@@ -37,6 +37,7 @@ uvicorn app.main:app --reload      # http://localhost:8000
 - Traces: `GET /api/traces/{turn_id}`, `GET /api/traces?user_id=&limit=`
 - Memory: `GET|POST /api/memory/{user_id}`, `DELETE /api/memory/{user_id}/{memory_id}`, `PATCH /api/memory/{user_id}/settings`
 - Reminders: `GET|POST /api/reminders/{user_id}`, `DELETE /…/{id}`, `POST /…/{id}/confirm`, `POST /…/{id}/trigger`
+- Sensors: `GET /api/sensors/presets`, `POST /api/sensors/apply-preset`, `POST /api/sensors/refuse`
 
 ```bash
 curl -s -X POST http://localhost:8000/api/chat \
@@ -121,6 +122,17 @@ paused extraction). The `reminder_management` route parses a phrase like
 「每天早上8点提醒我吃药」into a reminder and restates it; medication reminders say
 only "按医嘱" — dosage questions are caught earlier and routed to safety.
 
+### Proactive care (sensors → StateEvent → Guardian)
+
+`POST /api/sensors/apply-preset` makes the boundary explicit: `SensorAdapter`
+encodes a mock `RawSignal` into a structured `StateEvent`, and `GuardianAgent`
+decides on the StateEvent (never raw values) — `check_in` / `defer` /
+`silent_log` / `safety_escalation`. Restraint comes from cross-turn welfare_state:
+same-type cooldown, a daily cap, quiet hours, and a 24h refusal pause
+(`/api/sensors/refuse`). The mock physiological anomaly is low-confidence with
+`medical_claim_allowed=false`, so Guardian makes no medical claim. Each decision
+is persisted as a trace (SensorAdapter tool + StateEvent + GuardianAgent agent).
+
 ## Layout
 
 ```text
@@ -128,17 +140,17 @@ app/
   main.py                  FastAPI app factory + CORS
   core/config.py           Settings (env / .env), DEMO_MODE, providers, dirs
   core/constants.py        Enums: CompanionMode / RiskLevel / Route / TraceEntryKind
-  api/routes/            health · chat · users · traces · memory · reminders
-  api/deps.py              get_*_store (profile / trace / memory / reminder)
-  agents/                coordinator · companion · safety_critic
-  tools/                 input_rule_guard · output_rule_guard · memory_tool · reminder_tool
+  api/routes/            health · chat · users · traces · memory · reminders · sensors
+  api/deps.py              get_*_store (profile / trace / memory / reminder / guardian)
+  agents/                coordinator · companion · safety_critic · guardian
+  tools/                 input/output_rule_guard · memory_tool · reminder_tool · sensor_adapter · sensor_simulator
   safety/                risk_keywords · risk_classifier · templates/*.md
   graph/                 state · nodes · edges · build_graph (run_turn)
-  schemas/               chat · trace · profile · memory · reminder
-  stores/                profile_store · trace_store · memory_store · reminder_store
+  schemas/               chat · trace · profile · memory · reminder · sensor
+  stores/                profile · trace · memory · reminder · guardian_state
   services/              llm_provider · fake_llm_provider
   prompts/               companion_role_first.md · companion_neutral_assistant.md
-tests/                     guards · routing · safety · trace · memory · reminder · ...
+tests/                     guards · routing · safety · trace · memory · reminder · sensor · guardian · ...
 ```
 
 Memory is markdown-first: each user's `memory.md` is the human-readable source of
@@ -146,8 +158,8 @@ truth, with a `memories.json` index for CRUD (under `MEMORY_ROOT/users/{id}/`).
 
 ## Not yet (later slices)
 
-GuardianAgent consuming StateEvent (#12/#22), controlled retrieval (#13), real
-ASR/TTS (#4/#23). The Coordinator's retrieval route and the `graph/` boundary are
-shaped so those slot in. Real LLM provider wiring uses the `system_prompt` the
-CompanionAgent already renders. Memory / reminders persist as JSON + markdown;
-SQLite is the planned structured upgrade.
+Controlled retrieval (#13), real ASR/TTS (#4/#23). The Coordinator's retrieval
+route and the `graph/` boundary are shaped so those slot in. Real LLM provider
+wiring uses the `system_prompt` the CompanionAgent already renders. Stores persist
+as JSON + markdown; SQLite is the planned structured upgrade. Real wearable APIs
+would only replace the `SensorAdapter` input — the `StateEvent` contract stays.

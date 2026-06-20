@@ -27,6 +27,7 @@ yarn-error.log*
 /data/audio_cache/*
 /data/profiles/
 /data/reminders/
+/data/guardian/
 /data/memory/users/*/memories.json
 /data/memory/users/*/memory.md
 !/data/**/.gitkeep

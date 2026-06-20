@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import Depends
 
 from app.core.config import Settings, get_settings
+from app.stores.guardian_state_store import GuardianStateStore
 from app.stores.memory_store import MemoryStore
 from app.stores.profile_store import ProfileStore
 from app.stores.reminder_store import ReminderStore
@@ -25,3 +26,9 @@ def get_memory_store(settings: Settings = Depends(get_settings)) -> MemoryStore:
 
 def get_reminder_store(settings: Settings = Depends(get_settings)) -> ReminderStore:
     return ReminderStore(settings.resolved_reminder_dir)
+
+
+def get_guardian_store(
+    settings: Settings = Depends(get_settings),
+) -> GuardianStateStore:
+    return GuardianStateStore(settings.resolved_guardian_dir)
