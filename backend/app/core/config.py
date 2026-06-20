@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     max_llm_calls_per_turn: int = 2
     max_web_calls_per_turn: int = 1
 
+    # Voice I/O (#4 mock pipeline). Cap the ASR upload so a stray large body
+    # can't exhaust memory; the mock never decodes the audio anyway.
+    max_voice_upload_bytes: int = 5_000_000
+
     # Storage. Relative paths resolve under the repo root (not the launch CWD),
     # so data always lands in <repo>/data/ — the one location that is gitignored.
     profile_dir: str = "./data/profiles"

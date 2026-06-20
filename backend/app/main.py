@@ -18,6 +18,7 @@ from app.api.routes import (
     sensors,
     traces,
     users,
+    voice,
 )
 from app.core.config import get_settings
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(memory.router, prefix="/api")
     app.include_router(reminders.router, prefix="/api")
     app.include_router(sensors.router, prefix="/api")
+    app.include_router(voice.router, prefix="/api")
     return app
 
 

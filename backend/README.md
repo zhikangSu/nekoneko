@@ -38,6 +38,7 @@ uvicorn app.main:app --reload      # http://localhost:8000
 - Memory: `GET|POST /api/memory/{user_id}`, `DELETE /api/memory/{user_id}/{memory_id}`, `PATCH /api/memory/{user_id}/settings`
 - Reminders: `GET|POST /api/reminders/{user_id}`, `DELETE /…/{id}`, `POST /…/{id}/confirm`, `POST /…/{id}/trigger`
 - Sensors: `GET /api/sensors/presets`, `POST /api/sensors/apply-preset`, `POST /api/sensors/refuse`
+- Voice: `POST /api/voice/asr` (raw audio body → transcript), `POST /api/voice/tts` (`{text}` → base64 audio)
 
 ```bash
 curl -s -X POST http://localhost:8000/api/chat \
@@ -142,6 +143,20 @@ same-type cooldown, a daily cap, quiet hours, and a 24h refusal pause
 `medical_claim_allowed=false`, so Guardian makes no medical claim. Each decision
 is persisted as a trace (SensorAdapter tool + StateEvent + GuardianAgent agent).
 
+### Voice I/O (mock pipeline, #4)
+
+`POST /api/voice/asr` takes the recorded clip as the **raw request body** (no
+multipart dependency) and returns a transcript; `ok=false` means nothing was
+recognized, so the UI shows a gentle retry prompt and the text path still works.
+`POST /api/voice/tts` takes reply text and returns base64 audio, cached per text
+so replay is free (`cached=true`). Both sit behind `ASRProvider` / `TTSProvider`
+in `services/voice_provider`, selected like the LLM provider (mock by name, mock
+fallback in DEMO_MODE, otherwise an error). In DEMO_MODE the mocks are
+deterministic and offline: `MockASRProvider` returns a **simulated** transcript
+(no audio decoding), `MockTTSProvider` synthesizes a short soft sine-tone WAV
+with the stdlib `wave` module — a placeholder voice, but real playable/replayable
+audio. A real ASR/TTS provider arrives with #23 behind the same interface.
+
 ## Layout
 
 ```text
@@ -149,15 +164,15 @@ app/
   main.py                  FastAPI app factory + CORS
   core/config.py           Settings (env / .env), DEMO_MODE, providers, dirs
   core/constants.py        Enums: CompanionMode / RiskLevel / Route / TraceEntryKind
-  api/routes/            health · chat · users · traces · memory · reminders · sensors
+  api/routes/            health · chat · users · traces · memory · reminders · sensors · voice
   api/deps.py              get_*_store (profile / trace / memory / reminder / guardian)
   agents/                coordinator · companion · safety_critic · guardian
   tools/                 input/output_rule_guard · memory_tool · reminder_tool · info_retrieval · sensor_adapter · sensor_simulator
   safety/                risk_keywords · risk_classifier · templates/*.md
   graph/                 state · nodes · edges · build_graph (run_turn)
-  schemas/               chat · trace · profile · memory · reminder · sensor
+  schemas/               chat · trace · profile · memory · reminder · sensor · voice
   stores/                profile · trace · memory · reminder · guardian_state
-  services/              llm_provider · fake_llm_provider
+  services/              llm_provider · fake_llm_provider · voice_provider · mock_voice_provider
   prompts/               companion_role_first.md · companion_neutral_assistant.md
 tests/                     guards · routing · safety · trace · memory · reminder · sensor · guardian · ...
 ```
@@ -167,8 +182,9 @@ truth, with a `memories.json` index for CRUD (under `MEMORY_ROOT/users/{id}/`).
 
 ## Not yet (later slices)
 
-Real ASR/TTS (#4/#23) and a real LLM/retrieval provider — the `graph/` boundary
-and the `system_prompt` the CompanionAgent renders are shaped so those slot in
-(`InfoRetrievalTool` already has a mock→real seam). Stores persist as JSON +
-markdown; SQLite is the planned structured upgrade. Real wearable APIs would only
-replace the `SensorAdapter` input — the `StateEvent` contract stays.
+A real ASR/TTS provider (#23) and a real LLM/retrieval provider — the
+`ASRProvider` / `TTSProvider` / `LLMProvider` interfaces and the `graph/`
+boundary are shaped so those slot in (the voice mock→real seam mirrors
+`InfoRetrievalTool`). Stores persist as JSON + markdown; SQLite is the planned
+structured upgrade. Real wearable APIs would only replace the `SensorAdapter`
+input — the `StateEvent` contract stays.
