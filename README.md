@@ -36,7 +36,10 @@ Working docs produced for the demo:
 
 | Doc | Purpose |
 |---|---|
-| [docs/demo_script.md](docs/demo_script.md) | The 6 final-demo scenarios, step by step. |
+| [docs/demo_script.md](docs/demo_script.md) | The 6 final-demo scenarios, step by step (with the Agent Trace for each). |
+| [docs/demo_video_checklist.md](docs/demo_video_checklist.md) | Shot-by-shot checklist for recording the demo video. |
+| [docs/poster_outline.md](docs/poster_outline.md) | Final research poster outline. |
+| [docs/final_report_skeleton.md](docs/final_report_skeleton.md) | Fillable final-report structure. |
 | [docs/safety_policy.md](docs/safety_policy.md) | What the system must never do, and the high-risk safety path. |
 | [docs/evaluation_plan.md](docs/evaluation_plan.md) | HCI evaluation goals, measures, and study conditions (draft). |
 

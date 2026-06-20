@@ -1,7 +1,15 @@
 # Demo Script — Final Demo Scenarios
 
-Status: draft (Slice 1). Source: `docs/02_technical_roadmap` §16 (Final Demo
-验收脚本) and `docs/00_overview` 建议最小可演示场景.
+Status: final (Slice 8) — matches the implemented system. Source:
+`docs/02_technical_roadmap` §16 (Final Demo 验收脚本) and `docs/00_overview`
+建议最小可演示场景.
+
+**Run it:** follow the root `README.md` → *Quick start (DEMO_MODE)* (backend on
+`:8000`, frontend on `:3000`, `DEMO_MODE=true`). Every scenario below is exposed
+in the UI, and the **Agent Trace** panel (right of the Chat page) shows the
+route, risk level, and the Agent / Tool / Guard / StateEvent / Retrieval steps
+for each turn — that panel is the "explainability" through-line of the demo.
+Real voice is optional (see README); the script runs fully on mock voice.
 
 This script is the runnable spine of the final demo. It covers the six required
 capabilities: **companionship, reminder, memory, proactive care, controlled
@@ -45,8 +53,10 @@ user-chosen name, or the neutral fallback if unnamed.
 Warm, slow, concise. No diagnosis. No "only I understand you" dependency
 language. No external web retrieval for this emotional turn.
 
-**Trace shows:** Emotion (tool) + Memory (tool, read) + CompanionAgent + Guards.
-`retrieval_used: false`, `safety_critic_used: false`.
+**Trace shows:** `CoordinatorAgent` + `CompanionAgent` (agents); `MemoryTool`
+(read, tool); `InputRuleGuard` + `OutputRuleGuard` (guards). `route:
+companion_chat`, `retrieval_used: false`, `safety_critic_used: false`
+(`memory_used` flips to true once a preference has been stored).
 
 ---
 
@@ -61,8 +71,9 @@ language. No external web retrieval for this emotional turn.
 - Medication wording stays at "按医嘱 / follow your doctor's instructions"; the
   system must **not** suggest a dose, a drug, or a quantity.
 
-**Trace shows:** CompanionAgent + ReminderTool (write) + Guards. Reminder
-appears in the Reminders surface.
+**Trace shows:** `CoordinatorAgent` route = `reminder_management`; `ReminderTool`
+(parse + write); `InputRuleGuard` + `OutputRuleGuard`. The reminder appears in
+the Reminders surface (08:00, daily).
 
 ---
 
@@ -101,9 +112,10 @@ reuse turn; deletion reflected in the Memory surface.
 - Respect cooldown, daily cap, and quiet hours; the user can decline and the
   same topic pauses.
 
-**Trace shows:** StateEvent + GuardianAgent decision
+**Trace shows:** `SensorAdapter` (tool): raw signal → `StateEvent`; the
+`StateEvent` step; then the `GuardianAgent` decision
 (`check_in | defer | silent_log | safety_escalation`) with `reason` and
-`cooldown_applied`.
+`cooldown_applied`. Guardian decides on the `StateEvent`, never the raw values.
 
 ---
 
@@ -165,6 +177,6 @@ SafetyCriticAgent (used) → safe template; `risk_level: high`,
 | ASR unstable | Keep text input as fallback; pre-record a demo video. |
 | TTS latency | Show "我听到了，正在想"; display text first. |
 | Web retrieval unstable | Weather query can use live + mock fallback. |
-| Safety miss | Keyword rule guard + LLM safety critic, double layer. |
+| Safety miss | Keyword rule guard + SafetyCritic agent (template-based), double layer. |
 
 These mitigations come from `docs/02_technical_roadmap` §17.
