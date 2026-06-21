@@ -1,3 +1,24 @@
+from datetime import datetime as _datetime, timezone
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _fixed_daytime(monkeypatch):
+    """Pin the route clock to a fixed daytime so Guardian check-in assertions are
+    not flaky: quiet hours (22:00–07:00, evaluated in UTC) would otherwise flip a
+    ``check_in`` to ``defer`` when the suite runs during that UTC window.
+    """
+    import app.api.routes.sensors as sensors_mod
+
+    class _FixedDateTime(_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return _datetime(2026, 6, 21, 12, 0, tzinfo=tz or timezone.utc)
+
+    monkeypatch.setattr(sensors_mod, "datetime", _FixedDateTime)
+
+
 def test_list_presets(client):
     response = client.get("/api/sensors/presets")
     assert response.status_code == 200
