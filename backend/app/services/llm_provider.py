@@ -19,6 +19,8 @@ from app.core.constants import CompanionMode
 logger = logging.getLogger(__name__)
 
 _FAKE_PROVIDER_NAMES = {"fake", "mock"}
+# Names that select the real xiaomimimo LLM (#6 real). DEMO_MODE stays fake.
+_XIAOMIMIMO_PROVIDER_NAMES = {"xiaomimimo", "mimo"}
 
 
 @dataclass
@@ -53,7 +55,12 @@ class LLMProvider(ABC):
 
 
 def get_llm_provider(settings: Settings) -> LLMProvider:
-    """Select a provider from settings, with a demo-mode fallback to fake."""
+    """Select an LLM provider.
+
+    ``DEMO_MODE`` always uses the fake provider (so the demo needs no key and
+    replies stay deterministic); only ``DEMO_MODE=false`` with a named real
+    provider hits the live API (#6).
+    """
     # Imported here to avoid a circular import at module load.
     from app.services.fake_llm_provider import FakeLLMProvider
 
@@ -62,14 +69,23 @@ def get_llm_provider(settings: Settings) -> LLMProvider:
         return FakeLLMProvider()
 
     if settings.demo_mode:
-        logger.warning(
-            "LLM_PROVIDER=%r is not implemented yet; falling back to the fake "
-            "provider because DEMO_MODE=true.",
+        logger.info(
+            "DEMO_MODE=true: using the fake LLM provider regardless of "
+            "LLM_PROVIDER=%r.",
             provider,
         )
         return FakeLLMProvider()
 
+    if provider in _XIAOMIMIMO_PROVIDER_NAMES:
+        from app.services.xiaomimimo_llm_provider import XiaomiMiMoLLMProvider
+
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                f"LLM_PROVIDER={provider!r} needs OPENAI_API_KEY (set it in .env)."
+            )
+        return XiaomiMiMoLLMProvider(settings)
+
     raise RuntimeError(
-        f"LLM provider {provider!r} is not available. Slice 1 only implements the "
-        "fake provider. Set LLM_PROVIDER=fake or DEMO_MODE=true."
+        f"LLM provider {provider!r} is not available. Set LLM_PROVIDER to "
+        "fake | xiaomimimo, or DEMO_MODE=true."
     )
