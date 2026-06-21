@@ -95,6 +95,17 @@ for the full intended structure.
 
 The demo runs fully offline with fake/mock providers — no paid API keys.
 
+### One command (recommended)
+
+```bash
+make setup     # first time only — installs backend + frontend deps, creates .env
+make dev       # backend (:8000) + frontend (:3000) together; Ctrl-C stops both
+make test      # backend pytest + frontend build
+```
+
+Then open `http://localhost:3000` and name the companion. To run the two sides
+separately (or without `make`), use the steps below.
+
 ```bash
 cp .env.example .env          # keep DEMO_MODE=true and fake/mock providers
 ```
@@ -131,8 +142,23 @@ Open `http://localhost:3000`, send a text message, and watch the placeholder
 trace appear. Set `NEXT_PUBLIC_API_BASE_URL` in `.env` if the backend is not on
 `http://localhost:8000`.
 
-> Commands above are the target developer experience for Slice 1. Each backend /
-> frontend folder also has its own README with the exact, current commands.
+Each backend / frontend folder also has its own README with exact commands.
+
+### Real voice (optional)
+
+The demo defaults to mock voice. To use the real **xiaomimimo** ASR/TTS (the key
+lives only in the gitignored `.env`), set in the repo-root `.env`:
+
+```bash
+DEMO_MODE=false
+ASR_PROVIDER=xiaomimimo
+TTS_PROVIDER=xiaomimimo
+# keep LLM_PROVIDER=fake and RETRIEVAL_PROVIDER=mock — a real LLM / retrieval
+# provider is not implemented yet (companion replies stay template-based).
+```
+
+Restart the backend, then record in the browser. On any ASR/TTS failure the chat
+degrades to text. The endpoint rate-limits bursts, so don't click rapidly.
 
 ---
 
