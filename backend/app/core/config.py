@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     tts_voice: str = "mimo_default"
     voice_provider_timeout_seconds: float = 60.0
 
+    # Real companion-reply LLM (#6, optional). Replies stay on the FakeLLMProvider
+    # unless DEMO_MODE=false + LLM_PROVIDER=xiaomimimo + OPENAI_API_KEY. Reuses
+    # openai_base_url/openai_api_key. mimo-v2-flash = fast/low-cost chat default.
+    llm_model: str = "mimo-v2-flash"
+    llm_temperature: float = 0.7
+    llm_max_tokens: int = 512
+    llm_timeout_seconds: float = 30.0
+
     # Storage. Relative paths resolve under the repo root (not the launch CWD),
     # so data always lands in <repo>/data/ — the one location that is gitignored.
     profile_dir: str = "./data/profiles"

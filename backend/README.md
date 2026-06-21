@@ -183,7 +183,7 @@ app/
   graph/                 state · nodes · edges · build_graph (run_turn)
   schemas/               chat · trace · profile · memory · reminder · sensor · voice
   stores/                profile · trace · memory · reminder · guardian_state
-  services/              llm_provider · fake_llm_provider · voice_provider · mock_voice_provider · xiaomimimo_voice_provider
+  services/              llm_provider · fake_llm_provider · xiaomimimo_llm_provider · voice_provider · mock_voice_provider · xiaomimimo_voice_provider
   prompts/               companion_role_first.md · companion_neutral_assistant.md
 tests/                     guards · routing · safety · trace · memory · reminder · sensor · guardian · ...
 ```
@@ -191,11 +191,26 @@ tests/                     guards · routing · safety · trace · memory · rem
 Memory is markdown-first: each user's `memory.md` is the human-readable source of
 truth, with a `memories.json` index for CRUD (under `MEMORY_ROOT/users/{id}/`).
 
+## Real providers (opt-in)
+
+A real **LLM** (companion replies) and real **ASR/TTS** (voice) are wired behind
+the same provider interfaces, selected only with `DEMO_MODE=false` + the named
+provider + `OPENAI_API_KEY`; `DEMO_MODE=true` always uses the fake/mock providers
+(no key, deterministic). The real provider is xiaomimimo (OpenAI-compatible,
+through `/chat/completions`):
+
+- `LLM_PROVIDER=xiaomimimo` → `XiaomiMiMoLLMProvider` drafts the companion reply
+  from the persona `system_prompt` `CompanionAgent` renders (model `mimo-v2-flash`
+  by default). On any API failure it falls back to the fake reply, so a turn
+  never breaks; the reply still passes `OutputRuleGuard` either way.
+- `ASR_PROVIDER` / `TTS_PROVIDER=xiaomimimo` → real speech (see Voice I/O above).
+
+Keys live only in the gitignored `.env` and are never logged; tests force the
+fake/mock providers and never call the live API.
+
 ## Not yet (later slices)
 
-Real ASR/TTS is wired (#23, xiaomimimo, opt-in via `DEMO_MODE=false`). Still
-mock: the LLM and retrieval providers — the `LLMProvider` interface and the
-`graph/` boundary are shaped so those slot in the same way the voice mock→real
-seam did. Stores persist as JSON + markdown; SQLite is the planned structured
-upgrade. Real wearable APIs would only replace the `SensorAdapter` input — the
-`StateEvent` contract stays.
+Still mock: the **retrieval** provider (weather/search) — `InfoRetrievalTool` has
+the same mock→real seam. Stores persist as JSON + markdown; SQLite is the planned
+structured upgrade. Real wearable APIs would only replace the `SensorAdapter`
+input — the `StateEvent` contract stays.

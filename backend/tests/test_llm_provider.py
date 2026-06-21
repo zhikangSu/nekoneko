@@ -4,6 +4,7 @@ from app.core.config import Settings
 from app.core.constants import CompanionMode
 from app.services.fake_llm_provider import FakeLLMProvider
 from app.services.llm_provider import CompanionReplyInput, get_llm_provider
+from app.services.xiaomimimo_llm_provider import XiaomiMiMoLLMProvider
 
 
 def test_fake_provider_selected_for_fake():
@@ -18,8 +19,26 @@ def test_demo_mode_falls_back_to_fake_for_unimplemented_provider():
     assert isinstance(get_llm_provider(settings), FakeLLMProvider)
 
 
+def test_demo_mode_uses_fake_even_with_real_provider_named():
+    # DEMO_MODE must never need a key, even if a real provider is named.
+    settings = Settings(llm_provider="xiaomimimo", demo_mode=True, openai_api_key="k")
+    assert isinstance(get_llm_provider(settings), FakeLLMProvider)
+
+
+def test_real_provider_selected_when_configured():
+    # Constructed, not invoked — no live call.
+    settings = Settings(llm_provider="xiaomimimo", demo_mode=False, openai_api_key="k")
+    assert isinstance(get_llm_provider(settings), XiaomiMiMoLLMProvider)
+
+
+def test_real_provider_requires_api_key():
+    settings = Settings(llm_provider="xiaomimimo", demo_mode=False, openai_api_key="")
+    with pytest.raises(RuntimeError):
+        get_llm_provider(settings)
+
+
 def test_non_demo_unimplemented_provider_raises():
-    settings = Settings(llm_provider="openai", demo_mode=False)
+    settings = Settings(llm_provider="openai", demo_mode=False, openai_api_key="k")
     with pytest.raises(RuntimeError):
         get_llm_provider(settings)
 
