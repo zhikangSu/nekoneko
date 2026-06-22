@@ -44,7 +44,7 @@ export function ChatWindow({
   }
 
   return (
-    <section className="rounded-2xl bg-surface border border-black/5 flex flex-col h-[68vh] min-h-[420px]">
+    <section className="rounded-2xl bg-surface border border-black/5 flex flex-col h-[78vh] min-h-[520px]">
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-black/5">
         <h2 className="text-lg font-semibold text-ink">聊天</h2>
         <ModeToggle mode={mode} onChange={onChangeMode} />
@@ -109,7 +109,7 @@ export function ChatWindow({
         </button>
       </form>
 
-      <div className="px-5 pb-3 -mt-1 flex items-center justify-between gap-3">
+      <div className="px-5 pb-3 -mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <ReplayButton
           text={lastCompanionText}
           isSpeaking={voice.isSpeaking}
@@ -163,10 +163,10 @@ function AutoSpeakToggle({
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className="inline-flex items-center gap-2 text-base text-muted"
+      className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-base text-muted"
     >
       <span
-        className={`relative inline-block h-6 w-11 rounded-full transition-colors ${
+        className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors ${
           on ? "bg-companion" : "bg-black/15"
         }`}
       >

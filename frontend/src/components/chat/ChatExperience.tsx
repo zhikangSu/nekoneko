@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useChat } from "@/hooks/useChat";
 import { useVoice } from "@/hooks/useVoice";
@@ -19,6 +19,10 @@ export function ChatExperience() {
   const { companionDisplayName } = useProfile();
   const { messages, mode, setMode, isSending, send } = useChat();
   const voice = useVoice({ onTranscript: send });
+  // The Agent Trace is a demo/explainability panel (it shows the per-turn
+  // routing for graders/developers), not something an elderly end user needs —
+  // so it can be collapsed, which also gives the chat the full width.
+  const [showTrace, setShowTrace] = useState(true);
 
   // Read each newly-arrived companion reply aloud when auto-read is on. Keyed by
   // message id so toggling the switch never re-reads an older reply.
@@ -39,9 +43,23 @@ export function ChatExperience() {
     .find((message) => message.trace)?.trace;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <SafetyBanner />
-      <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowTrace((v) => !v)}
+          aria-pressed={showTrace}
+          className="text-base text-companion hover:underline"
+        >
+          {showTrace ? "隐藏追踪面板 ▸" : "◂ 显示追踪面板"}
+        </button>
+      </div>
+      <div
+        className={`grid gap-5 ${
+          showTrace ? "lg:grid-cols-[1fr_22rem]" : "grid-cols-1"
+        }`}
+      >
         <ChatWindow
           messages={messages}
           isSending={isSending}
@@ -51,11 +69,13 @@ export function ChatExperience() {
           companionDisplayName={companionDisplayName}
           voice={voice}
         />
-        <AgentTracePanel
-          latestTrace={latestTrace}
-          userId={DEFAULT_USER_ID}
-          refreshKey={messages.length}
-        />
+        {showTrace ? (
+          <AgentTracePanel
+            latestTrace={latestTrace}
+            userId={DEFAULT_USER_ID}
+            refreshKey={messages.length}
+          />
+        ) : null}
       </div>
     </div>
   );
