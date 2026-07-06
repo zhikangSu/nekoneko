@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from app.core.config import Settings, get_settings
 from app.stores.guardian_state_store import GuardianStateStore
+from app.stores.memory_card_store import MemoryCardStore
 from app.stores.memory_store import MemoryStore
 from app.stores.profile_store import ProfileStore
 from app.stores.reminder_store import ReminderStore
@@ -22,6 +23,12 @@ def get_trace_store(settings: Settings = Depends(get_settings)) -> TraceStore:
 
 def get_memory_store(settings: Settings = Depends(get_settings)) -> MemoryStore:
     return MemoryStore(settings.resolved_memory_root)
+
+
+def get_memory_card_store(
+    settings: Settings = Depends(get_settings),
+) -> MemoryCardStore:
+    return MemoryCardStore(settings.resolved_memory_cards_dir)
 
 
 def get_reminder_store(settings: Settings = Depends(get_settings)) -> ReminderStore:

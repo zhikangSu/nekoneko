@@ -21,6 +21,7 @@ os.environ["OPENAI_API_KEY"] = ""
 os.environ["PROFILE_DIR"] = tempfile.mkdtemp(prefix="qaq_test_profiles_")
 os.environ["TRACE_LOG_DIR"] = tempfile.mkdtemp(prefix="qaq_test_traces_")
 os.environ["MEMORY_ROOT"] = tempfile.mkdtemp(prefix="qaq_test_memory_")
+os.environ["MEMORY_CARDS_DIR"] = tempfile.mkdtemp(prefix="qaq_test_memory_cards_")
 os.environ["REMINDER_DIR"] = tempfile.mkdtemp(prefix="qaq_test_reminders_")
 os.environ["GUARDIAN_DIR"] = tempfile.mkdtemp(prefix="qaq_test_guardian_")
 

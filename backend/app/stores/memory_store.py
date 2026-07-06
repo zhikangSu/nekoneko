@@ -29,6 +29,7 @@ _CATEGORY_TITLES = {
     MemoryCategory.profile_preference: "偏好 (profile_preference)",
     MemoryCategory.event_memory: "事件 (event_memory)",
     MemoryCategory.reminder_or_setting: "提醒 / 设置 (reminder_or_setting)",
+    MemoryCategory.boundary_preference: "边界偏好 (boundary_preference)",
 }
 
 

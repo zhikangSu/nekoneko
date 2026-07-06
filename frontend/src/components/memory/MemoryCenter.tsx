@@ -6,24 +6,29 @@ import {
   addMemory,
   deleteMemory,
   getMemory,
+  listMemoryCards,
   setMemoryPaused,
 } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
-import type { MemoryCategory, MemoryEntry } from "@/types/memory";
+import type { MemoryCard, MemoryCategory, MemoryEntry } from "@/types/memory";
+import { MemoryCardPrompt } from "./MemoryCardPrompt";
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = {
   profile_preference: "偏好",
   event_memory: "事件",
   reminder_or_setting: "提醒 / 设置",
+  boundary_preference: "边界偏好",
 };
 const CATEGORY_ORDER: MemoryCategory[] = [
   "profile_preference",
   "event_memory",
   "reminder_or_setting",
+  "boundary_preference",
 ];
 
 export function MemoryCenter() {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
+  const [pendingCards, setPendingCards] = useState<MemoryCard[]>([]);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -31,8 +36,12 @@ export function MemoryCenter() {
 
   const refresh = useCallback(async () => {
     try {
-      const view = await getMemory(DEFAULT_USER_ID);
+      const [view, cards] = await Promise.all([
+        getMemory(DEFAULT_USER_ID),
+        listMemoryCards(DEFAULT_USER_ID, "pending"),
+      ]);
       setMemories(view.memories);
+      setPendingCards(cards.cards);
       setPaused(view.settings.extraction_paused);
       setError(false);
     } catch {
@@ -45,6 +54,15 @@ export function MemoryCenter() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  async function handleCardResolved(resolved: MemoryCard) {
+    // Optimistically drop the resolved card from the pending list, then refresh
+    // so a saved / edited / never_mention card appears in saved memories.
+    setPendingCards((cards) =>
+      cards.filter((c) => c.card_id !== resolved.card_id),
+    );
+    await refresh();
+  }
 
   async function handleDelete(id: string) {
     await deleteMemory(DEFAULT_USER_ID, id);
@@ -90,6 +108,24 @@ export function MemoryCenter() {
           {paused ? "恢复记忆" : "暂停记忆"}
         </button>
       </div>
+
+      {pendingCards.length > 0 ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">待确认的回忆卡片</h2>
+            <p className="text-muted text-base">
+              这些还没有保存。您来决定要不要记住，我只在您同意后才记下来。
+            </p>
+          </div>
+          {pendingCards.map((card) => (
+            <MemoryCardPrompt
+              key={card.card_id}
+              card={card}
+              onResolved={(updated) => void handleCardResolved(updated)}
+            />
+          ))}
+        </section>
+      ) : null}
 
       {CATEGORY_ORDER.map((category) => {
         const items = memories.filter((m) => m.category === category);

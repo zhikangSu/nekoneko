@@ -16,6 +16,7 @@ class MemoryCategory(str, Enum):
     profile_preference = "profile_preference"
     event_memory = "event_memory"
     reminder_or_setting = "reminder_or_setting"
+    boundary_preference = "boundary_preference"
 
 
 class MemoryEntry(BaseModel):
