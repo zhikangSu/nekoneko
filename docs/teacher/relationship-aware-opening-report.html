@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关系感知型多智能体陪伴系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES: MAILLARD LATEX THEME
+           =========================================== */
+        :root {
+            --stage-bg: #20140d;
+            --slide-bg: #f2e3cf;
+            --paper: #f2e3cf;
+            --paper-light: #fff6e8;
+            --paper-deep: #dbc4a5;
+            --ink: #2b1b12;
+            --coffee: #4a2c1d;
+            --cacao: #65412c;
+            --caramel: #b77c43;
+            --ochre: #d6a45a;
+            --oxblood: #7b2f22;
+            --sage: #586449;
+            --smoke: #796350;
+            --rule: rgba(82, 52, 34, 0.36);
+            --rule-strong: rgba(82, 52, 34, 0.62);
+            --shadow: rgba(50, 29, 15, 0.18);
+            --font-display: "Kaiti SC", "STKaiti", "KaiTi", "Noto Serif SC", "EB Garamond", serif;
+            --font-latin: "EB Garamond", serif;
+            --font-body: "Kaiti SC", "STKaiti", "KaiTi", "Noto Serif SC", serif;
+            --font-mono: "JetBrains Mono", monospace;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.72s;
+        }
+
+        /* ===========================================
+           GLOBAL RESET
+           =========================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ===========================================
+           FIXED 16:9 STAGE: MANDATORY BASE STYLES
+           Include this ENTIRE file in every presentation.
+           Slides are authored at 1920×1080 and scaled as a whole.
+           =========================================== */
+
+        /* 1. Lock the browser viewport */
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--stage-bg, #000);
+        }
+
+        /* 2. Full-window deck viewport */
+        .deck-viewport {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: var(--stage-bg, #000);
+        }
+
+        /* 3. Fixed 16:9 design canvas.
+           JavaScript sets transform: translate(...) scale(...). */
+        .deck-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: 0 0;
+            background: var(--slide-bg, #fff);
+        }
+
+        /* 4. Slides stack inside the fixed stage.
+           Content must be laid out at 1920×1080, not reflowed per device. */
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: var(--slide-bg, #fff);
+        }
+
+        .slide.active,
+        .slide.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        /* 5. Keep media inside authored slide bounds */
+        img,
+        video,
+        canvas,
+        svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* 6. Presentation chrome stays outside the slide design system */
+        .deck-controls {
+            position: fixed;
+            left: 50%;
+            bottom: 22px;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+
+        /* 7. Print one fixed-size slide per page */
+        @media print {
+            html,
+            body {
+                width: 1920px;
+                height: auto;
+                overflow: visible;
+                background: #fff;
+            }
+
+            .deck-viewport {
+                position: static;
+                overflow: visible;
+                background: #fff;
+            }
+
+            .deck-stage {
+                position: static;
+                width: auto;
+                height: auto;
+                transform: none !important;
+                background: none;
+            }
+
+            .slide {
+                position: relative;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                width: 1920px;
+                height: 1080px;
+                break-after: page;
+                page-break-after: always;
+            }
+
+            .slide:last-child {
+                break-after: auto;
+                page-break-after: auto;
+            }
+
+            .deck-controls {
+                display: none !important;
+            }
+        }
+
+        /* 8. Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+        }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+        body {
+            color: var(--ink);
+            font-family: var(--font-body);
+        }
+
+        h1,
+        h2,
+        h3,
+        .serif {
+            font-family: var(--font-display);
+            font-weight: 600;
+            letter-spacing: 0;
+        }
+
+        .latin {
+            font-family: var(--font-latin);
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        .smallcaps {
+            font-family: var(--font-mono);
+            font-size: 22px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        /* ===========================================
+           PAPER SURFACE AND LATEX-LIKE RULES
+           =========================================== */
+        .slide::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(rgba(74, 44, 29, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(74, 44, 29, 0.035) 1px, transparent 1px),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.15'/%3E%3C/svg%3E");
+            background-size: 48px 48px, 48px 48px, 160px 160px;
+            mix-blend-mode: multiply;
+            opacity: 0.72;
+            pointer-events: none;
+        }
+
+        .slide::after {
+            content: "";
+            position: absolute;
+            inset: 34px;
+            border: 1.5px solid var(--rule);
+            pointer-events: none;
+        }
+
+        .slide-inner {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            padding: 76px 96px 76px;
+        }
+
+        .slide-kicker {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            color: var(--oxblood);
+            font-family: var(--font-mono);
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .slide-kicker::before {
+            content: "";
+            width: 54px;
+            height: 2px;
+            background: var(--oxblood);
+        }
+
+        .slide-title {
+            margin-top: 20px;
+            max-width: 1480px;
+            color: var(--coffee);
+            font-size: 70px;
+            line-height: 1.12;
+        }
+
+        .slide-subtitle {
+            margin-top: 16px;
+            max-width: 1220px;
+            color: var(--smoke);
+            font-size: 29px;
+            line-height: 1.55;
+        }
+
+        .slide-footer {
+            position: absolute;
+            left: 96px;
+            right: 96px;
+            bottom: 54px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: rgba(43, 27, 18, 0.68);
+            font-family: var(--font-mono);
+            font-size: 19px;
+            z-index: 4;
+        }
+
+        .slide-footer::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -18px;
+            height: 1px;
+            background: var(--rule);
+        }
+
+        .page-num {
+            color: var(--oxblood);
+            font-weight: 700;
+        }
+
+        /* ===========================================
+           ANIMATION SYSTEM
+           =========================================== */
+        .reveal,
+        .reveal-left,
+        .reveal-scale,
+        .reveal-blur {
+            opacity: 0;
+            transition:
+                opacity var(--duration-normal) var(--ease-out-expo),
+                transform var(--duration-normal) var(--ease-out-expo),
+                filter var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal {
+            transform: translateY(28px);
+        }
+
+        .reveal-left {
+            transform: translateX(-42px);
+        }
+
+        .reveal-scale {
+            transform: scale(0.96);
+        }
+
+        .reveal-blur {
+            filter: blur(10px);
+            transform: translateY(18px);
+        }
+
+        .slide.visible .reveal,
+        .slide.visible .reveal-left,
+        .slide.visible .reveal-scale,
+        .slide.visible .reveal-blur {
+            opacity: 1;
+            transform: translate(0, 0) scale(1);
+            filter: blur(0);
+        }
+
+        .delay-1 { transition-delay: 0.08s; }
+        .delay-2 { transition-delay: 0.16s; }
+        .delay-3 { transition-delay: 0.24s; }
+        .delay-4 { transition-delay: 0.32s; }
+        .delay-5 { transition-delay: 0.40s; }
+        .delay-6 { transition-delay: 0.48s; }
+
+        /* ===========================================
+           REUSABLE LAYOUT COMPONENTS
+           =========================================== */
+        .content-grid {
+            display: grid;
+            gap: 28px;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .section-band {
+            position: absolute;
+            left: 96px;
+            right: 96px;
+            top: 238px;
+            bottom: 116px;
+        }
+
+        .section-band.timeline,
+        .section-band.map-grid,
+        .section-band.gap-grid,
+        .section-band.layer-stack,
+        .section-band.role-grid,
+        .section-band.dialogue-layout,
+        .section-band.arch,
+        .section-band.condition-grid,
+        .section-band.metric-grid,
+        .section-band.contribution-grid {
+            height: auto;
+        }
+
+        .paper-panel {
+            border: 1.5px solid var(--rule-strong);
+            background:
+                linear-gradient(135deg, rgba(255, 246, 232, 0.92), rgba(219, 196, 165, 0.58));
+            box-shadow: 0 16px 40px var(--shadow);
+        }
+
+        .quiet-panel {
+            border: 1.5px solid rgba(82, 52, 34, 0.28);
+            background: rgba(255, 246, 232, 0.55);
+        }
+
+        .theorem {
+            padding: 30px 34px 34px;
+            border-left: 9px solid var(--oxblood);
+            background: rgba(255, 246, 232, 0.72);
+            box-shadow: 0 14px 34px rgba(50, 29, 15, 0.12);
+        }
+
+        .theorem-label {
+            color: var(--oxblood);
+            font-family: var(--font-mono);
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .theorem p {
+            margin-top: 14px;
+            color: var(--coffee);
+            font-family: var(--font-display);
+            font-size: 38px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .body-copy {
+            color: var(--ink);
+            font-size: 28px;
+            line-height: 1.62;
+        }
+
+        .body-copy strong {
+            color: var(--oxblood);
+            font-weight: 700;
+        }
+
+        .bullet-list {
+            display: grid;
+            gap: 18px;
+            list-style: none;
+            color: var(--ink);
+            font-size: 27px;
+            line-height: 1.5;
+        }
+
+        .bullet-list li {
+            position: relative;
+            padding-left: 34px;
+        }
+
+        .bullet-list li::before {
+            content: "§";
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: var(--oxblood);
+            font-family: var(--font-latin);
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .numbered-list {
+            counter-reset: item;
+            display: grid;
+            gap: 18px;
+            list-style: none;
+        }
+
+        .numbered-list li {
+            counter-increment: item;
+            display: grid;
+            grid-template-columns: 58px 1fr;
+            gap: 18px;
+            align-items: start;
+            color: var(--ink);
+            font-size: 26px;
+            line-height: 1.45;
+        }
+
+        .numbered-list li::before {
+            content: counter(item, decimal-leading-zero);
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            border: 1.5px solid var(--oxblood);
+            color: var(--oxblood);
+            font-family: var(--font-mono);
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .mini-card {
+            padding: 26px 28px;
+            border-top: 5px solid var(--caramel);
+            background: rgba(255, 246, 232, 0.64);
+            box-shadow: 0 12px 28px rgba(50, 29, 15, 0.10);
+        }
+
+        .mini-card h3 {
+            color: var(--coffee);
+            font-size: 34px;
+            line-height: 1.2;
+        }
+
+        .mini-card p {
+            margin-top: 12px;
+            color: var(--smoke);
+            font-size: 24px;
+            line-height: 1.46;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            height: 38px;
+            padding: 0 14px;
+            border: 1.4px solid var(--rule-strong);
+            color: var(--coffee);
+            background: rgba(255, 246, 232, 0.66);
+            font-family: var(--font-mono);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .equation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 110px;
+            padding: 20px 28px;
+            border-top: 2px solid var(--rule-strong);
+            border-bottom: 2px solid var(--rule-strong);
+            color: var(--coffee);
+            font-family: var(--font-latin);
+            font-size: 44px;
+            font-weight: 700;
+            line-height: 1.25;
+            text-align: center;
+        }
+
+        .accent {
+            color: var(--oxblood);
+        }
+
+        .sage {
+            color: var(--sage);
+        }
+
+        /* ===========================================
+           TITLE SLIDE
+           =========================================== */
+        .title-slide .slide-inner {
+            padding: 92px 112px 82px;
+        }
+
+        .title-frame {
+            position: absolute;
+            left: 112px;
+            top: 92px;
+            width: 1696px;
+            height: 870px;
+            border: 2px solid var(--rule-strong);
+            background:
+                linear-gradient(90deg, rgba(123, 47, 34, 0.08), transparent 26%, transparent 74%, rgba(88, 100, 73, 0.10)),
+                rgba(255, 246, 232, 0.46);
+        }
+
+        .title-frame::before,
+        .title-frame::after {
+            content: "";
+            position: absolute;
+            left: 54px;
+            right: 54px;
+            height: 2px;
+            background: var(--rule-strong);
+        }
+
+        .title-frame::before { top: 82px; }
+        .title-frame::after { bottom: 82px; }
+
+        .title-number {
+            position: absolute;
+            right: 156px;
+            top: 128px;
+            color: rgba(74, 44, 29, 0.12);
+            font-family: var(--font-latin);
+            font-size: 180px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .main-title {
+            position: relative;
+            width: 1220px;
+            margin-top: 156px;
+            color: var(--coffee);
+            font-size: 82px;
+            line-height: 1.16;
+        }
+
+        .main-title .latin {
+            display: block;
+            margin-top: 18px;
+            color: var(--oxblood);
+            font-size: 45px;
+            font-weight: 700;
+            line-height: 1.18;
+        }
+
+        .title-meta {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 36px;
+            width: 1280px;
+            margin-top: 54px;
+        }
+
+        .title-meta .theorem {
+            min-height: 178px;
+        }
+
+        .title-meta .theorem p {
+            font-size: 31px;
+        }
+
+        .meta-list {
+            display: grid;
+            gap: 14px;
+            align-content: center;
+            padding: 26px 28px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(219, 196, 165, 0.42);
+            color: var(--coffee);
+            font-family: var(--font-mono);
+            font-size: 22px;
+            line-height: 1.45;
+        }
+
+        /* ===========================================
+           TIMELINE AND LITERATURE MAP
+           =========================================== */
+        .timeline {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            height: 100%;
+        }
+
+        .year-block {
+            position: relative;
+            padding: 34px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.62);
+        }
+
+        .year-block h3 {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            color: var(--coffee);
+            font-size: 52px;
+        }
+
+        .year-block h3 span {
+            color: var(--oxblood);
+            font-family: var(--font-mono);
+            font-size: 22px;
+        }
+
+        .paper-row {
+            display: grid;
+            grid-template-columns: 310px 1fr;
+            gap: 20px;
+            padding: 17px 0;
+            border-bottom: 1px solid rgba(82, 52, 34, 0.22);
+            color: var(--ink);
+        }
+
+        .paper-row:last-child {
+            border-bottom: 0;
+        }
+
+        .paper-row strong {
+            color: var(--coffee);
+            font-size: 24px;
+        }
+
+        .paper-row span {
+            color: var(--smoke);
+            font-size: 23px;
+            line-height: 1.42;
+        }
+
+        .map-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 32px;
+            height: 100%;
+        }
+
+        .domain-table {
+            display: grid;
+            grid-template-rows: repeat(5, 1fr);
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.58);
+        }
+
+        .domain-row {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 22px;
+            align-items: center;
+            padding: 22px 28px;
+            border-bottom: 1px solid rgba(82, 52, 34, 0.24);
+        }
+
+        .domain-row:last-child {
+            border-bottom: 0;
+        }
+
+        .domain-row h3 {
+            color: var(--coffee);
+            font-size: 30px;
+        }
+
+        .domain-row p {
+            color: var(--smoke);
+            font-size: 22px;
+            line-height: 1.35;
+        }
+
+        .formula-stack {
+            display: grid;
+            gap: 24px;
+            align-content: start;
+        }
+
+        .map-grid .formula-stack {
+            gap: 18px;
+        }
+
+        .formula-box {
+            padding: 24px 28px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(219, 196, 165, 0.46);
+        }
+
+        .map-grid .formula-box {
+            padding: 19px 24px;
+        }
+
+        .formula-box .mono {
+            color: var(--oxblood);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .formula-box p {
+            margin-top: 10px;
+            color: var(--coffee);
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.36;
+        }
+
+        .map-grid .formula-box p {
+            margin-top: 7px;
+            font-size: 26px;
+            line-height: 1.3;
+        }
+
+        .map-grid .theorem {
+            padding: 23px 28px 24px;
+        }
+
+        .map-grid .theorem p {
+            font-size: 31px;
+            line-height: 1.34;
+        }
+
+        /* ===========================================
+           COMPARISON AND GAP SLIDES
+           =========================================== */
+        .comparison-table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            background: rgba(255, 246, 232, 0.62);
+            border: 1.5px solid var(--rule-strong);
+        }
+
+        .comparison-table th {
+            height: 74px;
+            padding: 14px 18px;
+            border-bottom: 2px solid var(--rule-strong);
+            border-right: 1px solid rgba(82, 52, 34, 0.24);
+            color: var(--coffee);
+            background: rgba(183, 124, 67, 0.18);
+            font-family: var(--font-display);
+            font-size: 27px;
+            text-align: left;
+        }
+
+        .comparison-table td {
+            padding: 18px;
+            border-bottom: 1px solid rgba(82, 52, 34, 0.2);
+            border-right: 1px solid rgba(82, 52, 34, 0.18);
+            color: var(--ink);
+            font-size: 22px;
+            line-height: 1.36;
+            vertical-align: top;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .comparison-table th:last-child,
+        .comparison-table td:last-child {
+            border-right: 0;
+        }
+
+        .gap-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            height: 100%;
+        }
+
+        .gap-card {
+            position: relative;
+            padding: 28px 24px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.64);
+        }
+
+        .gap-card::before {
+            content: attr(data-index);
+            display: block;
+            color: rgba(123, 47, 34, 0.26);
+            font-family: var(--font-latin);
+            font-size: 92px;
+            font-weight: 600;
+            line-height: 0.9;
+        }
+
+        .gap-card h3 {
+            margin-top: 18px;
+            color: var(--coffee);
+            font-size: 31px;
+            line-height: 1.2;
+        }
+
+        .gap-card p {
+            margin-top: 14px;
+            color: var(--smoke);
+            font-size: 22px;
+            line-height: 1.42;
+        }
+
+        /* ===========================================
+           FRAMEWORK AND ROLE SLIDES
+           =========================================== */
+        .layer-stack {
+            display: grid;
+            gap: 18px;
+            height: 100%;
+        }
+
+        .layer {
+            display: grid;
+            grid-template-columns: 260px 1fr 360px;
+            gap: 24px;
+            align-items: center;
+            padding: 19px 26px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.62);
+        }
+
+        .layer .mono {
+            color: var(--oxblood);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .layer h3 {
+            color: var(--coffee);
+            font-size: 32px;
+        }
+
+        .layer p {
+            color: var(--smoke);
+            font-size: 23px;
+            line-height: 1.38;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 18px;
+            height: 100%;
+        }
+
+        .role-card {
+            display: grid;
+            grid-template-rows: 78px 1fr 106px;
+            padding: 22px 18px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.62);
+        }
+
+        .role-card h3 {
+            color: var(--coffee);
+            font-size: 28px;
+            line-height: 1.18;
+        }
+
+        .role-card p {
+            color: var(--smoke);
+            font-size: 21px;
+            line-height: 1.38;
+        }
+
+        .role-card .tag {
+            align-self: end;
+            width: fit-content;
+            color: var(--oxblood);
+        }
+
+        /* ===========================================
+           DIALOGUE AND MEMORY SLIDES
+           =========================================== */
+        .dialogue-layout {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 34px;
+            height: 100%;
+        }
+
+        .dialogue {
+            padding: 32px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.68);
+        }
+
+        .dialogue-line {
+            display: grid;
+            grid-template-columns: 210px 1fr;
+            gap: 22px;
+            padding: 22px 0;
+            border-bottom: 1px solid rgba(82, 52, 34, 0.22);
+        }
+
+        .dialogue-line:last-child {
+            border-bottom: 0;
+        }
+
+        .speaker {
+            color: var(--oxblood);
+            font-family: var(--font-display);
+            font-size: 27px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .dialogue-line p {
+            color: var(--ink);
+            font-size: 27px;
+            line-height: 1.45;
+        }
+
+        .hypothesis-box {
+            display: grid;
+            gap: 24px;
+            align-content: start;
+        }
+
+        .hypothesis-box .equation {
+            min-height: 150px;
+            font-size: 37px;
+        }
+
+        .memory-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.64);
+        }
+
+        .memory-table th,
+        .memory-table td {
+            padding: 20px 22px;
+            border-right: 1px solid rgba(82, 52, 34, 0.24);
+            border-bottom: 1px solid rgba(82, 52, 34, 0.22);
+            vertical-align: top;
+        }
+
+        .memory-table th {
+            color: var(--coffee);
+            background: rgba(183, 124, 67, 0.16);
+            font-family: var(--font-display);
+            font-size: 29px;
+            text-align: left;
+        }
+
+        .memory-table td {
+            color: var(--ink);
+            font-size: 23px;
+            line-height: 1.38;
+        }
+
+        .memory-table th:last-child,
+        .memory-table td:last-child {
+            border-right: 0;
+        }
+
+        .bridge-card {
+            padding: 22px 24px;
+            border-left: 6px solid var(--sage);
+            background: rgba(255, 246, 232, 0.66);
+        }
+
+        .bridge-card h3 {
+            color: var(--coffee);
+            font-size: 28px;
+        }
+
+        .bridge-card p {
+            margin-top: 8px;
+            color: var(--smoke);
+            font-size: 23px;
+            line-height: 1.38;
+        }
+
+        /* ===========================================
+           SYSTEM ARCHITECTURE
+           =========================================== */
+        .arch {
+            display: grid;
+            grid-template-columns: 310px 1fr 320px;
+            gap: 28px;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .arch-column {
+            display: grid;
+            gap: 18px;
+            align-content: center;
+        }
+
+        .arch-node {
+            padding: 22px 24px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.64);
+            color: var(--coffee);
+        }
+
+        .arch-node h3 {
+            color: var(--coffee);
+            font-size: 29px;
+        }
+
+        .arch-node p {
+            margin-top: 8px;
+            color: var(--smoke);
+            font-size: 21px;
+            line-height: 1.34;
+        }
+
+        .arch-center {
+            display: grid;
+            grid-template-rows: repeat(5, 1fr);
+            gap: 16px;
+        }
+
+        .arch-layer {
+            position: relative;
+            display: grid;
+            grid-template-columns: 230px 1fr;
+            gap: 22px;
+            align-items: center;
+            padding: 20px 26px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(219, 196, 165, 0.44);
+        }
+
+        .arch-layer .mono {
+            color: var(--oxblood);
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .arch-layer h3 {
+            color: var(--coffee);
+            font-size: 30px;
+        }
+
+        .arch-layer p {
+            color: var(--ink);
+            font-size: 21px;
+            line-height: 1.34;
+        }
+
+        /* ===========================================
+           STUDY DESIGN AND METRICS
+           =========================================== */
+        .condition-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            height: 100%;
+        }
+
+        .condition {
+            display: grid;
+            grid-template-rows: 112px 1fr 170px;
+            padding: 30px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.64);
+        }
+
+        .condition .mono {
+            color: var(--oxblood);
+            font-size: 23px;
+            font-weight: 700;
+        }
+
+        .condition h3 {
+            margin-top: 10px;
+            color: var(--coffee);
+            font-size: 34px;
+            line-height: 1.18;
+        }
+
+        .condition p {
+            color: var(--smoke);
+            font-size: 24px;
+            line-height: 1.45;
+        }
+
+        .condition .equation {
+            min-height: 118px;
+            font-size: 28px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 22px;
+            height: 100%;
+        }
+
+        .metric-card {
+            padding: 24px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.62);
+        }
+
+        .metric-card h3 {
+            color: var(--coffee);
+            font-size: 31px;
+        }
+
+        .metric-card ul {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+            list-style: none;
+        }
+
+        .metric-card li {
+            position: relative;
+            padding-left: 24px;
+            color: var(--smoke);
+            font-size: 21px;
+            line-height: 1.34;
+        }
+
+        .metric-card li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 12px;
+            width: 9px;
+            height: 9px;
+            background: var(--caramel);
+            transform: rotate(45deg);
+        }
+
+        .contribution-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 34px;
+            height: 100%;
+        }
+
+        .contribution-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .contribution {
+            display: grid;
+            grid-template-columns: 84px 1fr;
+            gap: 20px;
+            align-items: start;
+            padding: 20px 24px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(255, 246, 232, 0.62);
+        }
+
+        .contribution .mono {
+            color: var(--oxblood);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .contribution h3 {
+            color: var(--coffee);
+            font-size: 28px;
+        }
+
+        .contribution p {
+            margin-top: 6px;
+            color: var(--smoke);
+            font-size: 21px;
+            line-height: 1.33;
+        }
+
+        .roadmap {
+            display: grid;
+            gap: 18px;
+            align-content: start;
+            padding: 30px;
+            border: 1.5px solid var(--rule-strong);
+            background: rgba(219, 196, 165, 0.44);
+        }
+
+        .roadmap h3 {
+            color: var(--coffee);
+            font-size: 36px;
+        }
+
+        .roadmap-step {
+            display: grid;
+            grid-template-columns: 86px 1fr;
+            gap: 18px;
+            align-items: start;
+            padding-top: 16px;
+            border-top: 1px solid rgba(82, 52, 34, 0.24);
+        }
+
+        .roadmap-step .mono {
+            color: var(--oxblood);
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .roadmap-step p {
+            color: var(--ink);
+            font-size: 23px;
+            line-height: 1.38;
+        }
+
+        /* ===========================================
+           DECK CONTROLS
+           =========================================== */
+        .deck-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border: 1px solid rgba(242, 227, 207, 0.32);
+            background: rgba(32, 20, 13, 0.78);
+            backdrop-filter: blur(12px);
+            color: var(--paper-light);
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+
+        .deck-controls button {
+            display: grid;
+            place-items: center;
+            width: 32px;
+            height: 30px;
+            border: 1px solid rgba(242, 227, 207, 0.28);
+            background: rgba(242, 227, 207, 0.08);
+            color: var(--paper-light);
+            font-family: var(--font-mono);
+            cursor: pointer;
+        }
+
+        .deck-controls button:hover {
+            background: rgba(242, 227, 207, 0.18);
+        }
+
+        .progress-track {
+            width: 130px;
+            height: 4px;
+            background: rgba(242, 227, 207, 0.18);
+        }
+
+        .progress-fill {
+            width: 0;
+            height: 100%;
+            background: var(--ochre);
+            transition: width 0.28s ease;
+        }
+
+        /* ===========================================
+           INLINE EDITING CONTROLS
+           =========================================== */
+        .edit-hotzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 84px;
+            height: 84px;
+            z-index: 10000;
+            cursor: pointer;
+        }
+
+        .edit-toggle {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            z-index: 10001;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(242, 227, 207, 0.42);
+            background: rgba(32, 20, 13, 0.84);
+            color: var(--paper-light);
+            font-family: var(--font-mono);
+            font-size: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, background 0.3s ease;
+            cursor: pointer;
+        }
+
+        .edit-toggle.show,
+        .edit-toggle.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .edit-toggle.active {
+            background: var(--oxblood);
+        }
+
+        [contenteditable="true"] {
+            outline: 2px dashed rgba(123, 47, 34, 0.52);
+            outline-offset: 4px;
+            cursor: text;
+        }
+
+        .save-toast {
+            position: fixed;
+            top: 22px;
+            left: 74px;
+            z-index: 10001;
+            padding: 11px 15px;
+            border: 1px solid rgba(242, 227, 207, 0.42);
+            background: rgba(32, 20, 13, 0.86);
+            color: var(--paper-light);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+        }
+
+        .save-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===========================================
+           USER REVISION OVERRIDES: KAITI, LIGHTER WEIGHT, FITTING
+           =========================================== */
+        body,
+        p,
+        li,
+        td,
+        .body-copy,
+        .slide-subtitle,
+        .paper-row span,
+        .domain-row p,
+        .mini-card p,
+        .gap-card p,
+        .layer p,
+        .role-card p,
+        .dialogue-line p,
+        .memory-table td,
+        .bridge-card p,
+        .arch-node p,
+        .arch-layer p,
+        .condition p,
+        .metric-card li,
+        .contribution p,
+        .roadmap-step p {
+            font-family: var(--font-body);
+            font-weight: 400;
+        }
+
+        h1,
+        h2,
+        h3,
+        .serif,
+        .slide-title,
+        .main-title,
+        .theorem p {
+            font-family: var(--font-display);
+            font-weight: 600;
+        }
+
+        .theorem-label,
+        .slide-kicker,
+        .mono,
+        .tag,
+        .page-num,
+        strong,
+        .accent {
+            font-weight: 700;
+        }
+
+        .slide-title {
+            max-width: 1680px;
+            font-size: 60px;
+            line-height: 1.13;
+        }
+
+        .slide-subtitle {
+            max-width: 1420px;
+            font-size: 27px;
+            line-height: 1.42;
+        }
+
+        .main-title {
+            font-size: 76px;
+        }
+
+        .title-slide .main-title {
+            margin-left: 170px;
+            margin-top: 190px;
+            width: 1420px;
+        }
+
+        .title-slide .title-meta {
+            margin-left: 108px;
+            width: 1480px;
+            grid-template-columns: 0.9fr 1.1fr;
+        }
+
+        .title-slide .meta-list {
+            font-size: 22px;
+            white-space: nowrap;
+        }
+
+        section[data-slide-title="报告定位"] .theorem,
+        section[data-slide-title="报告定位"] .paper-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        section[data-slide-title="报告定位"] .paper-panel .equation {
+            min-height: 146px;
+        }
+
+        .theorem p {
+            font-size: 34px;
+            line-height: 1.38;
+        }
+
+        .slide-subtitle + .section-band {
+            top: 330px;
+        }
+
+        section[data-slide-title="报告定位"] .section-band,
+        section[data-slide-title="选题与问题"] .section-band {
+            top: 334px;
+        }
+
+        section[data-slide-title="选题与问题"] .paper-panel,
+        section[data-slide-title="选题与问题"] .quiet-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        section[data-slide-title="趋势转向"] .section-band,
+        section[data-slide-title="核心锚点"] .section-band,
+        section[data-slide-title="设计启发"] .section-band,
+        section[data-slide-title="概念框架"] .section-band,
+        section[data-slide-title="关键机制一"] .section-band,
+        section[data-slide-title="实验设计"] .section-band,
+        section[data-slide-title="评价指标"] .section-band {
+            top: 286px;
+        }
+
+        section[data-slide-title="关键机制一"] .section-band {
+            top: 314px;
+        }
+
+        .mini-card,
+        .formula-box,
+        .gap-card,
+        .role-card,
+        .condition,
+        .metric-card,
+        .arch-node,
+        .bridge-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .role-card {
+            display: grid;
+            grid-template-rows: auto auto auto;
+            align-content: center;
+            gap: 24px;
+        }
+
+        .role-card .tag {
+            align-self: start;
+        }
+
+        section[data-slide-title="系统角色"] .role-card .tag {
+            border: 0;
+            background: transparent;
+            height: auto;
+            padding: 0;
+            color: var(--oxblood);
+            font-family: var(--font-body);
+            font-size: 22px;
+            font-style: italic;
+            line-height: 1.25;
+        }
+
+        section[data-slide-title="关键机制一"] .dialogue {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        section[data-slide-title="关键机制一"] .speaker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .condition {
+            display: grid;
+            grid-template-rows: auto auto auto;
+            align-content: center;
+            gap: 42px;
+        }
+
+        .metric-card {
+            justify-content: center;
+            padding-top: 24px;
+            padding-bottom: 24px;
+        }
+
+        .deck-controls {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-50%) translateY(12px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .deck-controls.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="deck-viewport">
+        <main class="deck-stage" id="deckStage">
+            <!-- ===========================================
+                 SLIDE 01: TITLE
+                 =========================================== -->
+            <section class="slide title-slide active visible" data-slide-title="标题">
+                <div class="slide-inner">
+                    <div class="title-frame reveal-scale"></div>
+                    <h1 class="main-title reveal delay-2" data-editable>
+                        关系感知型多智能体老年虚拟陪伴系统
+                        <span class="latin">Relationship-Aware Multi-Agent Companions for Older Adults</span>
+                    </h1>
+                    <div class="title-meta reveal delay-3">
+                        <div class="theorem">
+                            <div class="theorem-label" data-editable>Thesis</div>
+                            <p data-editable>我的创新点不是简单增加更多 agent，而是研究老年陪伴中“关系角色”如何被动态编排。</p>
+                        </div>
+                        <div class="meta-list" data-editable>
+                            <div>研究对象：老年人回忆、自我表达与长期信任</div>
+                            <div>核心机制：需求生成角色 + 动态编排 + 社会性记忆线索</div>
+                            <div>研究路径：访谈共创 → 原型实验 → 内容编码与体验评估</div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Research Direction / Multi-Agent HCI</span>
+                        <span class="page-num">01 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 02: RESEARCH POSITIONING
+                 =========================================== -->
+            <section class="slide" data-slide-title="报告定位">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>0. Research Positioning</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>从固定多角色陪伴，走向关系感知型动态编排</h2>
+                    <p class="slide-subtitle reveal delay-2" data-editable>研究重点不是“多几个 agent”，而是先理解老年人真正希望谁来陪、哪些话题适合谁、什么内容值得被记住。</p>
+                    <div class="section-band content-grid grid-2">
+                        <div class="theorem reveal-left delay-3">
+                            <div class="theorem-label" data-editable>Core Claim</div>
+                            <p data-editable>老年人需要的不是固定身份的陪伴者，而是随话题、人生经历、情绪状态和关系边界变化的关系角色。</p>
+                        </div>
+                        <div class="paper-panel reveal delay-4" style="padding: 36px 42px;">
+                            <div class="equation" data-editable>
+                                Older adults' needs<br>
+                                <span class="accent">→ 角色分类体系 → dynamic orchestration</span>
+                            </div>
+                            <ul class="bullet-list" style="margin-top: 32px;">
+                                <li data-editable>谁来陪：同龄人、晚辈、中年传承者、长辈或主题人物？</li>
+                                <li data-editable>怎么陪：直接提问、先让 agents 短暂对话，还是暂时沉默？</li>
+                                <li data-editable>何时停：隐私、故人、强烈悲伤和过度依赖如何设置边界？</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Research positioning</span>
+                        <span class="page-num">02 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 03: CHI 2025 TO 2026
+                 =========================================== -->
+            <section class="slide" data-slide-title="趋势转向">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>1. Literature Trend</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>CHI 多智能体研究给出的推进方向</h2>
+                    <div class="section-band timeline">
+                        <div class="year-block reveal-left delay-2">
+                            <h3 data-editable>体验探索 <span>2025 systems</span></h3>
+                            <div style="margin-top: 28px;">
+                                <div class="paper-row">
+                                    <strong data-editable>ReminiBuddy</strong>
+                                    <span data-editable>证明 older / younger agents 和照片、怀旧物件会影响老年人的回忆类型与情感投入。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>Cinema Multiverse</strong>
+                                    <span data-editable>提示 persona 不必局限于熟人，也可以围绕内容和兴趣生成不同社会声音。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>YES AND</strong>
+                                    <span data-editable>说明多 agent 的关键是 turn-taking：谁该发言、谁该沉默、何时总结。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>AGDebugger / Early Adopters</strong>
+                                    <span data-editable>提醒复杂系统必须可观察、可监督，不能只追求更多 agent 自治。</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="year-block reveal delay-3">
+                            <h3 data-editable>机制追问 <span>2026 control & trust</span></h3>
+                            <div style="margin-top: 28px;">
+                                <div class="paper-row">
+                                    <strong data-editable>Perspectra</strong>
+                                    <span data-editable>用户应能选择和组织 agent，而不是被动接受系统预设的角色组合。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>Sensemaking</strong>
+                                    <span data-editable>多 agent 过程会成为信任线索；透明度过多会造成负担，过少又像黑箱。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>CrafTeam / MultiColleagues</strong>
+                                    <span data-editable>把人放在编排位置：系统提供角色与节奏，人保留方向控制。</span>
+                                </div>
+                                <div class="paper-row">
+                                    <strong data-editable>DiLLS</strong>
+                                    <span data-editable>为研究者提供后台诊断思路：角色选择、记忆引用和话题切换都应可追踪。</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>CHI 2025–2026 transition</span>
+                        <span class="page-num">03 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 04: FIELD MAP
+                 =========================================== -->
+            <section class="slide" data-slide-title="领域地图">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>2. Field Map</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>十篇论文构成了五个设计维度</h2>
+                    <div class="section-band map-grid">
+                        <div class="domain-table reveal-left delay-2">
+                            <div class="domain-row">
+                                <h3 data-editable>多角色陪伴</h3>
+                                <p data-editable>ReminiBuddy, Cinema Multiverse：persona / 身份是否增强体验、理解和情感投入。</p>
+                            </div>
+                            <div class="domain-row">
+                                <h3 data-editable>用户选择与编排</h3>
+                                <p data-editable>Perspectra, CrafTeam, MultiColleagues：用户如何选择、组织、控制多个 agent。</p>
+                            </div>
+                            <div class="domain-row">
+                                <h3 data-editable>对话机制</h3>
+                                <p data-editable>YES AND, MultiColleagues：谁发言、何时发言、何时总结或沉默。</p>
+                            </div>
+                            <div class="domain-row">
+                                <h3 data-editable>透明度与信任</h3>
+                                <p data-editable>Sensemaking, Early Adopters：过程展示如何影响信任、误配信任和负担。</p>
+                            </div>
+                            <div class="domain-row">
+                                <h3 data-editable>调试与诊断</h3>
+                                <p data-editable>AGDebugger, DiLLS：多 agent 失败后如何观察、回滚、编辑和定位原因。</p>
+                            </div>
+                        </div>
+                        <div class="formula-stack reveal delay-3">
+                            <div class="formula-box">
+                                <div class="mono" data-editable>Dimension 01</div>
+                                <p data-editable>固定 persona → 动态关系角色</p>
+                            </div>
+                            <div class="formula-box">
+                                <div class="mono" data-editable>Dimension 02</div>
+                                <p data-editable>agent autonomy → human orchestration</p>
+                            </div>
+                            <div class="formula-box">
+                                <div class="mono" data-editable>Dimension 03</div>
+                                <p data-editable>多 agent 输出 → 可理解、可诊断的过程</p>
+                            </div>
+                            <div class="formula-box">
+                                <div class="mono" data-editable>Dimension 04</div>
+                                <p data-editable>短期 demo → 长期记忆与信任建立</p>
+                            </div>
+                            <div class="theorem">
+                                <div class="theorem-label" data-editable>Implication</div>
+                                <p data-editable>老年陪伴系统应研究具体机制，而不是泛泛比较 multi-agent 是否优于 single-agent。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Field mapping</span>
+                        <span class="page-num">04 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 05: REMINIBUDDY ANCHOR
+                 =========================================== -->
+            <section class="slide" data-slide-title="核心锚点">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>3. Anchor Paper</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>ReminiBuddy 之后，还可以继续推进什么？</h2>
+                    <div class="section-band">
+                        <table class="comparison-table reveal delay-2">
+                            <thead>
+                                <tr>
+                                    <th data-editable>ReminiBuddy 已证明</th>
+                                    <th data-editable>可继续推进的空间</th>
+                                    <th data-editable>我的研究转化</th>
+                                    <th data-editable>对应机制</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td data-editable>older / younger agents 会带来不同情感吸引力与内容共鸣。</td>
+                                    <td data-editable>角色仍是研究者预设的固定年龄身份。</td>
+                                    <td data-editable>先访谈老年人，理解他们希望“谁”来陪，再形成角色需求分类体系。</td>
+                                    <td data-editable>基于需求设计角色</td>
+                                </tr>
+                                <tr>
+                                    <td data-editable>个人照片与怀旧物件可以触发不同类型的回忆。</td>
+                                    <td data-editable>responding agents 之间并没有真正互相对话。</td>
+                                    <td data-editable>让 agents 先短暂对话，形成“多人聊天场景”，再邀请老人加入。</td>
+                                    <td data-editable>social memory cue</td>
+                                </tr>
+                                <tr>
+                                    <td data-editable>系统能通过 artifact switching 组织不同记忆线索。</td>
+                                    <td data-editable>用户有时刚进入感兴趣话题，系统就切换了物件或方向。</td>
+                                    <td data-editable>根据参与时长、情绪、历史记忆和话题兴趣判断是否继续。</td>
+                                    <td data-editable>动态话题与角色编排</td>
+                                </tr>
+                                <tr>
+                                    <td data-editable>多角色 agent 比单一聊天机器人打开了更丰富的陪伴空间。</td>
+                                    <td data-editable>熟人/家人式 agent 并不天然更好，可能带来投射、尴尬和真实性问题。</td>
+                                    <td data-editable>角色不只模仿熟人，也可生成主题人物、陌生倾听者或纪念引导者。</td>
+                                    <td data-editable>伦理边界与角色标记</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="slide-footer">
+                        <span>ReminiBuddy as anchor</span>
+                        <span class="page-num">05 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 06: DESIGN INSPIRATIONS
+                 =========================================== -->
+            <section class="slide" data-slide-title="设计启发">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>4. Research Concepts</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>从想法转化出六个研究概念</h2>
+                    <div class="section-band content-grid grid-3">
+                        <div class="mini-card reveal-left delay-2">
+                            <h3 data-editable>智能体间对话</h3>
+                            <p data-editable>让多个 agent 先短暂对话，形成社会性记忆线索，而不是直接把问题抛给老人。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>social memory cue</div>
+                        </div>
+                        <div class="mini-card reveal-left delay-3">
+                            <h3 data-editable>长期记忆</h3>
+                            <p data-editable>持续对话不只是记住偏好，而是减少陌生感、建立熟悉感和信任感。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>memory for trust</div>
+                        </div>
+                        <div class="mini-card reveal-left delay-4">
+                            <h3 data-editable>认知熟悉边界</h3>
+                            <p data-editable>新内容能否被接受，取决于它能否接上老人的既有经验、身份和兴趣。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>bounded personalization</div>
+                        </div>
+                        <div class="mini-card reveal delay-2">
+                            <h3 data-editable>动态关系角色</h3>
+                            <p data-editable>小孩、中年人、同龄人、长辈不是年龄标签，而是活力、传承、认同、包容等关系功能。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>role orchestration</div>
+                        </div>
+                        <div class="mini-card reveal delay-3">
+                            <h3 data-editable>陪伴伦理边界</h3>
+                            <p data-editable>故人相关话题可以作为边界研究，但不应让 AI 直接扮演逝者本人。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>memorial guidance</div>
+                        </div>
+                        <div class="mini-card reveal delay-4">
+                            <h3 data-editable>用户控制</h3>
+                            <p data-editable>老人不需要配置复杂团队，但需要能说“换人、继续、总结、不要记住、停止”。</p>
+                            <div class="tag" style="margin-top: 18px;" data-editable>lightweight control</div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>From papers to variables</span>
+                        <span class="page-num">06 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 07: RESEARCH GAPS
+                 =========================================== -->
+            <section class="slide" data-slide-title="研究缺口">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>5. Research Gaps</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>现有研究还没有解释“关系如何长期被编排”</h2>
+                    <div class="section-band gap-grid">
+                        <div class="gap-card reveal-left delay-2" data-index="I">
+                            <h3 data-editable>固定年龄身份</h3>
+                            <p data-editable>older / younger 是有价值起点，但小孩、中年人、同龄人、长辈代表的是不同关系功能。</p>
+                        </div>
+                        <div class="gap-card reveal-left delay-3" data-index="II">
+                            <h3 data-editable>agent 间对话未验证</h3>
+                            <p data-editable>ReminiBuddy 提到潜力，但尚未把 agent-agent conversation 作为社会性记忆线索来测试。</p>
+                        </div>
+                        <div class="gap-card reveal-left delay-4" data-index="III">
+                            <h3 data-editable>认知熟悉边界缺席</h3>
+                            <p data-editable>新内容能否被接受，取决于能否接上老人的既有经验、身份和兴趣。</p>
+                        </div>
+                        <div class="gap-card reveal-left delay-5" data-index="IV">
+                            <h3 data-editable>长期记忆不足</h3>
+                            <p data-editable>多数系统是单 session；如何记住关键内容、延续关系、建立信任仍未充分研究。</p>
+                        </div>
+                        <div class="gap-card reveal-left delay-6" data-index="V">
+                            <h3 data-editable>伦理边界不足</h3>
+                            <p data-editable>故人、隐私、悲伤、依赖风险不能简单交给“更拟人”的 agent 处理。</p>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Research gaps</span>
+                        <span class="page-num">07 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 08: RESEARCH TOPIC AND QUESTIONS
+                 =========================================== -->
+            <section class="slide" data-slide-title="选题与问题">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>6. Proposed Topic</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>关系编排 × 社会线索 × 角色交互</h2>
+                    <p class="slide-subtitle reveal delay-2" data-editable>研究老年回忆陪伴中，不同 AI 关系角色如何被选择、组织、邀请与约束。</p>
+                    <div class="section-band content-grid grid-2">
+                        <div class="paper-panel reveal-left delay-3" style="padding: 34px 38px;">
+                            <div class="theorem-label" data-editable>Core Mechanisms</div>
+                            <ol class="numbered-list" style="margin-top: 18px;">
+                                <li data-editable><strong>关系编排</strong>：谁说话、谁沉默、谁追问、谁总结、何时停止。</li>
+                                <li data-editable><strong>社会线索引入话题</strong>：AI 先聊 2–3 句，形成轻量聊天场，再邀请老人加入。</li>
+                                <li data-editable><strong>多智能体角色交互</strong>：同龄共鸣、晚辈好奇、中年传承、回忆整理、边界守护如何协作。</li>
+                            </ol>
+                            <div class="equation" style="margin-top: 30px; font-size: 34px;" data-editable>
+                                relationship orchestration × social cueing × role interaction
+                            </div>
+                        </div>
+                        <div class="quiet-panel reveal delay-4" style="padding: 34px 38px;">
+                            <ol class="numbered-list">
+                                <li data-editable><strong>RQ1 关系编排</strong>：不同话题适合哪些关系角色？</li>
+                                <li data-editable><strong>RQ2 社会线索</strong>：agent-agent cue 是否降低开口压力并启动回忆？</li>
+                                <li data-editable><strong>RQ3 角色交互</strong>：多角色如何避免吵、假、乱，同时支持共鸣与总结？</li>
+                            </ol>
+                            <p class="body-copy" style="margin-top: 28px; font-size: 23px;" data-editable>
+                                Note：故人、悲伤、隐私和依赖风险作为伦理边界单独讨论；系统不扮演逝者本人。
+                            </p>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Topic and RQs</span>
+                        <span class="page-num">08 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 09: CONCEPTUAL FRAMEWORK
+                 =========================================== -->
+            <section class="slide" data-slide-title="概念框架">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>7. Core Insight</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>同一个老人，在不同话题下需要不同关系</h2>
+                    <div class="section-band layer-stack">
+                        <div class="layer reveal-left delay-2">
+                            <div class="mono" data-editable>Scene 01</div>
+                            <h3 data-editable>年轻时的学习、工作、奋斗</h3>
+                            <p data-editable>更适合同龄人或中年传承者，因为它们能提供时代共鸣和价值承接。</p>
+                        </div>
+                        <div class="layer reveal-left delay-3">
+                            <div class="mono" data-editable>Scene 02</div>
+                            <h3 data-editable>家庭、孩子与教育经验</h3>
+                            <p data-editable>更适合晚辈或中年人，让老人愿意讲述、传授并总结人生经验。</p>
+                        </div>
+                        <div class="layer reveal-left delay-4">
+                            <div class="mono" data-editable>Scene 03</div>
+                            <h3 data-editable>人生遗憾与关系反思</h3>
+                            <p data-editable>更适合同龄人或长辈型 agent，降低被评价感，进入更深层反思。</p>
+                        </div>
+                        <div class="layer reveal-left delay-5">
+                            <div class="mono" data-editable>Scene 04</div>
+                            <h3 data-editable>新科技、新生活变化</h3>
+                            <p data-editable>可以由晚辈或解释型 agent 引入，但必须先连接老人已有经验。</p>
+                        </div>
+                        <div class="layer reveal-left delay-6">
+                            <div class="mono" data-editable>Scene 05</div>
+                            <h3 data-editable>故人、丧失与怀念</h3>
+                            <p data-editable>应使用纪念引导 agent，而不是扮演逝者本人；用户可随时停止或删除。</p>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Conceptual framework</span>
+                        <span class="page-num">09 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 10: VISIBLE AGENTS
+                 =========================================== -->
+            <section class="slide" data-slide-title="系统角色">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>8. Visible Agents</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>agent 身份不是年龄标签，而是关系功能</h2>
+                    <div class="section-band role-grid">
+                        <div class="role-card reveal-left delay-2">
+                            <h3 data-editable>同龄共鸣 Agent</h3>
+                            <p data-editable>时代共鸣、共同经历、归属感。</p>
+                            <div class="tag" data-editable>童年 / 工作 / 旧物</div>
+                        </div>
+                        <div class="role-card reveal-left delay-3">
+                            <h3 data-editable>晚辈好奇 Agent</h3>
+                            <p data-editable>活力、追问、情感鼓励，让老人愿意讲述和传授。</p>
+                            <div class="tag" data-editable>经验 / 代际交流</div>
+                        </div>
+                        <div class="role-card reveal-left delay-4">
+                            <h3 data-editable>中年传承 Agent</h3>
+                            <p data-editable>承接经验、理解现实责任，强调传承感。</p>
+                            <div class="tag" data-editable>家庭 / 职业</div>
+                        </div>
+                        <div class="role-card reveal-left delay-5">
+                            <h3 data-editable>长辈引导 Agent</h3>
+                            <p data-editable>安慰、包容、人生反思，降低评价压力。</p>
+                            <div class="tag" data-editable>遗憾 / 选择</div>
+                        </div>
+                        <div class="role-card reveal-left delay-6">
+                            <h3 data-editable>主题人物 Agent</h3>
+                            <p data-editable>围绕戏曲、体育、教师、工厂、地方文化建立共同语言。</p>
+                            <div class="tag" data-editable>兴趣桥接</div>
+                        </div>
+                        <div class="role-card reveal-left delay-5">
+                            <h3 data-editable>回忆整理 Agent</h3>
+                            <p data-editable>总结故事、生成回忆卡片，帮助家庭分享。</p>
+                            <div class="tag" data-editable>总结 / 保存</div>
+                        </div>
+                        <div class="role-card reveal-left delay-6">
+                            <h3 data-editable>边界守护 Agent</h3>
+                            <p data-editable>识别隐私、悲伤、依赖和风险，避免越界。</p>
+                            <div class="tag" data-editable>安全 / 授权</div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Relationship roles</span>
+                        <span class="page-num">10 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 11: INTER-AGENT CUEING
+                 =========================================== -->
+            <section class="slide" data-slide-title="关键机制一">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>9. Mechanism I</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>Inter-agent conversational cueing：先有聊天场，再邀请老人加入</h2>
+                    <div class="section-band dialogue-layout">
+                        <div class="dialogue reveal-left delay-2">
+                            <div class="dialogue-line">
+                                <div class="speaker" data-editable>同龄共鸣</div>
+                                <p data-editable>看到这个老电视，我想起以前一家有电视，全院子的人都来看。</p>
+                            </div>
+                            <div class="dialogue-line">
+                                <div class="speaker" data-editable>晚辈好奇</div>
+                                <p data-editable>真的会全院子一起看吗？那时候大家是不是还要提前搬凳子？</p>
+                            </div>
+                            <div class="dialogue-line">
+                                <div class="speaker" data-editable>中年传承</div>
+                                <p data-editable>这不只是看电视，也像是邻里关系的一部分。叔叔/阿姨，您那时候有没有类似经历？</p>
+                            </div>
+                        </div>
+                        <div class="hypothesis-box reveal delay-3">
+                            <div class="theorem">
+                                <div class="theorem-label" data-editable>Hypothesis</div>
+                                <p data-editable>相比 agent 直接提问，短暂、受控的 agent-agent 对话能够降低开口压力，提供更多回忆入口，并增强多人陪伴感。</p>
+                            </div>
+                            <div class="equation" data-editable>
+                                Direct question → answering<br>
+                                <span class="accent">shared scene → joining</span>
+                            </div>
+                            <ul class="bullet-list">
+                                <li data-editable>普通 single-agent：直接问“您以前看过这种电视吗？”</li>
+                                <li data-editable>固定多角色：older / younger 轮流回应，但角色不随话题改变。</li>
+                                <li data-editable>本研究：agents 先搭建社会性线索，再自然邀请老人讲述。</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Inter-agent conversational cueing</span>
+                        <span class="page-num">11 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 12: MEMORY AND FAMILIARITY
+                 =========================================== -->
+            <section class="slide" data-slide-title="关键机制二">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>10. Mechanism II</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>长期记忆必须可见、可确认、可修改、可删除</h2>
+                    <div class="section-band content-grid" style="grid-template-rows: 1fr 214px;">
+                        <table class="memory-table reveal delay-2">
+                            <thead>
+                                <tr>
+                                    <th data-editable>记忆类型</th>
+                                    <th data-editable>示例</th>
+                                    <th data-editable>使用方式</th>
+                                    <th data-editable>主要风险</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td data-editable>事实记忆</td>
+                                    <td data-editable>“您年轻时做过教师。”</td>
+                                    <td data-editable>下次聊教育、学生、课堂时自然接上。</td>
+                                    <td data-editable>隐私泄露、记错事实。</td>
+                                </tr>
+                                <tr>
+                                    <td data-editable>情感记忆</td>
+                                    <td data-editable>“您谈到学生考上大学时很骄傲。”</td>
+                                    <td data-editable>后续回忆中温和引用，支持自我表达。</td>
+                                    <td data-editable>情感操纵、过度拟人。</td>
+                                </tr>
+                                <tr>
+                                    <td data-editable>关系偏好记忆</td>
+                                    <td data-editable>“您喜欢同龄人陪聊，不喜欢连续追问。”</td>
+                                    <td data-editable>调整角色、节奏和提问密度。</td>
+                                    <td data-editable>过度个性化、兴趣固化。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="content-grid grid-2 reveal delay-3">
+                            <div class="bridge-card">
+                                <h3 data-editable>认知熟悉边界</h3>
+                                <p data-editable>不要直接问“你怎么看 AI 大模型”，而是问“现在学生用 AI 学习，和您以前教学生有什么不同？”</p>
+                            </div>
+                            <div class="bridge-card">
+                                <h3 data-editable>授权式记忆卡片</h3>
+                                <p data-editable>“我记住了您年轻时做过教师。下次聊学生或学习时，可以从这里接着聊。您希望我记住这件事吗？”</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Consented memory and familiarity boundary</span>
+                        <span class="page-num">12 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 13: SYSTEM ARCHITECTURE
+                 =========================================== -->
+            <section class="slide" data-slide-title="系统方案">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>11. System Proposal</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>系统框架：前台陪伴角色 + 后台调度 agent</h2>
+                    <div class="section-band arch">
+                        <div class="arch-column reveal-left delay-2">
+                            <div class="arch-node">
+                                <h3 data-editable>前台可见角色</h3>
+                                <p data-editable>同龄共鸣、晚辈好奇、中年传承、长辈/导师型、主题人物。</p>
+                            </div>
+                            <div class="arch-node">
+                                <h3 data-editable>出现原则</h3>
+                                <p data-editable>这些角色不一定同时出现；每轮最多 2–3 个，避免增加认知负担。</p>
+                            </div>
+                            <div class="arch-node">
+                                <h3 data-editable>用户控制</h3>
+                                <p data-editable>继续、换人、总结、不要记住、删除记忆、暂停话题。</p>
+                            </div>
+                        </div>
+                        <div class="arch-center reveal delay-3">
+                            <div class="arch-layer">
+                                <div class="mono" data-editable>01 Orchestration</div>
+                                <div>
+                                    <h3 data-editable>关系编排 Agent</h3>
+                                    <p data-editable>判断当前话题适合哪个角色介入、谁沉默、是否需要切换。</p>
+                                </div>
+                            </div>
+                            <div class="arch-layer">
+                                <div class="mono" data-editable>02 Memory</div>
+                                <div>
+                                    <h3 data-editable>长期记忆 Agent</h3>
+                                    <p data-editable>记住重要经历、关系偏好、敏感话题和喜欢的陪伴方式。</p>
+                                </div>
+                            </div>
+                            <div class="arch-layer">
+                                <div class="mono" data-editable>03 Boundary</div>
+                                <div>
+                                    <h3 data-editable>兴趣边界 Agent</h3>
+                                    <p data-editable>判断新内容是否在认知熟悉范围内，是否要先连接旧经验。</p>
+                                </div>
+                            </div>
+                            <div class="arch-layer">
+                                <div class="mono" data-editable>04 Ethics</div>
+                                <div>
+                                    <h3 data-editable>边界与伦理 Agent</h3>
+                                    <p data-editable>判断亡者、强烈悲伤、隐私、过度依赖等不适合继续的话题。</p>
+                                </div>
+                            </div>
+                            <div class="arch-layer">
+                                <div class="mono" data-editable>05 Reflection</div>
+                                <div>
+                                    <h3 data-editable>回忆整理 Agent</h3>
+                                    <p data-editable>整理故事，生成可保存、可删除、可分享的回忆卡片。</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="arch-column reveal delay-4">
+                            <div class="arch-node">
+                                <h3 data-editable>输出</h3>
+                                <p data-editable>多角色对话、社会性记忆线索、回忆摘要、记忆卡片、透明提示。</p>
+                            </div>
+                            <div class="arch-node">
+                                <h3 data-editable>后台 trace</h3>
+                                <p data-editable>记录 role trace、memory trace、topic trace、safety trace，用于诊断和迭代。</p>
+                            </div>
+                            <div class="arch-node">
+                                <h3 data-editable>边界策略</h3>
+                                <p data-editable>使用纪念引导 agent，而不是亡者复刻 agent；先保护，再陪伴。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>System architecture</span>
+                        <span class="page-num">13 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 14: STUDY DESIGN
+                 =========================================== -->
+            <section class="slide" data-slide-title="实验设计">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>12. Study Design</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>两阶段研究：先建立需求分类体系，再比较三种原型</h2>
+                    <div class="section-band condition-grid">
+                        <div class="condition reveal-left delay-2">
+                            <div>
+                                <div class="mono" data-editable>Stage 01</div>
+                                <h3 data-editable>访谈 / 共创</h3>
+                            </div>
+                            <p data-editable>访谈 8–12 位老年人，了解愿意和谁聊过去、哪些话题适合谁、哪些记忆可以保存。</p>
+                            <div class="equation" data-editable>角色需求分类体系</div>
+                        </div>
+                        <div class="condition reveal-left delay-3">
+                            <div>
+                                <div class="mono" data-editable>Stage 02</div>
+                                <h3 data-editable>原型实验</h3>
+                            </div>
+                            <p data-editable>用 Wizard-of-Oz 或半自动原型比较 C1 single-agent、C2 fixed-role multi-agent、C3 relationship-aware multi-agent。</p>
+                            <div class="equation" data-editable>C1 / C2 / C3</div>
+                        </div>
+                        <div class="condition reveal-left delay-4">
+                            <div>
+                                <div class="mono" data-editable>Innovation</div>
+                                <h3 data-editable>可归因机制</h3>
+                            </div>
+                            <p data-editable>C3 根据话题和历史记忆动态选择角色，并允许 agent-agent 简短对话，验证社会性记忆线索。</p>
+                            <div class="equation" data-editable>Agent ↔ Agent → User</div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Experimental conditions</span>
+                        <span class="page-num">14 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 15: EVALUATION
+                 =========================================== -->
+            <section class="slide" data-slide-title="评价指标">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>13. Evaluation</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>把“更好陪伴”拆成可测指标</h2>
+                    <div class="section-band metric-grid">
+                        <div class="metric-card reveal-left delay-2">
+                            <h3 data-editable>回忆深度</h3>
+                            <ul>
+                                <li data-editable>自传式记忆数量</li>
+                                <li data-editable>具体细节数量</li>
+                                <li data-editable>人物 / 地点 / 时间 / 情绪细节</li>
+                                <li data-editable>公共记忆与今昔对比</li>
+                                <li data-editable>主动发起新话题次数</li>
+                            </ul>
+                        </div>
+                        <div class="metric-card reveal-left delay-3">
+                            <h3 data-editable>自我表达</h3>
+                            <ul>
+                                <li data-editable>self-disclosure depth</li>
+                                <li data-editable>是否表达感受</li>
+                                <li data-editable>是否表达价值判断</li>
+                                <li data-editable>是否讲出遗憾、骄傲或人生反思</li>
+                                <li data-editable>对 cueing 的回应长度</li>
+                            </ul>
+                        </div>
+                        <div class="metric-card reveal-left delay-4">
+                            <h3 data-editable>陪伴与信任</h3>
+                            <ul>
+                                <li data-editable>perceived companionship</li>
+                                <li data-editable>social presence</li>
+                                <li data-editable>是否觉得 agent 理解自己</li>
+                                <li data-editable>是否觉得系统记得自己</li>
+                                <li data-editable>持续使用意愿</li>
+                            </ul>
+                        </div>
+                        <div class="metric-card reveal-left delay-5">
+                            <h3 data-editable>控制与边界</h3>
+                            <ul>
+                                <li data-editable>是否能选择 / 切换角色</li>
+                                <li data-editable>是否知道系统记住了什么</li>
+                                <li data-editable>多个 agent 是否混乱或打扰</li>
+                                <li data-editable>隐私担忧与被监视感</li>
+                                <li data-editable>故人话题不适感</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Evaluation metrics</span>
+                        <span class="page-num">15 / 16</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===========================================
+                 SLIDE 16: CONTRIBUTIONS AND NEXT STEPS
+                 =========================================== -->
+            <section class="slide" data-slide-title="贡献与计划">
+                <div class="slide-inner">
+                    <div class="slide-kicker reveal" data-editable>14. Contributions</div>
+                    <h2 class="slide-title reveal delay-1" data-editable>预期贡献：从预设角色走向基于需求的关系编排</h2>
+                    <div class="section-band contribution-grid">
+                        <div class="contribution-list reveal-left delay-2">
+                            <div class="contribution">
+                                <div class="mono" data-editable>C1</div>
+                                <div>
+                                    <h3 data-editable>老年人陪伴角色需求分类体系</h3>
+                                    <p data-editable>不是直接预设 older / younger，而是先理解老年人希望谁来陪、哪些话题适合谁。</p>
+                                </div>
+                            </div>
+                            <div class="contribution">
+                                <div class="mono" data-editable>C2</div>
+                                <div>
+                                    <h3 data-editable>动态关系角色编排机制</h3>
+                                    <p data-editable>根据用户背景、话题、长期记忆和关系需求决定谁来陪、何时切换、何时沉默。</p>
+                                </div>
+                            </div>
+                            <div class="contribution">
+                                <div class="mono" data-editable>C3</div>
+                                <div>
+                                    <h3 data-editable>agent-agent conversation as social memory cue</h3>
+                                    <p data-editable>把 agent 间对话从系统装饰转化为面向老年人的社会性回忆入口。</p>
+                                </div>
+                            </div>
+                            <div class="contribution">
+                                <div class="mono" data-editable>C4</div>
+                                <div>
+                                    <h3 data-editable>长期记忆与伦理边界设计</h3>
+                                    <p data-editable>研究哪些记忆建立信任，哪些记忆造成侵犯；故人话题使用纪念引导而非复刻。</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="roadmap reveal delay-3">
+                            <h3 data-editable>下一步计划</h3>
+                            <div class="roadmap-step">
+                                <div class="mono" data-editable>Step 01</div>
+                                <p data-editable>访谈与共创：建立角色需求分类体系、话题—角色匹配矩阵和记忆授权规则。</p>
+                            </div>
+                            <div class="roadmap-step">
+                                <div class="mono" data-editable>Step 02</div>
+                                <p data-editable>Wizard-of-Oz 原型：先控制 agent-agent cueing 的话术和参与数量。</p>
+                            </div>
+                            <div class="roadmap-step">
+                                <div class="mono" data-editable>Step 03</div>
+                                <p data-editable>小规模 pilot：比较 C1 / C2 / C3 对回忆启动、陪伴感和认知负担的影响。</p>
+                            </div>
+                            <div class="theorem" style="margin-top: 8px;">
+                                <div class="theorem-label" data-editable>Closing</div>
+                                <p data-editable>先建立角色需求分类体系，再验证动态编排和社会性记忆线索是否真的有效。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-footer">
+                        <span>Expected contributions and roadmap</span>
+                        <span class="page-num">16 / 16</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ===========================================
+         PRESENTATION CHROME
+         =========================================== -->
+    <div class="deck-controls" aria-label="Presentation controls">
+        <button id="prevSlide" title="Previous slide">‹</button>
+        <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+        <span id="slideCounter">01 / 16</span>
+        <button id="nextSlide" title="Next slide">›</button>
+    </div>
+    <div class="edit-hotzone" aria-hidden="true"></div>
+    <button class="edit-toggle" id="editToggle" title="Edit mode (E)">E</button>
+    <div class="save-toast" id="saveToast">Saved</div>
+
+    <script>
+        /* ===========================================
+           SLIDE PRESENTATION CONTROLLER
+           =========================================== */
+        class SlidePresentation {
+            constructor() {
+                this.slides = Array.from(document.querySelectorAll(".slide"));
+                this.currentSlide = 0;
+                this.stage = document.getElementById("deckStage");
+                this.progressFill = document.getElementById("progressFill");
+                this.slideCounter = document.getElementById("slideCounter");
+                this.controls = document.querySelector(".deck-controls");
+                this.controlsTimer = null;
+                this.wheelLocked = false;
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.setupStageScale();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupMouseWheel();
+                this.setupButtons();
+                this.setupTransientControls();
+                this.showSlide(this.indexFromHash());
+            }
+
+            setupStageScale() {
+                const scale = () => {
+                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    const x = (window.innerWidth - 1920 * factor) / 2;
+                    const y = (window.innerHeight - 1080 * factor) / 2;
+                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+                };
+                scale();
+                window.addEventListener("resize", scale);
+            }
+
+            setupKeyboardNav() {
+                document.addEventListener("keydown", (event) => {
+                    const target = event.target;
+                    if (target && target.getAttribute && target.getAttribute("contenteditable") === "true") return;
+                    if (["ArrowRight", " ", "PageDown"].includes(event.key)) {
+                        event.preventDefault();
+                        this.next();
+                    }
+                    if (["ArrowLeft", "PageUp"].includes(event.key)) {
+                        event.preventDefault();
+                        this.previous();
+                    }
+                    if (event.key === "Home") {
+                        event.preventDefault();
+                        this.showSlide(0);
+                    }
+                    if (event.key === "End") {
+                        event.preventDefault();
+                        this.showSlide(this.slides.length - 1);
+                    }
+                });
+            }
+
+            setupTouchNav() {
+                window.addEventListener("touchstart", (event) => {
+                    this.touchStartX = event.changedTouches[0].screenX;
+                    this.touchStartY = event.changedTouches[0].screenY;
+                }, { passive: true });
+                window.addEventListener("touchend", (event) => {
+                    const dx = event.changedTouches[0].screenX - this.touchStartX;
+                    const dy = event.changedTouches[0].screenY - this.touchStartY;
+                    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+                        if (dx < 0) this.next();
+                        else this.previous();
+                    }
+                }, { passive: true });
+            }
+
+            setupMouseWheel() {
+                window.addEventListener("wheel", (event) => {
+                    if (this.wheelLocked || Math.abs(event.deltaY) < 24) return;
+                    this.wheelLocked = true;
+                    if (event.deltaY > 0) this.next();
+                    else this.previous();
+                    setTimeout(() => {
+                        this.wheelLocked = false;
+                    }, 520);
+                }, { passive: true });
+            }
+
+            setupButtons() {
+                document.getElementById("prevSlide").addEventListener("click", () => this.previous());
+                document.getElementById("nextSlide").addEventListener("click", () => this.next());
+            }
+
+            setupTransientControls() {
+                const showControls = () => {
+                    this.controls.classList.add("show");
+                    clearTimeout(this.controlsTimer);
+                    this.controlsTimer = setTimeout(() => {
+                        this.controls.classList.remove("show");
+                    }, 1300);
+                };
+                window.addEventListener("mousemove", showControls);
+                window.addEventListener("touchstart", showControls, { passive: true });
+                window.addEventListener("keydown", showControls);
+                this.controls.addEventListener("mouseenter", () => {
+                    clearTimeout(this.controlsTimer);
+                    this.controls.classList.add("show");
+                });
+                this.controls.addEventListener("mouseleave", () => {
+                    this.controlsTimer = setTimeout(() => {
+                        this.controls.classList.remove("show");
+                    }, 500);
+                });
+            }
+
+            indexFromHash() {
+                const match = window.location.hash.match(/slide-(\d+)/);
+                if (!match) return 0;
+                const parsed = Number.parseInt(match[1], 10) - 1;
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
+
+            showSlide(index) {
+                this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+                this.slides.forEach((slide, slideIndex) => {
+                    const isCurrent = slideIndex === this.currentSlide;
+                    slide.classList.toggle("active", isCurrent);
+                    slide.classList.toggle("visible", isCurrent);
+                    slide.setAttribute("aria-hidden", String(!isCurrent));
+                });
+                const humanIndex = this.currentSlide + 1;
+                const total = this.slides.length;
+                this.slideCounter.textContent = `${String(humanIndex).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+                this.progressFill.style.width = `${(humanIndex / total) * 100}%`;
+                window.history.replaceState(null, "", `#slide-${humanIndex}`);
+            }
+
+            next() {
+                this.showSlide(this.currentSlide + 1);
+            }
+
+            previous() {
+                this.showSlide(this.currentSlide - 1);
+            }
+        }
+
+        /* ===========================================
+           INLINE EDITING CONTROLLER
+           =========================================== */
+        class InlineEditor {
+            constructor(stage) {
+                this.stage = stage;
+                this.isActive = false;
+                this.storageKey = "relationship-aware-opening-report-edits";
+                this.editables = Array.from(document.querySelectorAll("[data-editable]"));
+                this.toggle = document.getElementById("editToggle");
+                this.toast = document.getElementById("saveToast");
+                this.restore();
+                this.setupToggle();
+                this.setupSaving();
+            }
+
+            setupToggle() {
+                this.toggle.addEventListener("click", () => this.toggleEditMode());
+                const hotzone = document.querySelector(".edit-hotzone");
+                let hideTimeout = null;
+                hotzone.addEventListener("mouseenter", () => {
+                    clearTimeout(hideTimeout);
+                    this.toggle.classList.add("show");
+                });
+                hotzone.addEventListener("mouseleave", () => {
+                    hideTimeout = setTimeout(() => {
+                        if (!this.isActive) this.toggle.classList.remove("show");
+                    }, 400);
+                });
+                this.toggle.addEventListener("mouseenter", () => clearTimeout(hideTimeout));
+                this.toggle.addEventListener("mouseleave", () => {
+                    hideTimeout = setTimeout(() => {
+                        if (!this.isActive) this.toggle.classList.remove("show");
+                    }, 400);
+                });
+                hotzone.addEventListener("click", () => this.toggleEditMode());
+                document.addEventListener("keydown", (event) => {
+                    const target = event.target;
+                    const editingText = target && target.getAttribute && target.getAttribute("contenteditable") === "true";
+                    if ((event.key === "e" || event.key === "E") && !editingText && !event.metaKey && !event.ctrlKey) {
+                        this.toggleEditMode();
+                    }
+                });
+            }
+
+            setupSaving() {
+                this.editables.forEach((element) => {
+                    element.addEventListener("input", () => this.save());
+                });
+                document.addEventListener("keydown", (event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+                        event.preventDefault();
+                        this.save(true);
+                    }
+                });
+            }
+
+            toggleEditMode() {
+                this.isActive = !this.isActive;
+                this.toggle.classList.toggle("active", this.isActive);
+                this.toggle.classList.add("show");
+                this.editables.forEach((element) => {
+                    element.setAttribute("contenteditable", String(this.isActive));
+                    element.setAttribute("spellcheck", "false");
+                });
+                if (!this.isActive) this.save(true);
+            }
+
+            save(showToast = false) {
+                const payload = this.editables.map((element) => element.innerHTML);
+                localStorage.setItem(this.storageKey, JSON.stringify(payload));
+                if (showToast) this.showToast();
+            }
+
+            restore() {
+                const stored = localStorage.getItem(this.storageKey);
+                if (!stored) return;
+                try {
+                    const payload = JSON.parse(stored);
+                    payload.forEach((html, index) => {
+                        if (this.editables[index]) this.editables[index].innerHTML = html;
+                    });
+                } catch (error) {
+                    console.warn("Could not restore slide edits", error);
+                }
+            }
+
+            showToast() {
+                this.toast.classList.add("show");
+                clearTimeout(this.toastTimer);
+                this.toastTimer = setTimeout(() => this.toast.classList.remove("show"), 1200);
+            }
+        }
+
+        /* ===========================================
+           BOOTSTRAP
+           =========================================== */
+        const deck = new SlidePresentation();
+        const editor = new InlineEditor(document.getElementById("deckStage"));
+        window.deck = deck;
+    </script>
+</body>
+</html>
