@@ -99,7 +99,7 @@ Working docs produced for the demo:
 | [docs/poster_outline.md](docs/poster_outline.md) | Final research poster outline. |
 | [docs/final_report_skeleton.md](docs/final_report_skeleton.md) | Fillable final-report structure. |
 | [docs/safety_policy.md](docs/safety_policy.md) | What the system must never do, and the high-risk safety path. |
-| [docs/evaluation_plan.md](docs/evaluation_plan.md) | HCI evaluation goals, measures, and study conditions (draft). |
+| [docs/evaluation_plan.md](docs/evaluation_plan.md) | Relationship-aware evaluation plan: three-mechanism RQs, C1/C2/C3 conditions, and the content/experience/behavior/boundary measures. |
 
 Contributor instructions for AI coding agents: [AGENTS.md](AGENTS.md) (global
 product/safety/architecture rules) and [CLAUDE.md](CLAUDE.md) (Claude Code
