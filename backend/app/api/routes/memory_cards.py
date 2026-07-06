@@ -16,8 +16,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, Response
 
-from app.api.deps import get_memory_card_store, get_memory_store
+from app.api.deps import get_memory_card_store, get_memory_store, get_profile_store
 from app.schemas.memory_card import (
+    CardAction,
     CardStatus,
     MemoryCard,
     MemoryCardActionRequest,
@@ -26,7 +27,13 @@ from app.schemas.memory_card import (
 )
 from app.stores.memory_card_store import MemoryCardStore
 from app.stores.memory_store import MemoryStore
+from app.stores.profile_store import ProfileStore
 from app.tools.memory_card_tool import MemoryCardTool
+
+# Actions that write to long-term memory; blocked while the user's master memory
+# switch (UserProfile.memory_enabled) is off. `reject` writes nothing, so it is
+# always allowed (it just resolves the pending card).
+_WRITE_ACTIONS = frozenset({CardAction.save, CardAction.edit_then_save, CardAction.never_mention})
 
 router = APIRouter(prefix="/memory-cards", tags=["memory-cards"])
 
@@ -41,9 +48,14 @@ def draft_card(
     payload: MemoryCardDraftRequest,
     card_store: MemoryCardStore = Depends(get_memory_card_store),
     memory_store: MemoryStore = Depends(get_memory_store),
+    profile_store: ProfileStore = Depends(get_profile_store),
 ) -> Response:
     """Propose a draft card from an utterance. Returns 201 with the card, or
-    204 (no body) when no candidate is found."""
+    204 (no body) when no candidate is found (or the user has memory off)."""
+    # Master memory switch (#21): when the user has turned memory off, never even
+    # draft a card — there is nothing they could save.
+    if not profile_store.get(user_id).memory_enabled:
+        return Response(status_code=204)
     tool = MemoryCardTool(memory_store)
     try:
         card = tool.draft_from_text(user_id, payload.text, payload.source_turn_id)
@@ -76,6 +88,7 @@ def apply_card_action(
     payload: MemoryCardActionRequest,
     card_store: MemoryCardStore = Depends(get_memory_card_store),
     memory_store: MemoryStore = Depends(get_memory_store),
+    profile_store: ProfileStore = Depends(get_profile_store),
 ) -> MemoryCard:
     try:
         card = card_store.get(user_id, card_id)
@@ -89,6 +102,14 @@ def apply_card_action(
         raise HTTPException(
             status_code=409,
             detail=f"memory card already resolved (status={card.status.value})",
+        )
+    # Master memory switch (#21): when memory is off, block any write action
+    # (save / edit_then_save / never_mention). `reject` is still allowed — it
+    # writes nothing and just resolves the card.
+    if payload.action in _WRITE_ACTIONS and not profile_store.get(user_id).memory_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="memory disabled by user profile (memory_enabled=false)",
         )
 
     tool = MemoryCardTool(memory_store)

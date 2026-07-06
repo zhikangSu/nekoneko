@@ -296,3 +296,42 @@ def test_boundary_with_object_keeps_clean_summary(tool):
     assert card is not None
     assert card.candidate_type == CandidateType.boundary_preference
     assert card.summary == "不想再聊老伴去世的事"
+
+
+def test_e2e_memory_off_blocks_draft(card_client):
+    """Master memory switch off → no card is even drafted (204)."""
+    uid = "e2e_memoff_draft"
+    card_client.patch(f"/api/users/{uid}/profile", json={"memory_enabled": False})
+    resp = card_client.post(
+        f"/api/memory-cards/{uid}/draft", json={"text": "我喜欢粤剧"}
+    )
+    assert resp.status_code == 204
+
+
+def test_e2e_memory_off_blocks_write_actions(card_client):
+    """A card drafted while memory was on cannot be saved once the user turns the
+    master memory switch off — save/never_mention are blocked (409) and nothing is
+    written; reject still resolves the card."""
+    uid = "e2e_memoff_write"
+    card_id = card_client.post(
+        f"/api/memory-cards/{uid}/draft", json={"text": "我喜欢粤剧"}
+    ).json()["card_id"]
+    card_client.patch(f"/api/users/{uid}/profile", json={"memory_enabled": False})
+
+    mem = card_client._mem  # type: ignore[attr-defined]
+    save = card_client.post(
+        f"/api/memory-cards/{uid}/{card_id}/action", json={"action": "save"}
+    )
+    assert save.status_code == 409
+    assert mem.list(uid) == []
+
+    never = card_client.post(
+        f"/api/memory-cards/{uid}/{card_id}/action", json={"action": "never_mention"}
+    )
+    assert never.status_code == 409
+    assert mem.list(uid) == []
+
+    reject = card_client.post(
+        f"/api/memory-cards/{uid}/{card_id}/action", json={"action": "reject"}
+    )
+    assert reject.status_code == 200

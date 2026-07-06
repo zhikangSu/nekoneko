@@ -173,3 +173,12 @@ MemoryCard
 - `docs/research/study1/memory-boundary-rules.md` — Study-1 阶段的记忆边界原则（可见 / 可控 / 敏感不自动保存 / 边界偏好 / 故人不冒充）。本文件将这些研究原则固化为**面向工程实现的类型、动作、`default_action`、优先级与 API 契约**。
 
 对应关系：Study-1 文档回答“**为什么这样对待老人的记忆**”（伦理与研究依据）；本文件回答“**系统据此如何分类、如何授权、如何落库**”（可执行规则）。两者若出现冲突，以 Study-1 的边界原则为上位约束，实现细节向其收敛。
+
+## 9. 与主记忆开关（`UserProfile.memory_enabled`）的关系
+
+回忆卡片是一条新的长期记忆写入路径，因此必须服从用户在设置里的**主记忆开关**（`memory_enabled`，#21）——与对话图的 memory 读/写节点一致：
+
+- `memory_enabled = false` 时，`POST /api/memory-cards/{user_id}/draft` 直接返回 **204**（连草稿卡都不生成，因为老人此刻没有任何可保存的东西）。
+- 若卡片是在开关打开时草拟、之后老人才关闭开关，则所有**写入类动作**（`save` / `edit_then_save` / `never_mention`）返回 **409**（`memory disabled by user profile`），一律不落库；只有 `reject`（不写任何内容、仅关闭该卡）仍然允许。
+
+即：**主记忆开关关闭 = 不产生任何记忆写入**，回忆卡片不构成绕过该开关的旁路。
