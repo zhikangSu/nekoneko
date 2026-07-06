@@ -1,15 +1,53 @@
-# 技术路线文档：老年人多智能体陪伴 AI
+# 技术路线文档：老年回忆陪伴中的关系感知多智能体编排
 
-版本：v0.4
-日期：2026-06-14
+版本：v0.5
+日期：2026-07-06
 项目：A Multi-Agent Collaborative Companion Robot for Older Adults
 阶段：课程级 Demo / Research Prototype
 
 ---
 
+## 0. 研究主线与本文定位
+
+本项目的研究主线聚焦于三条核心机制：
+
+```text
+1. 关系编排（relationship orchestration）
+   基于话题、人生经历、情绪状态、用户偏好与边界需求，
+   决定谁说话、谁沉默、谁追问、谁总结、何时停止。
+
+2. 社会线索引入话题（social cueing）
+   让 2–3 个 AI 关系角色围绕一张照片 / 一件旧物 / 一个人生话题
+   先进行简短对话，形成轻量的多人聊天场景，再邀请老人加入。
+
+3. 多智能体角色交互（multi-agent role interaction）
+   同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护等关系角色如何协作，
+   避免噪声（吵）、失真（假）、过载（乱）与越界。
+```
+
+主研究问题（main research question）：
+
+> 老年回忆陪伴中，系统如何基于话题、人生经历、关系偏好和边界需求，
+> 动态编排不同 AI 关系角色，并通过多智能体短对话作为社会线索，
+> 更自然地引导老人进入回忆与自我表达？
+
+三个子问题（sub-questions，与三条机制一一对应）：
+
+- **RQ1 关系编排**：不同话题下哪些关系角色更适合出现？系统如何决定谁说话、谁沉默、谁总结、何时停止？
+- **RQ2 社会线索引入话题**：agent-agent short cue 是否比直接提问更自然、更低压力、更容易启动回忆？
+- **RQ3 多智能体角色交互**：同龄共鸣、晚辈好奇、中年传承、回忆整理、边界守护等角色如何协作，才能避免噪声和越界？
+
+边界问题作为伦理讨论（不是并列的第 4 个 RQ）：当话题触及逝者 / 哀伤 / 隐私 / 依赖时，系统如何暂停、转向或婉拒。
+
+**本文定位**：本技术路线描述的现有实现（语音闭环、Coordinator + Companion / Guardian / Safety Critic、记忆 / 提醒 / 传感器 / 受控联网、trace 可视化）构成关系感知原型的**技术底座（technical foundation）/ demo 骨架**，不是研究主线的全部。下一阶段在此底座之上，通过 Wizard-of-Oz / 半自动层增补关系感知原型（动态编排、agent-agent 社会线索、角色交互规则、role/topic/boundary trace）。见 §2.4、§11a。
+
+---
+
 ## 1. 技术目标
 
-构建一个网页端 Demo，支持：
+### 1.1 现有底座（technical foundation）
+
+现有实现构建了一个网页端 Demo，作为关系感知研究的技术底座：
 
 ```text
 语音输入
@@ -19,7 +57,7 @@
 → Memory / Reminder / Sensor / Retrieval tools
 → 情绪条件化对话
 → 用户自定义陪伴称呼
-→ 长期记忆与 Memory Center
+→ 支撑性长期记忆与 Memory Center
 → mock sensor 主动触发
 → 受控联网查询
 → 规则安全检查 + 风险场景 Safety Critic
@@ -28,6 +66,29 @@
 ```
 
 核心工程目标不是训练新模型，而是完成一个稳定、可解释、可演示的 HCI 原型。项目官方标题包含 companion robot，但本阶段实现的是 companion-agent 概念的软件原型；实体机器人或真实可穿戴设备接入属于 future work。
+
+### 1.2 下一阶段：关系感知层（relationship-aware layer）
+
+在现有底座之上，研究主线要补充的是一个**关系感知层**，作为下一阶段的核心贡献：
+
+```text
+关系角色分类（relationship-role taxonomy）
+→ 动态关系编排（dynamic relationship orchestration）
+→ agent-agent 社会线索引入话题（agent-agent conversational cueing）
+→ 角色交互规则：共鸣 / 追问 / 总结 / 沉默 / 边界守护
+→ role / topic / boundary trace
+```
+
+该层不要求先训练新模型，可先以 Wizard-of-Oz / 半自动方式实现（见 §11a），逐步替换为脚本化 / 半自动 / 全自动编排。
+
+### 1.3 范围诚实声明（scope honesty）
+
+- 现有代码是技术底座 / demo 骨架，不等于研究全部；关系感知原型属于下一阶段工作。
+- 尚未完成任何真实老人实验；HCI 评估在当前阶段以 role-play 为主。
+- **不宣称“真实 LLM 已实现”**：真实 LLM 与真实检索 provider 目前是 provider-interface / future work；真实 ASR/TTS 为可选/可用；`DEMO_MODE` 默认走 fake/mock/offline（无需 key）。
+- 保留安全边界：不做医疗诊断、不给用药剂量、不做真实急救电话/短信/派遣，且**绝不扮演逝者**。
+- 不删除已有 P0 demo 能力；提醒 / 天气 / 传感器 / 语音、以及长期记忆均为**支撑能力**，不是主贡献。
+- 保留用户命名规则：`companion_display_name` 由用户选择；未命名时使用中性兜底“陪伴 AI / AI Companion”；绝不硬编码固定名字。
 
 ## 2. 总体架构
 
@@ -54,6 +115,8 @@
 - 记忆可控；
 - 过程可解释；
 - demo 可展示。
+
+**定位说明**：本节描述的 Coordinator + 三个自主 agent + 若干 tools/services 是研究主线的**技术底座**。研究主线所需的“动态关系编排 + 多智能体社会线索 + 角色交互规则”并不改变这套底座，而是在其上新增一个关系编排层：Coordinator 从“路由到功能 agent/tool”扩展为“基于话题 / 人生经历 / 关系偏好 / 边界需求，编排多个关系角色何时说话、沉默、追问、总结、停止”。该层的接口与实现路径见 §2.4 与 §11a。
 
 ### 2.2 架构图
 
@@ -102,16 +165,79 @@ flowchart TD
 | 前端 | React / Next.js | 快速搭 UI，适合网页 demo |
 | 后端 | Python FastAPI | 易于接入 LLM、数据库、调度任务 |
 | Agent 编排 | LangGraph | 适合状态机、路由、checkpoint、agent trace |
-| ASR | API 优先，可 mock | 降低语音识别工程复杂度 |
-| TTS | API 优先，可 mock/cache | 声音自然，demo 效果好 |
-| LLM | API 优先 | 周期短，稳定性优先 |
+| ASR | 真实 provider 可选/可用，DEMO_MODE 下 mock | 降低语音识别工程复杂度 |
+| TTS | 真实 provider 可选/可用，DEMO_MODE 下 mock/cache | 声音自然，demo 效果好 |
+| LLM | provider-interface，真实模型接入为 future work，DEMO_MODE 下 fake/mock | 周期短，稳定性优先，离线可跑 |
 | 数据库 | SQLite 起步，Postgres 可选 | MVP 简单可靠 |
 | 向量库 | Chroma / FAISS | episodic memory 检索 |
 | 记忆 source of truth | Markdown + SQLite | 人可读、可审计、可手动修正 |
 | 定时任务 | APScheduler / 后端 event loop | 提醒和主动关怀 |
 | 部署 | 本地运行 + 可选云端 | 课程 demo 足够 |
 
-## 3. Agent / Tool 设计
+### 2.4 关系感知层（下一阶段核心贡献）
+
+现有底座把不同模块路由成一次功能性回复。研究主线要在其上引入一个**关系感知层**，它不是替换 Coordinator，而是把 Coordinator 的编排目标从“调用哪些功能 agent/tool”升级为“编排哪些**关系角色**、以什么顺序、说到什么程度、何时停止”。
+
+#### 关系角色分类（relationship-role taxonomy）
+
+关系角色是叙事层的“对话人格”，不改变 §2.1 中的自主 agent 边界，而是 CompanionAgent 在同一稳定人格与安全约束下呈现的多个关系视角。示例集合（可裁剪）：
+
+```text
+同龄共鸣   peer_resonance   —— 像同代人一样共情、附和、补充相似经历
+晚辈好奇   junior_curious   —— 像晚辈一样好奇发问，请老人讲当年
+中年传承   midlife_bridge   —— 像中年一代承接、整理、把经验往下传
+回忆整理   memory_curator   —— 复述、归纳、温和确认，帮老人把回忆理清
+边界守护   boundary_guardian —— 监测哀伤 / 隐私 / 依赖信号，负责暂停、转向、婉拒
+```
+
+角色是关系视角，不是新的自主 agent；`boundary_guardian` 的判断复用现有 Guardian / Safety 边界，不做诊断，且绝不扮演逝者。
+
+#### 动态关系编排（dynamic relationship orchestration）
+
+由 Coordinator 扩展出的 relationship-orchestration 逻辑，基于话题、人生经历、情绪、关系偏好与边界需求，决定角色的出场与退场。建议输出合约：
+
+```json
+{
+  "topic": "old_photo_workshop",
+  "active_roles": ["peer_resonance", "junior_curious"],
+  "silent_roles": ["midlife_bridge"],
+  "turn_plan": ["peer_resonance", "junior_curious", "invite_elder"],
+  "follow_up_role": "memory_curator",
+  "summarize_role": "memory_curator",
+  "stop_condition": "elder_disengaged | boundary_hit | topic_closed",
+  "boundary_state": "clear | sensitive | paused",
+  "reason": "老照片话题下同龄共鸣先起头、晚辈好奇轻问，降低老人开口压力。"
+}
+```
+
+#### agent-agent 社会线索引入话题（conversational cueing）
+
+对应 RQ2：让 2–3 个关系角色围绕一张照片 / 一件旧物 / 一个人生话题先进行简短对话，形成轻量多人聊天场景（社会线索），再邀请老人加入，而不是直接向老人提问。约束：
+
+```text
+短对话默认 2–4 轮，避免变吵；
+角色分工清晰，避免失真（不虚构老人未说过的经历）；
+线索结束后必须留出“邀请但不强迫”的开口位；
+老人不接话时按 stop_condition 温和收束，不追问施压。
+```
+
+#### 角色交互规则：共鸣 / 追问 / 总结 / 沉默 / 边界守护（RQ3）
+
+```text
+共鸣：可附和、补充相似经历，但不抢老人的叙述主导权
+追问：一次只问一个轻问题，低压力、可跳过
+总结：由 memory_curator 温和复述与确认，不替老人下结论
+沉默：给老人留白，避免过载（乱）
+边界守护：命中逝者 / 哀伤 / 隐私 / 依赖信号时暂停、转向或婉拒
+```
+
+#### role / topic / boundary trace
+
+在现有 agent/tool trace 之上增加关系维度的可解释输出：每轮记录激活/沉默了哪些关系角色、当前话题、边界状态与停止判断，用于评估“谁说话、谁沉默、谁总结、何时停止”的编排合理性。字段建议见 §7.1（`relationship_orchestration` / `active_roles` / `boundary_state`）。
+
+#### 实现方式
+
+该层先以 Wizard-of-Oz / 半自动方式落地（研究者或脚本充当编排器），再逐步半自动、自动化，无需先训练新模型（见 §11a）。它复用现有安全与边界约束，是对底座的**增补**而非重写。
 
 ### 3.1 命名与 persona 配置
 
@@ -290,6 +416,8 @@ CompanionAgent draft
 | `LLMProvider` | Service | 模型 API wrapper，可 fake/mock |
 
 ### 3.7 Memory 设计
+
+长期记忆在本项目中是**支撑机制 / 边界机制 / 评估维度**，不是独立的主研究问题，也不是主贡献。它为关系编排提供“人生经历 / 关系偏好 / 边界需求”的输入（谁适合追问、哪些话题需要克制），并作为可控性与边界的评估维度；它不承担“长期记忆能否提升熟悉感 / 信任感 / 持续使用意愿”这类独立命题。
 
 推荐使用 Markdown-first + SQLite + vector index：
 
@@ -633,7 +761,15 @@ class CompanionState(TypedDict):
     draft_response: str | None
     final_response: str | None
     trace: list[dict]
+    # 关系感知层（下一阶段，见 §2.4 / §11a）
+    topic: str | None
+    relationship_orchestration: dict | None  # turn_plan / follow_up_role / stop_condition
+    active_roles: list[str]                   # 本轮出场的关系角色
+    silent_roles: list[str]                   # 本轮保持沉默的角色
+    boundary_state: str | None                # clear | sensitive | paused
 ```
+
+上半部分字段属于现有底座；`topic` 及以下的关系感知字段属于下一阶段增补，用于承载动态关系编排与 role/topic/boundary trace。
 
 ### 7.2 Graph 节点
 
@@ -862,7 +998,9 @@ CREATE TABLE agent_traces (
 
 ---
 
-## 11. 实现路线：8 周版本
+## 11. 实现路线：8 周版本（技术底座）
+
+> 本节的 8 周计划交付的是关系感知研究的**技术底座 / demo 骨架**（语音闭环、多智能体路由、支撑性记忆 / 提醒 / 传感器 / 受控联网、trace）。关系感知层（动态关系编排、agent-agent 社会线索、角色交互规则、role/topic/boundary trace）的落地路线见 §11a。
 
 ### Week 1：需求收敛与原型设计
 
@@ -931,7 +1069,7 @@ CREATE TABLE agent_traces (
 
 ### Week 4：记忆系统
 
-目标：实现长期记忆和用户控制。
+目标：实现长期记忆和用户控制（作为关系编排的支撑输入与可控性 / 边界维度，非主贡献）。
 
 任务：
 
@@ -1038,6 +1176,46 @@ CREATE TABLE agent_traces (
 - final report；
 - poster；
 - demo video。
+
+---
+
+## 11a. 关系感知层落地路线（下一阶段核心贡献）
+
+现有 8 周底座完成后，研究主线的核心工作是把 §2.4 的关系感知层落到可评估的原型。此层不要求先训练新模型，采用 Wizard-of-Oz / 半自动 → 半自动 → 自动的渐进路径，逐步替换编排器与角色生成。
+
+### 阶段 R0：关系角色分类与话题清单
+
+- 定义 relationship-role taxonomy（同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护）及各角色的语气、可做 / 不可做；
+- 整理 demo 话题与触发物清单（老照片、旧物、人生阶段），标注敏感度（是否触及逝者 / 哀伤 / 隐私 / 依赖）；
+- 明确所有角色共享同一稳定人格与安全约束，`boundary_guardian` 复用现有 Guardian / Safety 边界。
+
+### 阶段 R1：Wizard-of-Oz 关系编排
+
+- 由研究者或脚本充当编排器：基于话题 / 人生经历 / 关系偏好 / 边界需求，决定 active_roles / silent_roles / turn_plan / stop_condition；
+- 角色回复可先由现有 LLM provider（DEMO_MODE 下为 fake/mock）在关系角色 prompt 下生成，研究者把关；
+- 产出 role/topic/boundary trace，用于回答 RQ1（谁说话、谁沉默、谁总结、何时停止是否合理）。
+
+### 阶段 R2：agent-agent 社会线索短对话
+
+- 实现 2–3 个关系角色围绕一个触发物的 2–4 轮短对话，形成轻量多人场景，再邀请老人加入；
+- 与“直接向老人提问”做对照，评估 RQ2（社会线索是否更自然、低压力、更易启动回忆）；
+- 强约束：不虚构老人未说过的经历（防假）、控制轮数（防吵）、留白邀请（防乱）、老人不接话即温和收束（防压迫）。
+
+### 阶段 R3：半自动 / 自动编排与角色交互规则固化
+
+- 把 R1 中人工的编排决策逐步替换为脚本化 / 半自动策略，固化共鸣 / 追问 / 总结 / 沉默 / 边界守护的交互规则；
+- 真实 LLM / 真实检索 provider 仍为 provider-interface / future work，`DEMO_MODE` 默认离线可跑；
+- 编排器与角色生成保持可解释、可关停，边界守护始终优先。
+
+### 阶段 R4：关系感知评估
+
+- 评估维度以主线机制为主：回忆是否更自然启动、角色出场是否合理、是否避免吵 / 假 / 乱 / 越界；
+- 长期记忆 / 熟悉感 / 信任 / 控制感作为**支撑与边界维度**参与评估，不作为独立主命题；
+- 现阶段以 role-play 参与者为主，尚未开展真实老人实验；不扮演逝者、不做医疗诊断的边界在评估中显式检查。
+
+### 边界（伦理）说明
+
+关系感知层放大了触及逝者 / 哀伤 / 隐私 / 依赖的可能性。边界问题作为伦理讨论贯穿各阶段（不是并列 RQ）：命中敏感信号时，`boundary_guardian` 负责暂停、转向或婉拒，系统绝不扮演逝者，也不制造过度依赖。
 
 ---
 
@@ -1288,7 +1466,18 @@ Week 8：评估和报告
 - [ ] HCI questionnaire
 - [ ] Final report skeleton
 
-### P1 Backlog
+### 关系感知层 Backlog（下一阶段核心贡献，见 §2.4 / §11a）
+
+- [ ] Relationship-role taxonomy（同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护）
+- [ ] 话题 / 触发物清单 + 敏感度标注
+- [ ] Dynamic relationship orchestration 输出合约（active/silent roles、turn_plan、stop_condition）
+- [ ] Agent-agent 社会线索短对话（2–4 轮）+ 邀请老人加入
+- [ ] 角色交互规则：共鸣 / 追问 / 总结 / 沉默 / 边界守护
+- [ ] role / topic / boundary trace
+- [ ] Wizard-of-Oz / 半自动编排层
+- [ ] 关系感知评估设计（RQ1–RQ3 + 边界伦理检查）
+
+### P1 Backlog（支撑能力）
 
 - [ ] TTS interruption
 - [ ] TTS speed control
@@ -1301,6 +1490,8 @@ Week 8：评估和报告
 
 ### Future Backlog
 
+- [ ] Real LLM provider（真实模型 API 接入，当前为 provider-interface / future work）
+- [ ] Real retrieval provider（真实检索 provider，当前为 provider-interface / future work）
 - [ ] HealthKit integration
 - [ ] Real wearable data
 - [ ] Local LLM
