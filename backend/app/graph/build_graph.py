@@ -12,8 +12,10 @@ from __future__ import annotations
 
 from app.agents.companion import CompanionAgent
 from app.agents.coordinator import CoordinatorAgent
+from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
 from app.agents.safety_critic import SafetyCriticAgent
 from app.core.config import Settings
+from app.relationship.cue_generator import CueGenerator
 from app.graph.edges import response_pipeline
 from app.graph.nodes import (
     GraphDeps,
@@ -49,6 +51,8 @@ def build_deps(settings: Settings) -> GraphDeps:
             location=settings.retrieval_location,
             timeout=settings.retrieval_timeout_seconds,
         ),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
     )
 
 

@@ -15,6 +15,7 @@ from app.graph.nodes import (
     memory_read_node,
     memory_write_node,
     proactive_node,
+    relationship_cueing_node,
     reminder_node,
     retrieval_node,
     safety_node,
@@ -37,6 +38,10 @@ def response_pipeline(route: Route | None) -> list[Node]:
         # Retrieve the external fact first, then let the companion rewrite it
         # (with memory) into an elderly-friendly reply.
         return [retrieval_node, memory_read_node, companion_node, memory_write_node]
+    if route == Route.relationship_cueing:
+        # Read memory to give the orchestrator context, stage the visible-role
+        # social cue, then write memory so preference saving is preserved.
+        return [memory_read_node, relationship_cueing_node, memory_write_node]
     # companion_chat answers via the companion path, reading and extracting
     # memory around the reply.
     return [memory_read_node, companion_node, memory_write_node]

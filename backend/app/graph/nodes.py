@@ -11,9 +11,12 @@ from dataclasses import dataclass
 
 from app.agents.companion import CompanionAgent
 from app.agents.coordinator import CoordinatorAgent
+from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
 from app.agents.safety_critic import SafetyCriticAgent
 from app.core.constants import TraceEntryKind
 from app.graph.state import GraphState
+from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
+from app.schemas.relationship import OrchestrationInput
 from app.schemas.trace import TraceStep
 from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
@@ -32,6 +35,8 @@ class GraphDeps:
     memory_tool: MemoryTool
     reminder_tool: ReminderTool
     info_retrieval: InfoRetrievalTool
+    relationship_orchestrator: RelationshipOrchestratorAgent
+    cue_generator: CueGenerator
 
 
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -58,6 +63,7 @@ def coordinator_node(state: GraphState, deps: GraphDeps) -> GraphState:
         has_state_event=state.has_state_event,
         reminder_intent=deps.reminder_tool.is_reminder_request(state.user_input),
         retrieval_intent=deps.info_retrieval.is_retrieval_query(state.user_input),
+        reminiscence_cue_intent=is_relationship_cue_turn(state.user_input),
     )
     state.route = decision.route
     state.agents.append(
@@ -148,6 +154,50 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "companion_display_name": result.companion_display_name,
                 "named_by_user": result.named_by_user,
                 "prompt_version": deps.companion.prompt_version,
+            },
+        )
+    )
+    return state
+
+
+def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    """Stage 2–3 visible relationship roles into a short social cue (#53).
+
+    Runs only for NON-SENSITIVE reminiscence turns (the Coordinator gate already
+    excludes grief/health/privacy/loneliness). Reads memory context, asks the
+    deterministic RelationshipOrchestratorAgent which visible roles speak, then
+    renders the cue with CueGenerator. Memory read/write is preserved around this
+    node so preferences (e.g. 粤剧) still get saved.
+    """
+
+    inp = OrchestrationInput(
+        user_input=state.user_input,
+        memory_context=list(state.memory_context or []),
+        recent_emotion_or_tone=None,
+        user_role_preferences=None,
+        risk_flags=None,
+    )
+    decision = deps.relationship_orchestrator.orchestrate(inp)
+    state.draft_reply = deps.cue_generator.generate(decision, state.user_input)
+    state.memory_used = bool(state.memory_context)
+    state.agents.append(
+        TraceStep(
+            kind=TraceEntryKind.agent,
+            name=deps.relationship_orchestrator.name,
+            summary=decision.trace_visible_summary,
+            detail={
+                "topic": decision.topic,
+                "selected_roles": [r.value for r in decision.selected_roles],
+                "primary_role": (
+                    decision.primary_role.value if decision.primary_role else None
+                ),
+                "cueing_style": decision.cueing_style.value,
+                "role_selection_reason": decision.role_selection_reason,
+                "boundary_notes": decision.boundary_notes,
+                "role_trace": decision.role_trace,
+                "topic_trace": decision.topic_trace,
+                "memory_trace": decision.memory_trace,
+                "boundary_trace": decision.boundary_trace,
             },
         )
     )
