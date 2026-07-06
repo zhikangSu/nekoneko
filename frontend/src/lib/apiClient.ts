@@ -5,7 +5,15 @@ import type {
   ChatResponse,
   TTSResponse,
 } from "@/types/chat";
-import type { MemoryCategory, MemoryEntry, MemoryView } from "@/types/memory";
+import type {
+  CardStatus,
+  MemoryCard,
+  MemoryCardAction,
+  MemoryCardList,
+  MemoryCategory,
+  MemoryEntry,
+  MemoryView,
+} from "@/types/memory";
 import type { ProfileUpdate, UserProfile } from "@/types/profile";
 import type { Reminder, ReminderCreate } from "@/types/reminder";
 import type {
@@ -130,6 +138,60 @@ export async function setMemoryPaused(
 }
 
 type MemorySettingsResponse = { extraction_paused: boolean };
+
+// --- Memory Cards (#54) -----------------------------------------------------
+
+// Propose a draft card from an utterance. The backend returns 201 with the
+// card, or 204 (no body) when no candidate is found — we map 204 to null.
+export async function draftMemoryCard(
+  userId: string,
+  text: string,
+  sourceTurnId?: string,
+): Promise<MemoryCard | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/memory-cards/${userId}/draft`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        sourceTurnId ? { text, source_turn_id: sourceTurnId } : { text },
+      ),
+    },
+  );
+  if (response.status === 204) return null;
+  return jsonOrThrow(response, "Draft memory card");
+}
+
+export async function listMemoryCards(
+  userId: string,
+  status?: CardStatus,
+): Promise<MemoryCardList> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/memory-cards/${userId}${query}`),
+    "List memory cards",
+  );
+}
+
+export async function actOnMemoryCard(
+  userId: string,
+  cardId: string,
+  action: MemoryCardAction,
+  editedSummary?: string,
+): Promise<MemoryCard> {
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/memory-cards/${userId}/${cardId}/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        editedSummary !== undefined
+          ? { action, edited_summary: editedSummary }
+          : { action },
+      ),
+    }),
+    "Act on memory card",
+  );
+}
 
 // --- Reminders (#11) --------------------------------------------------------
 

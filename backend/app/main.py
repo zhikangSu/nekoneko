@@ -14,6 +14,7 @@ from app.api.routes import (
     chat,
     health,
     memory,
+    memory_cards,
     reminders,
     sensors,
     traces,
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/api")
     app.include_router(traces.router, prefix="/api")
     app.include_router(memory.router, prefix="/api")
+    app.include_router(memory_cards.router, prefix="/api")
     app.include_router(reminders.router, prefix="/api")
     app.include_router(sensors.router, prefix="/api")
     app.include_router(voice.router, prefix="/api")

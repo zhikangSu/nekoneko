@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     profile_dir: str = "./data/profiles"
     trace_log_dir: str = "./data/traces"
     memory_root: str = "./data/memory"
+    memory_cards_dir: str = "./data/memory_cards"
     reminder_dir: str = "./data/reminders"
     guardian_dir: str = "./data/guardian"
 
@@ -115,6 +116,10 @@ class Settings(BaseSettings):
     @property
     def resolved_memory_root(self) -> str:
         return _resolve_under_root(self.memory_root)
+
+    @property
+    def resolved_memory_cards_dir(self) -> str:
+        return _resolve_under_root(self.memory_cards_dir)
 
     @property
     def resolved_reminder_dir(self) -> str:
