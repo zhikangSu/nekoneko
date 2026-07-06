@@ -1,80 +1,202 @@
-# Evaluation Plan (Draft)
+# Evaluation Plan — Relationship-Aware (关系感知评估方案)
 
-Status: draft / entry point (Slice 1). The full HCI evaluation design — task
-list, SUS/Likert instruments, and interview guide — is tracked in issue #15 and
-will expand this file. Canonical positioning lives in
-`docs/01_prd_elderly_multi_agent_companion_ai.md`.
-
----
-
-## 1. What this evaluation is (and is not)
-
-The MVP evaluates **interaction feasibility, trust, perceived companionship,
-willingness to continue use, and perceived appropriateness of proactive care**.
-
-It does **not** evaluate clinical effectiveness, medical outcomes, or real-world
-health impact. There is no diagnosis, no treatment, and no real participant
-health data in the demo.
-
-Participants may be role-play or convenience participants. Recruiting real older
-adults requires ethics / informed-consent handling per supervisor guidance
-(`docs/00_overview` 目标用户范围).
+本文件是**关系感知型多智能体老年回忆陪伴系统**评估设计的顶层入口（GitHub issue #15）。
+它给出评估的范围、主线、研究问题、条件、材料、维度和工具，并链接到两个阶段的细化文档。
+需要具体量表条目、编码方案或实验流程时，请从这里跳转到对应的 `docs/research/*` 文件。
 
 ---
 
-## 2. Research focus
+## 1. 这份评估是什么 / 不是什么（范围与安全）
+
+### 1.1 是什么
+
+本评估研究的是：**当围绕老年人的回忆陪伴时，一个能感知关系的多智能体系统，
+如何通过动态角色编排和 agent-agent 之间的社交对话线索，更自然、更低压力地引导老人进入回忆和自我表达。**
+
+评估关注**交互与体验层面的机制是否成立**，而不是任何健康或临床结论。
+
+### 1.2 不是什么（硬边界，必须始终成立）
+
+- 不评估**临床疗效**（不测量抑郁、孤独、认知等临床改善）。
+- 不采集**真实健康数据**，不做**诊断 / 用药 / 剂量**建议。
+- 系统**永远不扮演逝者本人**；涉及故人只做温和的回忆整理，不复现、不代言。
+- **不对外声称已完成真实 65+ 正式实验。** 当前阶段是角色扮演 / 便利样本 / 试点（pilot）。
+  真正面向 65+ 老人的访谈与实验，必须先取得**导师批准的伦理审查 + 知情同意**后才能开展。
+- 仓库内**不提交任何录音、录像或可识别个人信息（PII）**。
+
+### 1.3 当前阶段定位
 
 ```text
-Can older users complete core tasks (chat, reminder, memory, retrieval)?
-Do users trust the system's boundaries (safety, privacy, control)?
-Do users perceive companionship without manipulation or dependency?
-Would users be willing to come back and keep using it?
-Is proactive care perceived as caring rather than intrusive?
+现在：设计 + 角色扮演 / 便利样本 / 试点（pilot）
+之后：伦理批准 → 知情同意 → 真实 65+ 参与者
 ```
 
 ---
 
-## 3. Candidate measures (to be finalized in #15)
+## 2. 评估主线 = 三个核心机制
 
-| Dimension | Candidate measure |
-|---|---|
-| Usability | SUS (System Usability Scale) |
-| Perceived companionship | Likert items (warmth, being heard, being remembered) |
-| Trust & safety | Likert items (boundary clarity, privacy control) |
-| Continuance intention | Likert items (willingness to return / keep using) |
-| Proactive-care appropriateness | Likert items (helpful vs. intrusive) |
-| Qualitative | Semi-structured interview, think-aloud notes |
+整个评估围绕系统的三个核心机制展开，所有研究问题、条件和指标都服务于验证这三点：
 
-A planned study condition compares **trace-visible vs. trace-hidden** to test how
-transparency affects trust (P1, see `AGENTS.md` §6).
+1. **关系编排（relationship orchestration）**
+   谁说话、谁沉默、谁总结、何时停止——系统如何在一次回忆对话中动态调度多个角色。
 
----
+2. **社会线索引入话题（agent-agent social cueing）**
+   2–3 个 AI 角色先围绕一张照片 / 一件旧物 / 一个话题短暂交谈，再邀请老人加入，
+   用"旁边有人在聊"的社交线索代替"被直接提问"的压力。
 
-## 4. Task scenarios
-
-Evaluation tasks mirror the six demo capabilities in
-[demo_script.md](demo_script.md): companionship, reminder, memory, proactive
-care, controlled retrieval, and safety boundary. Each task gets a short success
-definition and observation notes.
+3. **多智能体角色交互（multi-agent role interaction）**
+   同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护 这几类角色如何协作，
+   在丰富对话的同时避免**吵 / 假 / 乱 / 越界**。
 
 ---
 
-## 5. Data handling
+## 3. 主研究问题与子问题
+
+### 3.1 主研究问题（Main RQ）
+
+> 老年回忆陪伴中，关系感知型多智能体系统如何通过**动态角色编排**和 **agent-agent conversational cueing**，
+> 更自然地引导老人进入回忆和自我表达？
+
+### 3.2 子问题（对应三个核心机制）
+
+- **RQ1 关系编排：** 不同话题下哪些关系角色更适合陪伴？系统如何决定谁说话、谁沉默、谁总结、何时停止？
+- **RQ2 社会线索引入话题：** 多个 AI 先围绕照片 / 旧物 / 话题短暂对话再邀请老人加入，
+  是否比直接提问更自然、更低压力、更容易启动回忆？
+- **RQ3 多智能体角色交互：** 同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护如何协作，
+  才能避免噪声、抢话、过度追问和越界？
+
+### 3.3 伦理边界讨论（不是第 4 个 RQ）
+
+伦理边界是贯穿全部研究问题的**横切讨论维度**，不作为独立 RQ。核心问题：
+
+> 当对话涉及故人 / 悲伤 / 隐私 / 依赖风险时，系统如何**暂停、转向或拒绝继续**？
+
+它在数据里通过"边界层"指标观测（见 §6），并在结论里单独讨论，而不是被当作一个待验证的机制假设。
+
+---
+
+## 4. 研究条件 C1 / C2 / C3
+
+三条件对比设计。每个条件都描述**对话形式**与**验证目的**，采用被试内或被试间设计由 §8 的具体研究决定，
+并对条件顺序与材料做**平衡（counterbalance）**。
+
+| 条件 | 名称 | 对话形式 | 验证目的 |
+|---|---|---|---|
+| **C1** | 单智能体直接提问 | 一个 AI 陪伴者直接向老人提问（"您还记得……吗？"），无角色铺垫、无 agent-agent 对话。 | 基线：单一提问式陪伴能启动多少回忆、带来多大开口压力。 |
+| **C2** | 固定单角色 / 固定角色铺垫 | 固定单角色，或固定的 older-younger 两角色先做铺垫，但**不随话题动态变化**角色组合。 | 隔离"多角色 / 有铺垫"本身的作用，与"随话题动态编排"区分开。 |
+| **C3** | 关系感知线索引入 | 根据话题和边界**动态选择 2–3 个角色**，先用短暂 agent-agent cue 交谈，再邀请老人加入。 | 检验完整机制（关系编排 + 社会线索 + 角色协作）是否比 C1/C2 更自然、更易启动回忆。 |
+
+条件对照到机制：C1 是基线；C2 检验"多角色 / 铺垫"是否足够（对照 RQ1 的"动态"部分）；
+C3 是三机制齐备的完整系统（对照 RQ1+RQ2+RQ3）。
+
+---
+
+## 5. 任务与材料
+
+每个条件下的对话持续**几分钟**；条件顺序与材料在参与者间做平衡，避免顺序效应与材料难度混淆。
+
+### 5.1 触发材料（三类）
+
+- **个人照片**：参与者自带或选取的旧照片（试点阶段可用中性 / 公开的怀旧图片替代，避免 PII）。
+- **通用怀旧物件（generic nostalgic object）**：粮票、搪瓷缸、老式收音机、缝纫机等不绑定个人身份的物件。
+- **地方文化 / 旧歌 / 话题卡**：地方风物、老歌、年代话题等结构化提示卡。
+  话题卡清单见 [`docs/research/study1/topic-cards.md`](research/study1/topic-cards.md)（编号 **T01–T12**）。
+
+### 5.2 材料使用原则
 
 ```text
-no real medical or identifying participant data in the demo
-evaluation responses stored locally (see evaluation_sessions / evaluation_responses)
-export is for analysis only; covered by issue #20 (P1)
-no real recordings committed to the repo
+每次会话围绕一件材料展开，控制在几分钟
+同一参与者跨条件时更换材料，避免"同一张照片讲第二遍"的熟悉度污染
+个人照片优先在正式（伦理批准后）阶段使用；试点用通用物件 / 话题卡
+不将参与者的个人照片提交进仓库
 ```
+
+话题与角色的搭配关系见 [`docs/research/study1/topic-role-matrix.md`](research/study1/topic-role-matrix.md)。
 
 ---
 
-## 6. Next steps (issue #15)
+## 6. 评价维度总览（四层）
+
+四层维度覆盖"讲了什么 / 感觉如何 / 做了什么 / 有没有越界"。下表列出各层的**确切指标**，
+供内容编码、Likert 量表和行为记录直接落地。
+
+| 层 | 关注点 | 确切指标 |
+|---|---|---|
+| **内容层** | 回忆是否被启动、内容是否丰富 | 是否启动自传式回忆；具体细节数量（人物 / 地点 / 时间 / 事件 / 情绪）；是否出现今昔对比；是否出现经验传承 / 人生意义 / 价值判断；**agent-agent cue 之后老人的回应是否更具体、更丰富**。 |
+| **体验层** | 主观感受与社会临场 | 开口压力；自然度；多人陪伴感 / social presence；是否觉得多个 agent 太吵 / 太假 / 太乱；是否愿意继续讲；是否感觉被尊重和可控。 |
+| **行为层** | 可观测的对话行为 | 用户说话时长；每轮平均回应长度；主动补充次数；停顿 / 打断 / 拒绝继续次数；角色切换接受度；控制行为（换人 / 继续 / 总结 / 不要记住 / 停止）。 |
+| **边界层** | 敏感话题与伦理边界 | 故人话题是否让人不适；健康 / 家庭 / 隐私话题是否越界；用户是否理解系统不会扮演逝者本人；用户是否需要"不要再提这个"选项。 |
+
+维度与机制的对应：内容层与行为层主要回答 RQ2（cue 后是否更易启动）与 RQ1（编排效果）；
+体验层回答"是否更自然、更低压力、避免吵/假/乱"（RQ2/RQ3）；边界层承载伦理边界讨论（§3.3）。
+
+---
+
+## 7. 测量工具概述
+
+四层维度分别由四类工具承载：
+
+- **内容层 → 内容编码**：对转写文本做结构化标注（回忆启动、细节计数、今昔对比、传承 / 意义 / 价值判断、
+  cue 前后回应对比）。编码方案见 [`docs/research/study2-coding-scheme.md`](research/study2-coding-scheme.md)，
+  试点阶段的初始码本见 [`docs/research/study1/study1-codebook.md`](research/study1/study1-codebook.md)。
+- **体验层 → Likert 自评**：针对开口压力、自然度、social presence、吵 / 假 / 乱、继续意愿、被尊重与可控的
+  条目化量表，条目见 [`docs/research/study2-likert-items.md`](research/study2-likert-items.md)。
+- **行为层 → 行为记录**：从对话日志与 agent trace 抽取时长、回应长度、主动补充、停顿 / 打断 / 拒绝、
+  角色切换接受度、控制行为等可计数指标。
+- **边界层 → 边界检查**：一组针对敏感话题的检查项，确认系统在故人 / 悲伤 / 隐私 / 依赖情境下正确地
+  暂停 / 转向 / 拒绝，且老人理解系统不扮演逝者本人。
+
+**SUS 是辅助量表，不是主指标。** System Usability Scale 只作为**可用性（usability）辅助测量**，
+用于比较三条件的整体易用感，不作为唯一或主要结果。
+同样地，**长期记忆 / 信任 / 持续使用意愿属于支撑与边界维度**，用于辅助解释，**不是主 RQ**。
+
+---
+
+## 8. 两阶段结构
+
+评估分两个阶段，从质性共创走向对比实验：
+
+### Study 1 — 访谈 / 共创（质性，先行）
+
+理解老人对多角色陪伴的接受度、合适的角色语气、话题与角色搭配，并打磨线索脚本与记忆卡形式。
+材料与协议位于 `docs/research/study1/`（这些文件由 issue #50 的访谈材料包与 issue #55 的试点流程分别提供；本评估方案引用其文件名，需与 #50 / #55 一并合并到 main 后链接才会解析）：
+
+- [`topic-cards.md`](research/study1/topic-cards.md) — 话题卡 T01–T12
+- [`role-cards.md`](research/study1/role-cards.md) — 五类角色卡
+- [`conversation-cue-scripts.md`](research/study1/conversation-cue-scripts.md) — agent-agent 线索脚本
+- [`memory-card-examples.md`](research/study1/memory-card-examples.md) — 回忆整理输出示例
+- [`pilot-protocol.md`](research/study1/pilot-protocol.md) — 试点流程
+- [`study1-codebook.md`](research/study1/study1-codebook.md) — 质性编码码本
+- [`topic-role-matrix.md`](research/study1/topic-role-matrix.md) — 话题 × 角色搭配矩阵
+
+### Study 2 — 对比实验（C1 / C2 / C3）
+
+在 Study 1 收敛的材料与脚本基础上，做三条件对比，量化四层指标。主计划与工具：
+
+- [`docs/research/study2-evaluation-plan.md`](research/study2-evaluation-plan.md) — Study 2 详细实验设计
+- [`docs/research/study2-likert-items.md`](research/study2-likert-items.md) — 体验层 Likert 条目
+- [`docs/research/study2-coding-scheme.md`](research/study2-coding-scheme.md) — 内容 / 行为编码方案
+
+---
+
+## 9. 数据处理与范围诚实
+
+### 9.1 数据处理（无 PII / 无录音）
 
 ```text
-finalize task list with success criteria
-finalize SUS + Likert instrument wording (zh / en)
-write the semi-structured interview guide
-define scoring and a lightweight analysis plan
+仓库内不提交录音、录像或可识别个人信息（PII）
+个人照片不入库；分析用转写文本先做去标识化
+参与者以匿名编号标识；同意书与身份信息离线单独保管
+试点数据仅用于打磨设计，不用于对外结论
 ```
+
+### 9.2 范围诚实（再次强调）
+
+- **不声称已完成真实老人实验**：当前为角色扮演 / 便利样本 / 试点，真实 65+ 研究以伦理批准为前提。
+- **不做临床或健康断言**：不测疗效、不下诊断、不给用药建议。
+- **记忆 / 信任 / 持续使用意愿是支撑维度，SUS 是可用性辅助量表**——它们帮助解释主结果，
+  但主 RQ 始终是"关系编排 + 社会线索 + 角色协作是否更自然地引导老人进入回忆与自我表达"。
+
+---
+
+*本文件为可读入口；具体条目、编码与流程请见上文链接的 `docs/research/` 文档。*
