@@ -1,20 +1,78 @@
-# User-Named Elderly AI Companion
+# Relationship-Aware Elderly Reminiscence Companion
 
-> **愿意回来，放心使用。陪伴优先，必要时查询，安全始终在线。**
-> **Return willingly, use safely. Companionship first, retrieval when needed, safety always.**
+> **让老人愿意开口回忆，自然地被"一群人"接住。**
+> **Help older adults ease into reminiscence, gently received by a small group of AI relationship roles.**
 
-A **relationship-first voice companion AI prototype for older adults** that helps
-users feel heard, remembered, safe, and in control. Built for **CityU MSDS
-SDSC6002 Research Project, Summer 2026** as a course-level software demo and HCI
+A **relationship-aware reminiscence companion for older adults**. Instead of one
+assistant answering questions, the system **dynamically orchestrates several AI
+relationship roles** and lets them exchange a few short lines as a **social cue**,
+so the elder is invited into memory and self-expression more naturally — and never
+pushed. Built for **CityU MSDS SDSC6002 Research Project, Summer 2026** as an HCI
 research prototype.
+
+### Three core mechanisms (the research main line)
+
+1. **关系编排 · Relationship orchestration** — based on the topic, the elder's life
+   experience, emotional state, relationship preferences, and boundary needs, the
+   system decides **who speaks, who stays silent, who follows up, who summarizes,
+   and when to stop**.
+2. **社会线索引入话题 · Social cueing** — 2–3 AI roles have a brief conversation
+   around a photo / old object / life topic, forming a lightweight multi-person chat
+   scene, and **then** invite the elder to join — a lower-pressure opener than asking
+   the elder a question directly.
+3. **多智能体角色交互 · Multi-agent role interaction** — different relationship roles
+   (同龄共鸣 / 晚辈好奇 / 中年传承 / 回忆整理 / 边界守护) cooperate through rules of
+   **共鸣 · 追问 · 总结 · 沉默 · 边界守护**, so the scene avoids noise (吵),
+   inauthenticity (假), overload (乱), and boundary violations.
+
+### Main research question
+
+> 老年回忆陪伴中，系统如何基于话题、人生经历、关系偏好和边界需求，动态编排不同 AI
+> 关系角色，并通过多智能体短对话作为社会线索，更自然地引导老人进入回忆与自我表达？
+
+Sub-questions:
+
+- **RQ1 关系编排** — 不同话题下哪些关系角色更适合出现？系统如何决定谁说话、谁沉默、谁总结、何时停止？
+- **RQ2 社会线索引入话题** — agent–agent 的短对话线索是否比直接提问更自然、更低压力、更容易启动回忆？
+- **RQ3 多智能体角色交互** — 同龄共鸣、晚辈好奇、中年传承、回忆整理、边界守护等角色如何协作，才能避免噪声和越界？
+
+Boundaries (deceased / grief / privacy / dependency) are treated as an **ethics
+discussion**, not a fourth research question: when a topic touches these, the system
+**pauses, redirects, or gently declines** rather than pressing on. It never role-plays
+a deceased person.
+
+### Core contributions
+
+- a **relationship-role taxonomy** for reminiscence companionship (关系角色分类);
+- **dynamic relationship orchestration** driven by topic × experience × preference × boundary (动态关系编排);
+- **agent–agent conversational cueing** as a social memory cue (社会线索引入话题);
+- **role interaction rules**: 共鸣 / 追问 / 总结 / 沉默 / 边界守护;
+- a **role / topic / boundary trace** that makes each orchestration decision inspectable.
+
+### Supporting capabilities (technical foundation, not the contribution)
+
+Reminders, weather / air-quality retrieval, mock sensor state, and voice I/O are
+**supporting capabilities** on the technical foundation. They keep the companion
+useful and the demo runnable, but they are **not** the research contribution and must
+not be presented as such.
 
 This is **not** a generic assistant, a search engine, a medical chatbot, or an
 addictive companion product. It does **not** perform medical diagnosis, dosage
-advice, or real emergency dispatch.
+advice, or real emergency dispatch, and never role-plays a deceased person.
 
 The companion has **no built-in fixed name**. The user names it during
 onboarding; before naming, the UI shows the neutral label **陪伴 AI / AI
 Companion** and the code stores the user's choice in `companion_display_name`.
+
+> **Scope honesty.** The code in this repo is a **technical foundation / demo
+> backbone**, not the finished research. The relationship-aware layer (dynamic role
+> orchestration, agent–agent social cueing, and the relationship-role interaction
+> rules) is the **next stage**, added as a relationship-aware prototype / Wizard-of-Oz
+> / semi-automatic layer. No elderly user study has been run yet. **Real LLM and real
+> retrieval are provider-interface / future work — not implemented**; `DEMO_MODE`
+> defaults to fake/mock/offline providers with no API key. Real ASR/TTS is optional
+> and available. Long-term memory, trust, and control are **supporting / boundary /
+> evaluation dimensions**, not a standalone contribution.
 
 ---
 
@@ -41,7 +99,7 @@ Working docs produced for the demo:
 | [docs/poster_outline.md](docs/poster_outline.md) | Final research poster outline. |
 | [docs/final_report_skeleton.md](docs/final_report_skeleton.md) | Fillable final-report structure. |
 | [docs/safety_policy.md](docs/safety_policy.md) | What the system must never do, and the high-risk safety path. |
-| [docs/evaluation_plan.md](docs/evaluation_plan.md) | HCI evaluation goals, measures, and study conditions (draft). |
+| [docs/evaluation_plan.md](docs/evaluation_plan.md) | Relationship-aware evaluation plan: three-mechanism RQs, C1/C2/C3 conditions, and the content/experience/behavior/boundary measures. |
 
 Contributor instructions for AI coding agents: [AGENTS.md](AGENTS.md) (global
 product/safety/architecture rules) and [CLAUDE.md](CLAUDE.md) (Claude Code
@@ -164,8 +222,11 @@ degrades to text. The endpoint rate-limits bursts, so don't click rapidly.
 
 ## Demo route
 
-The final demo follows six scenarios (full script in
-[docs/demo_script.md](docs/demo_script.md)):
+The current demo backbone follows six scenarios (full script in
+[docs/demo_script.md](docs/demo_script.md)). These exercise the **supporting
+capabilities and safety path** on the technical foundation; the relationship-aware
+reminiscence flow (dynamic role orchestration + agent–agent social cueing) is the
+**next-stage** prototype layer that builds on top of them.
 
 1. **Companionship** — emotional disclosure gets emotional grounding first.
 2. **Reminder** — set a medication/hydration/schedule reminder (no dosage advice).
