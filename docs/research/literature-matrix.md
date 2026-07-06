@@ -10,6 +10,10 @@
 - **组 D** — 多智能体编排 / turn-taking / human control（轮次分配、编排框架与人类控制）
 - **组 E** — 信任 / 控制 / 透明 / 记忆 / 伦理边界（协作记忆、社会传染、信任校准与 HAI 准则）
 
+> **引用状态 (Citation status) —— 正式写作前必读。** 本矩阵为内部文献准备，条目分两类：
+> - **可直接引用（default）**：未标注的经典/权威条目（如 Butler 1963、Sacks 1974、Webster RFS 1993、Bickmore & Picard 2005、Amershi 2019、Lee & See 2004、Hoff & Bashir 2015、AutoGen、Generative Agents 等），其研究问题/方法/发现已核对无误。
+> - **需核实（needs verification）**：**凡 Findings 带 `(概述，细节待核实)` 标记、或作者/年份写作 `authors n.d.` / `approx.` 的近年 niche 系统条目**（ReminiBuddy、RemVerse、Perspectra、CrafTeam、MultiColleagues、YES AND、DiLLS、AGDebugger 等），**在写入 report / poster / proposal 的 Related Work 之前，必须回到原文核对确切的标题 / 作者 / 会议 / 年份 / 关键发现**，不得据此把不确定内容当作事实引用。
+
 ---
 
 ## 组 A：老年回忆 / life review
