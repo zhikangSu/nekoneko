@@ -36,6 +36,7 @@ class CoordinatorAgent:
         has_state_event: bool = False,
         reminder_intent: bool = False,
         retrieval_intent: bool = False,
+        reminiscence_cue_intent: bool = False,
     ) -> RouteDecision:
         if (
             classification.level == RiskLevel.crisis
@@ -76,6 +77,17 @@ class CoordinatorAgent:
             return RouteDecision(
                 route=Route.proactive_checkin,
                 reason="存在 StateEvent，路由到 Guardian 主动关怀路径",
+            )
+
+        # Non-sensitive reminiscence (old objects / old photos / work / culture /
+        # family) stages 2–3 visible relationship roles into a short social cue.
+        # Placed after all higher-priority checks so safety / reminder / retrieval
+        # / proactive still win, and only NON-SENSITIVE topics reach here (the
+        # cue-intent classifier excludes grief/health/privacy/loneliness).
+        if reminiscence_cue_intent:
+            return RouteDecision(
+                route=Route.relationship_cueing,
+                reason="检测到回忆/旧物/旧照片/工作回忆类输入，进入关系角色社会线索路径",
             )
 
         return RouteDecision(

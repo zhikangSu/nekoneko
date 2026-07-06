@@ -36,6 +36,7 @@ class Route(str, Enum):
     memory_management = "memory_management"
     proactive_checkin = "proactive_checkin"
     retrieval_supported_response = "retrieval_supported_response"
+    relationship_cueing = "relationship_cueing"
     safety_response = "safety_response"
     emergency_mock = "emergency_mock"
 
