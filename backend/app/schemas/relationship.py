@@ -54,3 +54,67 @@ class RoleProfile(BaseModel):
     boundary_rules: list[str]
     is_visible_to_user: bool = True
     is_autonomous_agent: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Orchestration schemas (issue #52)
+#
+# The RelationshipOrchestratorAgent is a deterministic, rule-based POLICY that
+# schedules which VISIBLE relationship roles (personas above) speak on a
+# reminiscence turn. Scheduling personas is not the same as spawning agents:
+# these roles are still NOT autonomous agents (only CoordinatorAgent,
+# CompanionAgent, GuardianAgent, and SafetyCriticAgent are — CLAUDE.md §8). The
+# orchestrator emits an explainable role/topic/memory/boundary trace so the
+# Coordinator (and family) can see *why* a role set was chosen.
+# ---------------------------------------------------------------------------
+
+
+class CueingStyle(str, Enum):
+    """How the chosen roles are staged into the turn.
+
+    * ``direct`` — a single role picks up the thread directly, no prelude.
+    * ``single_role_prelude`` — one gentle role opens, then invites the elder.
+    * ``agent_agent_then_invite`` — two visible personas briefly resonate with
+      each other, then turn to invite the elder in. Never used on sensitive
+      topics (it can feel performative around grief/health/conflict).
+    * ``no_cue`` — no staged persona banter at all (sensitive topics, or the
+      elder wants no AI role / just wants to talk).
+    """
+
+    direct = "direct"
+    single_role_prelude = "single_role_prelude"
+    agent_agent_then_invite = "agent_agent_then_invite"
+    no_cue = "no_cue"
+
+
+class OrchestrationInput(BaseModel):
+    """Everything the deterministic policy needs to schedule roles for a turn."""
+
+    user_input: str
+    memory_context: list[str] = Field(default_factory=list)
+    recent_emotion_or_tone: str | None = None
+    user_role_preferences: dict | None = None
+    risk_flags: dict | None = None
+
+
+class RelationshipDecision(BaseModel):
+    """Explainable result of scheduling visible relationship roles for one turn.
+
+    Carries both the machine-actionable choice (``selected_roles`` /
+    ``primary_role`` / ``cueing_style``) and four human-readable trace strings
+    (role / topic / memory / boundary) plus a short visible summary, so the
+    reasoning is auditable without a real LLM in the loop.
+    """
+
+    topic: str
+    selected_roles: list[RoleId]
+    primary_role: RoleId | None
+    cueing_style: CueingStyle
+    role_selection_reason: str
+    boundary_notes: list[str] = Field(default_factory=list)
+    should_generate_memory_card: bool = False
+    trace_visible_summary: str
+    role_trace: str
+    topic_trace: str
+    memory_trace: str
+    boundary_trace: str
