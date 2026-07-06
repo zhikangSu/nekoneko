@@ -9,10 +9,31 @@ Everything runs offline (fake/mock providers, forced by conftest) — no real LL
 ASR, TTS, web, phone, or caregiver call.
 """
 
+from datetime import datetime as _dt, timezone
+
 from app.core.constants import (
     COMPANION_DISPLAY_NAME_FALLBACK_BILINGUAL,
     DEFAULT_COMPANION_DISPLAY_NAME,
 )
+
+
+def _pin_sensor_clock(monkeypatch, *, hour: int, minute: int = 0) -> None:
+    """Pin /api/sensors/apply-preset's clock to a fixed UTC time (issue #70).
+
+    The route computes ``datetime.now(timezone.utc)`` internally, and GuardianAgent's
+    quiet hours (22:00–07:00, evaluated in UTC) would otherwise flip a ``check_in``
+    into a ``defer`` depending on the real wall-clock time the suite happens to run.
+    """
+    import app.api.routes.sensors as sensors_mod
+
+    fixed = _dt(2026, 6, 21, hour, minute, tzinfo=timezone.utc)
+
+    class _FixedDateTime(_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed if tz is None else fixed.astimezone(tz)
+
+    monkeypatch.setattr(sensors_mod, "datetime", _FixedDateTime)
 
 
 # --- Demo 1: Companionship (emotional grounding first) -----------------------
@@ -74,7 +95,10 @@ def test_scenario_memory_remember_and_reuse(client):
 # --- Demo 4: Proactive care (raw signal → StateEvent → Guardian) -------------
 
 
-def test_scenario_proactive_care_boundary(client):
+def test_scenario_proactive_care_boundary(client, monkeypatch):
+    # Deterministic: pin to a non-quiet-hours time so poor_sleep yields check_in
+    # regardless of when the suite runs (issue #70).
+    _pin_sensor_clock(monkeypatch, hour=14)
     body = client.post(
         "/api/sensors/apply-preset",
         json={"user_id": "demo_care", "preset_id": "poor_sleep"},
@@ -89,6 +113,25 @@ def test_scenario_proactive_care_boundary(client):
     assert adapter["kind"] == "tool"
     assert any(s["name"] == "GuardianAgent" for s in trace["agents"])
     assert trace["state_event"]["kind"] == "state_event"
+
+
+def test_scenario_proactive_care_defers_in_quiet_hours(client, monkeypatch):
+    # The other side of the boundary (issue #70): during quiet hours (22:00–07:00,
+    # evaluated in UTC) a non-escalation poor_sleep check-in is deferred, not raised.
+    _pin_sensor_clock(monkeypatch, hour=2)
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": "demo_care_quiet", "preset_id": "poor_sleep"},
+    ).json()
+    assert body["state_event"]["event_type"] == "POOR_SLEEP"
+    assert body["guardian_decision"]["decision"] == "defer"
+    # deferred specifically because of quiet hours (not cooldown / cap), and it
+    # stays silent — no user-facing interruption during quiet hours.
+    assert "安静时段" in body["guardian_decision"]["reason"]
+    assert body["response_text"] == ""
+    assert any(
+        s["name"] == "GuardianAgent" for s in body["agent_trace"]["agents"]
+    )
 
 
 # --- Demo 5: Controlled retrieval (weather yes / emotion no) -----------------
