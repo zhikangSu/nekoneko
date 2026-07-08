@@ -5,15 +5,15 @@ import type {
   RoleCueMessage,
 } from "@/types/chat";
 
-const ROLE_STYLE: Record<RelationshipRoleId, string> = {
-  same_age_peer: "border-teal-300 bg-teal-50",
-  curious_junior: "border-sky-300 bg-sky-50",
-  middle_age_bridge: "border-indigo-300 bg-indigo-50",
-  elder_mentor: "border-amber-300 bg-amber-50",
-  theme_companion: "border-emerald-300 bg-emerald-50",
-  memory_organizer: "border-violet-300 bg-violet-50",
-  boundary_guardian: "border-rose-300 bg-rose-50",
-  no_ai_role: "border-stone-300 bg-stone-50",
+const ROLE_ACCENT_STYLE: Record<RelationshipRoleId, string> = {
+  same_age_peer: "border-teal-300",
+  curious_junior: "border-sky-300",
+  middle_age_bridge: "border-indigo-300",
+  elder_mentor: "border-amber-300",
+  theme_companion: "border-emerald-300",
+  memory_organizer: "border-violet-300",
+  boundary_guardian: "border-rose-300",
+  no_ai_role: "border-stone-300",
 };
 
 export function MessageBubble({
@@ -49,14 +49,7 @@ export function MessageBubble({
           {isUser ? "您" : companionLabel}
         </div>
         {roleMessages.length > 0 ? (
-          <div className="space-y-2">
-            {roleMessages.map((roleMessage, index) => (
-              <RoleBubble
-                key={`${roleMessage.role_id ?? "role"}-${index}`}
-                message={roleMessage}
-              />
-            ))}
-          </div>
+          <SocialCueScene roleMessages={roleMessages} />
         ) : null}
         {showPrimaryBubble ? (
           <div
@@ -78,20 +71,57 @@ export function MessageBubble({
   );
 }
 
-function RoleBubble({ message }: { message: RoleCueMessage }) {
-  const style = message.role_id
-    ? ROLE_STYLE[message.role_id] ?? "border-black/10 bg-companion-soft"
-    : "border-black/10 bg-companion-soft";
+function SocialCueScene({
+  roleMessages,
+}: {
+  roleMessages: RoleCueMessage[];
+}) {
+  return (
+    <div className="rounded-2xl rounded-tl-sm border border-companion/15 bg-companion-soft px-5 py-4 text-ink">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="text-base font-semibold text-companion">
+          几位陪伴角色先聊两句
+        </div>
+        <div className="text-sm text-muted">想说就说，不着急</div>
+      </div>
+      <div className="space-y-3">
+        {roleMessages.map((roleMessage, index) => (
+          <RoleLine
+            key={`${roleMessage.role_id ?? "role"}-${index}`}
+            message={roleMessage}
+            isInvitation={index === roleMessages.length - 1}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoleLine({
+  message,
+  isInvitation,
+}: {
+  message: RoleCueMessage;
+  isInvitation: boolean;
+}) {
+  const accentStyle = message.role_id
+    ? ROLE_ACCENT_STYLE[message.role_id] ?? "border-black/10"
+    : "border-black/10";
 
   return (
     <div
       className={[
-        "rounded-2xl rounded-tl-sm border-l-4 px-5 py-3 text-lg leading-relaxed text-ink",
-        style,
+        "border-l-4 pl-4 text-lg leading-relaxed text-ink",
+        isInvitation ? "bg-surface/70 py-3 pr-4" : "py-1",
+        isInvitation ? "rounded-xl border-companion" : accentStyle,
       ].join(" ")}
     >
-      <div className="mb-1 text-sm font-semibold text-muted">
-        {message.role_label}
+      <div
+        className={`mb-1 text-sm font-semibold ${
+          isInvitation ? "text-companion" : "text-muted"
+        }`}
+      >
+        {isInvitation ? "轻轻邀请您" : message.role_label}
       </div>
       <div className="whitespace-pre-wrap break-words">{message.text}</div>
     </div>
