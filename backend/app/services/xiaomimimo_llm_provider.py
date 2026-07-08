@@ -38,6 +38,11 @@ class XiaomiMiMoLLMProvider(LLMProvider):
         self._temperature = settings.llm_temperature
         self._max_tokens = settings.llm_max_tokens
         self._timeout = settings.llm_timeout_seconds
+        self._generation_info: dict[str, Any] = {
+            "provider": self.name,
+            "model": self._model,
+            "used_fallback": False,
+        }
 
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
         messages: list[dict[str, str]] = []
@@ -55,8 +60,13 @@ class XiaomiMiMoLLMProvider(LLMProvider):
             text = (data["choices"][0]["message"].get("content") or "").strip()
             if not text:
                 raise ValueError("empty reply from provider")
+            self._generation_info = {
+                "provider": self.name,
+                "model": self._model,
+                "used_fallback": False,
+            }
             return text
-        except Exception:
+        except Exception as exc:
             # Never break a turn on a live-API hiccup — fall back to the safe,
             # deterministic reply (still passes OutputRuleGuard downstream).
             logger.warning(
@@ -64,7 +74,18 @@ class XiaomiMiMoLLMProvider(LLMProvider):
             )
             from app.services.fake_llm_provider import FakeLLMProvider
 
+            self._generation_info = {
+                "provider": self.name,
+                "model": self._model,
+                "used_fallback": True,
+                "fallback_provider": "fake",
+                "error_type": type(exc).__name__,
+            }
             return FakeLLMProvider().generate_companion_reply(payload)
+
+    @property
+    def generation_info(self) -> dict[str, Any]:
+        return dict(self._generation_info)
 
     def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         headers = {

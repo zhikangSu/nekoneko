@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.config import Settings
 from app.core.constants import CompanionMode
@@ -52,6 +52,12 @@ class LLMProvider(ABC):
     @abstractmethod
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
         """Return a companion reply. Must never produce medical/dosage advice."""
+
+    @property
+    def generation_info(self) -> dict[str, Any]:
+        """Metadata about the most recent generation, safe to expose in trace."""
+
+        return {"provider": self.name, "used_fallback": False}
 
 
 def get_llm_provider(settings: Settings) -> LLMProvider:

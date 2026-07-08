@@ -56,3 +56,32 @@ def test_fake_reply_is_deterministic_and_mode_aware():
     )
     assert role == role_again  # deterministic
     assert role and neutral
+
+
+def test_fake_provider_generation_info_is_trace_safe():
+    provider = FakeLLMProvider()
+    provider.generate_companion_reply(
+        CompanionReplyInput("你好", CompanionMode.role_first, "陪伴 AI")
+    )
+    assert provider.generation_info == {"provider": "fake", "used_fallback": False}
+
+
+def test_real_provider_marks_fallback_when_api_call_fails(monkeypatch):
+    provider = XiaomiMiMoLLMProvider(
+        Settings(llm_provider="xiaomimimo", demo_mode=False, openai_api_key="k")
+    )
+
+    def fail(_body):
+        raise TimeoutError("simulated timeout")
+
+    monkeypatch.setattr(provider, "_post", fail)
+
+    text = provider.generate_companion_reply(
+        CompanionReplyInput("我有点累", CompanionMode.role_first, "陪伴 AI")
+    )
+
+    assert text
+    assert provider.generation_info["provider"] == "xiaomimimo"
+    assert provider.generation_info["used_fallback"] is True
+    assert provider.generation_info["fallback_provider"] == "fake"
+    assert provider.generation_info["error_type"] == "TimeoutError"

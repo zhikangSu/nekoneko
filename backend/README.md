@@ -200,8 +200,8 @@ provider + `OPENAI_API_KEY`; `DEMO_MODE=true` always uses the fake/mock provider
 through `/chat/completions`):
 
 - `LLM_PROVIDER=xiaomimimo` → `XiaomiMiMoLLMProvider` drafts the companion reply
-  from the persona `system_prompt` `CompanionAgent` renders (model `mimo-v2-flash`
-  by default). On any API failure it falls back to the fake reply, so a turn
+  from the persona `system_prompt` `CompanionAgent` renders (model `mimo-v2.5`
+  by default; xiaomimimo v2 is unsupported). On any API failure it falls back to the fake reply, so a turn
   never breaks; the reply still passes `OutputRuleGuard` either way.
 - `ASR_PROVIDER` / `TTS_PROVIDER=xiaomimimo` → real speech (see Voice I/O above).
 

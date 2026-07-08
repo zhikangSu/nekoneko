@@ -7,10 +7,18 @@ stay on the existing companion path. Uses fake/mock providers only (conftest).
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from app.agents.companion import CompanionAgent
+from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
+from app.core.constants import CompanionMode
+from app.graph.nodes import relationship_cueing_node
+from app.graph.state import GraphState
 from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, list_role_profiles
+from app.schemas.profile import UserProfile
 from app.schemas.relationship import OrchestrationInput
-from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
+from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
 
 # Chinese labels for the visible roles, so tests can count role lines and assert
@@ -108,6 +116,19 @@ def test_loneliness_stays_companion(client):
     assert _route(body) == "companion_chat"
 
 
+def test_family_relationship_strain_stays_companion(client):
+    body = client.post(
+        "/api/chat",
+        json={"user_id": "cue_family_strain", "message": "我孙子不想跟我讲话"},
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert len(_role_lines(body["response_text"])) == 0
+    agent_names = [a["name"] for a in body["agent_trace"]["agents"]]
+    assert "CompanionAgent" in agent_names
+    assert "RelationshipOrchestratorAgent" not in agent_names
+
+
 def test_grief_missing_spouse_stays_companion(client):
     # REGRESSION GUARD: "老伴" is deceased_grief; it must NOT be cued.
     body = client.post(
@@ -154,6 +175,8 @@ def test_is_relationship_cue_turn_excludes_sensitive_and_mood():
     assert is_relationship_cue_turn("我喜欢听粤剧") is True
     assert is_relationship_cue_turn("我喜欢散步") is False
     assert is_relationship_cue_turn("我今天有点孤单") is False
+    assert is_relationship_cue_turn("我孙子不想跟我讲话") is False
+    assert is_relationship_cue_turn("儿子最近都不回我消息") is False
     assert is_relationship_cue_turn("我今天有点想老伴了") is False
     assert is_relationship_cue_turn("我想起已经离开的老伴") is False
 
@@ -167,3 +190,47 @@ def test_generator_output_has_no_dependency_language():
     )
     for banned in ("只有我", "别结束", "再聊一会儿", "不用找别人"):
         assert banned not in text
+
+
+class _SpyRealLLMProvider(LLMProvider):
+    name = "xiaomimimo"
+
+    def __init__(self) -> None:
+        self.payloads: list[CompanionReplyInput] = []
+
+    def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
+        self.payloads.append(payload)
+        return "这些粤剧老段子听起来很有味道。您最喜欢的是哪一段呀？"
+
+    @property
+    def generation_info(self) -> dict:
+        return {"provider": self.name, "model": "test", "used_fallback": False}
+
+
+def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
+    provider = _SpyRealLLMProvider()
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_cue_llm",
+        user_id="u_cue_llm",
+        user_input="我喜欢听粤剧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_cue_llm"),
+        memory_context=[],
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert provider.payloads
+    assert state.draft_reply.startswith("这些粤剧")
+    assert "关系编排计划" in (provider.payloads[0].system_prompt or "")
+    companion_steps = [a for a in state.agents if a.name == "CompanionAgent"]
+    assert len(companion_steps) == 1
+    detail = companion_steps[0].detail
+    assert detail["relationship_cueing"] is True
+    assert detail["llm_generation"]["provider"] == "xiaomimimo"
+    assert detail["llm_generation"]["used_fallback"] is False

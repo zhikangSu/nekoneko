@@ -112,6 +112,32 @@ Next recommended step:
 - ...
 ```
 
+### 3.3 User feedback issue-to-PR workflow
+
+When the user reports a concrete problem, bug, confusing behavior, or product
+gap, do not jump straight into broad changes. Use this workflow by default:
+
+```text
+1. Reproduce or inspect the reported behavior locally.
+2. Confirm whether it is a real issue, a configuration problem, expected mock behavior, or a documentation mismatch.
+3. Create or update a GitHub issue that records:
+   - the user's reported symptom;
+   - reproduction steps or screenshots/logs;
+   - the confirmed root cause or current hypothesis;
+   - the intended acceptance criteria.
+4. Create a focused branch for the issue.
+5. Make the smallest targeted fix that addresses the confirmed problem.
+6. Run the relevant backend/frontend tests or explain any test gap.
+7. Open a PR linked to the issue, using `.github/pull_request_template.md`.
+8. Review the PR scope and behavior against the issue acceptance criteria.
+9. Merge the PR back into `main` after it is ready.
+10. Pull or verify `main`, then report the outcome and any remaining follow-up.
+```
+
+Do not let user feedback disappear into chat history. If it changes the project
+backlog, implementation, or demo behavior, it should be represented by an issue
+and resolved through a PR.
+
 ---
 
 ## 4. Non-negotiable design principles
@@ -301,6 +327,7 @@ LLM_PROVIDER=fake          # fake | openai | anthropic | local
 ASR_PROVIDER=mock          # mock | openai | browser
 TTS_PROVIDER=mock          # mock | openai | edge
 RETRIEVAL_PROVIDER=mock    # mock | weather_api | openai_web_search
+LLM_MODEL=mimo-v2.5        # when using xiaomimimo; v2 / v2-flash are unsupported
 
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
