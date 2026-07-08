@@ -7,11 +7,19 @@ import { base64ToBlob } from "@/lib/audio";
 import { WavRecorder, isRecordingSupported } from "@/lib/wavRecorder";
 
 export type RecorderState = "idle" | "recording" | "transcribing";
+export type TTSSpeed = 0.85 | 1 | 1.15;
+
+export interface PendingTranscript {
+  text: string;
+  confidence: number;
+}
 
 export interface VoiceControls {
   // Output (TTS)
   autoSpeak: boolean;
   setAutoSpeak: (on: boolean) => void;
+  ttsSpeed: TTSSpeed;
+  setTtsSpeed: (speed: TTSSpeed) => void;
   isSpeaking: boolean;
   isMockVoice: boolean;
   speak: (text: string) => void; // play / replay a reply on demand
@@ -21,6 +29,10 @@ export interface VoiceControls {
   recorderState: RecorderState;
   startRecording: () => void;
   stopRecording: () => void;
+  pendingTranscript: PendingTranscript | null;
+  submitPendingTranscript: () => void;
+  editPendingTranscript: (text: string) => void;
+  dismissPendingTranscript: () => void;
   // Gentle status, e.g. "我刚才没听清…". Null when there is nothing to say.
   hint: string | null;
   clearHint: () => void;
@@ -31,6 +43,7 @@ const NO_MIC = "没能打开麦克风，请检查权限，或直接打字和我�
 const ASR_FAILED = "语音识别暂时没成功，您可以直接打字和我说话。";
 // Auto-stop a forgotten recording so the uploaded WAV can't grow without bound.
 const MAX_RECORDING_MS = 60_000;
+const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
 // Orchestrates the voice loop: press to record → ASR → feed the transcript into
 // chat; auto-read or replay companion replies with TTS. Recording produces WAV
@@ -45,8 +58,11 @@ export function useVoice({
   const [recorderState, setRecorderState] = useState<RecorderState>("idle");
   const [hint, setHint] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [ttsSpeed, setTtsSpeed] = useState<TTSSpeed>(1);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMockVoice, setIsMockVoice] = useState(false);
+  const [pendingTranscript, setPendingTranscript] =
+    useState<PendingTranscript | null>(null);
 
   const recorderRef = useRef<WavRecorder | null>(null);
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +127,7 @@ export function useVoice({
       audio.pause();
       audio.src = url;
       audio.currentTime = 0;
+      audio.playbackRate = ttsSpeed;
       audio.onended = () => setIsSpeaking(false);
       audio.onerror = () => setIsSpeaking(false);
       setIsSpeaking(true);
@@ -119,7 +136,7 @@ export function useVoice({
       // Autoplay blocked / network hiccup — non-fatal, the text reply is shown.
       setIsSpeaking(false);
     }
-  }, []);
+  }, [ttsSpeed]);
 
   const startRecording = useCallback(async () => {
     if (!isRecordingSupported()) {
@@ -161,8 +178,16 @@ export function useVoice({
     try {
       const result = await transcribeAudio(blob);
       if (result.ok && result.transcript.trim()) {
+        const transcript = result.transcript.trim();
         setHint(null);
-        onTranscriptRef.current(result.transcript.trim());
+        if (result.confidence < LOW_CONFIDENCE_THRESHOLD) {
+          setPendingTranscript({
+            text: transcript,
+            confidence: result.confidence,
+          });
+        } else {
+          onTranscriptRef.current(transcript);
+        }
       } else {
         setHint(DIDNT_CATCH);
       }
@@ -171,7 +196,7 @@ export function useVoice({
     } finally {
       setRecorderState("idle");
     }
-  }, []);
+  }, [clearMaxTimer]);
 
   // Let the max-duration timer call the current stopRecording without making it
   // a dependency of startRecording.
@@ -180,10 +205,27 @@ export function useVoice({
   });
 
   const clearHint = useCallback(() => setHint(null), []);
+  const submitPendingTranscript = useCallback(() => {
+    const text = pendingTranscript?.text.trim();
+    if (!text) return;
+    setPendingTranscript(null);
+    onTranscriptRef.current(text);
+  }, [pendingTranscript]);
+  const editPendingTranscript = useCallback((text: string) => {
+    setPendingTranscript((current) =>
+      current ? { ...current, text } : current,
+    );
+  }, []);
+  const dismissPendingTranscript = useCallback(
+    () => setPendingTranscript(null),
+    [],
+  );
 
   return {
     autoSpeak,
     setAutoSpeak,
+    ttsSpeed,
+    setTtsSpeed,
     isSpeaking,
     isMockVoice,
     speak,
@@ -192,6 +234,10 @@ export function useVoice({
     recorderState,
     startRecording,
     stopRecording,
+    pendingTranscript,
+    submitPendingTranscript,
+    editPendingTranscript,
+    dismissPendingTranscript,
     hint,
     clearHint,
   };
