@@ -20,6 +20,7 @@ from app.relationship.cue_generator import (
     is_relationship_cue_turn,
     role_messages_from_cue,
 )
+from app.schemas.memory_candidate import MemoryTriageAction
 from app.schemas.relationship import (
     ElderControlAction,
     OrchestrationInput,
@@ -28,8 +29,12 @@ from app.schemas.relationship import (
     StudyCondition,
 )
 from app.schemas.trace import TraceStep
+from app.stores.memory_card_store import MemoryCardStore
 from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
+from app.tools.memory_card_tool import MemoryCardTool
+from app.tools.memory_candidate_extractor import MemoryCandidateExtractor
+from app.tools.memory_triage_policy import MemoryTriagePolicy
 from app.tools.memory_tool import MemoryTool
 from app.tools.output_rule_guard import OutputRuleGuard
 from app.tools.reminder_tool import ReminderTool
@@ -43,6 +48,10 @@ class GraphDeps:
     companion: CompanionAgent
     safety_critic: SafetyCriticAgent
     memory_tool: MemoryTool
+    memory_card_tool: MemoryCardTool
+    memory_card_store: MemoryCardStore
+    memory_candidate_extractor: MemoryCandidateExtractor
+    memory_triage_policy: MemoryTriagePolicy
     reminder_tool: ReminderTool
     info_retrieval: InfoRetrievalTool
     relationship_orchestrator: RelationshipOrchestratorAgent
@@ -408,20 +417,65 @@ def proactive_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
     # Respect the profile master switch (#21) in addition to the Memory Center
-    # pause (checked inside remember_from_text).
+    # pause (checked below before candidate extraction).
     if not state.user_profile.memory_enabled:
         return state
-    saved = deps.memory_tool.remember_from_text(state.user_id, state.user_input)
-    if saved:
-        contents = [e.content for e in saved]
+
+    if deps.memory_tool.is_extraction_paused(state.user_id):
         state.tools.append(
             TraceStep(
                 kind=TraceEntryKind.memory,
-                name=deps.memory_tool.name,
-                summary=f"提取并记住 {len(saved)} 条偏好：{'、'.join(contents)}",
-                detail={"saved": contents},
+                name=deps.memory_triage_policy.name,
+                summary="记忆提取已暂停，未抽取候选或写入",
+                detail={"extraction_paused": True},
             )
         )
+        return state
+
+    candidate = deps.memory_candidate_extractor.extract_one(
+        state.user_input, state.turn_id
+    )
+    if candidate is None:
+        return state
+
+    existing_memories = deps.memory_tool.load_context(state.user_id)
+    existing_cards = deps.memory_card_store.list(state.user_id)
+    decision = deps.memory_triage_policy.decide(
+        candidate,
+        existing_memories=existing_memories,
+        existing_cards=existing_cards,
+    )
+
+    saved_contents: list[str] = []
+    card_id: str | None = None
+    if decision.action == MemoryTriageAction.auto_save:
+        saved = deps.memory_tool.save_candidate(state.user_id, candidate)
+        if saved is not None:
+            saved_contents.append(saved.content)
+    elif decision.action in {
+        MemoryTriageAction.create_card,
+        MemoryTriageAction.create_boundary_card,
+    }:
+        card = deps.memory_card_tool.draft_from_candidate(state.user_id, candidate)
+        deps.memory_card_store.add(card)
+        card_id = card.card_id
+
+    state.tools.append(
+        TraceStep(
+            kind=TraceEntryKind.memory,
+            name=deps.memory_triage_policy.name,
+            summary=(
+                f"{candidate.candidate_type.value} → {decision.action.value}："
+                f"{decision.reason}"
+            ),
+            detail={
+                "candidate": candidate.model_dump(mode="json"),
+                "decision": decision.model_dump(mode="json"),
+                "saved": saved_contents,
+                "memory_card_id": card_id,
+            },
+        )
+    )
     return state
 
 

@@ -17,6 +17,7 @@ const CANDIDATE_LABELS: Record<CandidateType, string> = {
   emotion: "情感",
   sensitive: "敏感",
   boundary_preference: "边界偏好",
+  role_preference: "互动偏好",
 };
 
 const SENSITIVITY_LABELS: Record<Sensitivity, string> = {

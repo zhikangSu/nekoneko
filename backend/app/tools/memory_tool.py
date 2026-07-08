@@ -1,23 +1,17 @@
-"""MemoryTool — read/write/extract long-term memory (issue #10).
+"""MemoryTool — read/write/extract long-term memory (issue #10/#81).
 
-Wraps ``MemoryStore`` and adds a deterministic preference extractor for demo
-mode (no LLM): clear statements like 「我喜欢听粤剧」become a
-``profile_preference`` memory. Extraction is skipped while the user has paused
-memory. Onboarding / companion_display_name are NOT handled here (that's #21).
+Wraps ``MemoryStore``. Stage 1 memory triage (#81) moved candidate extraction
+into ``MemoryCandidateExtractor`` so chat writes can pass through a single
+policy layer instead of silently bypassing authorized Memory Cards.
 """
 
 from __future__ import annotations
 
-import re
-
+from app.schemas.memory_candidate import MemoryCandidate
 from app.schemas.memory import MemoryCategory, MemoryEntry
+from app.schemas.memory_card import CandidateType
 from app.stores.memory_store import MemoryStore
-
-# Capture the object of a clear like/love statement, stopping at punctuation.
-_PREFERENCE_PATTERNS = (
-    re.compile(r"我(?:很|最|平时|特别|真的)?喜欢([^，。、!！?？\s]{1,20})"),
-    re.compile(r"我(?:很|最)?爱([^，。、!！?？\s]{1,20})"),
-)
+from app.tools.memory_candidate_extractor import MemoryCandidateExtractor
 
 
 class MemoryTool:
@@ -25,19 +19,27 @@ class MemoryTool:
 
     def __init__(self, store: MemoryStore):
         self._store = store
+        self._extractor = MemoryCandidateExtractor()
 
     def load_context(self, user_id: str) -> list[MemoryEntry]:
         return self._store.list(user_id)
 
+    def is_extraction_paused(self, user_id: str) -> bool:
+        return self._store.is_extraction_paused(user_id)
+
     def extract_preferences(self, text: str) -> list[str]:
-        found: list[str] = []
-        for pattern in _PREFERENCE_PATTERNS:
-            for match in pattern.finditer(text or ""):
-                obj = match.group(1).strip()
-                content = f"喜欢{obj}"
-                if obj and content not in found:
-                    found.append(content)
-        return found
+        return self._extractor.extract_preferences(text)
+
+    def save_candidate(
+        self, user_id: str, candidate: MemoryCandidate
+    ) -> MemoryEntry | None:
+        if candidate.candidate_type == CandidateType.interest:
+            category = MemoryCategory.profile_preference
+        elif candidate.candidate_type == CandidateType.boundary_preference:
+            category = MemoryCategory.boundary_preference
+        else:
+            category = MemoryCategory.event_memory
+        return self._store.add_if_absent(user_id, category, candidate.summary)
 
     def remember_from_text(self, user_id: str, text: str) -> list[MemoryEntry]:
         """Extract and persist new preferences, unless extraction is paused."""
