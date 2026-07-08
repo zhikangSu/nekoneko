@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useChat } from "@/hooks/useChat";
 import { useVoice } from "@/hooks/useVoice";
@@ -8,6 +8,7 @@ import type { AgentTrace } from "@/types/trace";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import type { AmbientChatScene } from "@/lib/proactiveTopics";
 import { AmbientChatScenePanel } from "./AmbientChatScenePanel";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
@@ -55,16 +56,31 @@ export function ChatExperience() {
     .reverse()
     .find((message) => message.trace)?.trace;
 
+  const handleAmbientSceneReady = useCallback(
+    (scene: AmbientChatScene) => {
+      setSelectedTopic((current) => current ?? scene.topic);
+    },
+    [setSelectedTopic],
+  );
+
+  const handleAmbientSceneDismiss = useCallback(
+    (scene: AmbientChatScene) => {
+      setSelectedTopic((current) =>
+        current?.topic_id === scene.topic.topic_id ? null : current,
+      );
+    },
+    [setSelectedTopic],
+  );
+
   return (
     <div className="space-y-4">
       <SafetyBanner />
-      <AmbientChatScenePanel
-        isSending={isSending}
-        onJoin={(scene) => {
-          setSelectedTopic(scene.topic);
-          send(scene.joinMessage, scene.topic);
-        }}
-      />
+      {messages.length === 0 ? (
+        <AmbientChatScenePanel
+          onSceneReady={handleAmbientSceneReady}
+          onDismiss={handleAmbientSceneDismiss}
+        />
+      ) : null}
       <div className="flex justify-end">
         <button
           type="button"

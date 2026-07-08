@@ -40,15 +40,11 @@ export function useChat() {
   const [isSending, setIsSending] = useState(false);
 
   const send = useCallback(
-    async (
-      rawText: string,
-      topicOverride?: TopicMaterialContext | null,
-    ) => {
+    async (rawText: string) => {
       const text = rawText.trim();
       if (!text || isSending) return;
 
-      const topic =
-        topicOverride === undefined ? selectedTopic : topicOverride;
+      const topic = selectedTopic;
       const userMessage: ChatMessage = { id: newId(), role: "user", text, topic };
       setMessages((prev) => [...prev, userMessage]);
       setIsSending(true);
