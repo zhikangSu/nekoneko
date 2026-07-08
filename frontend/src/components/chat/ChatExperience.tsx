@@ -36,7 +36,7 @@ export function ChatExperience() {
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
   // routing for graders/developers), not something an elderly end user needs —
   // so it can be collapsed, which also gives the chat the full width.
-  const [showTrace, setShowTrace] = useState(true);
+  const [showTrace, setShowTrace] = useState(false);
 
   // Read each newly-arrived companion reply aloud when auto-read is on. Keyed by
   // message id so toggling the switch never re-reads an older reply.
@@ -77,8 +77,13 @@ export function ChatExperience() {
       <SafetyBanner />
       {messages.length === 0 ? (
         <AmbientChatScenePanel
+          isSending={isSending}
           onSceneReady={handleAmbientSceneReady}
           onDismiss={handleAmbientSceneDismiss}
+          onSend={(scene, text) => {
+            setSelectedTopic(scene.topic);
+            send(text, scene.topic);
+          }}
         />
       ) : null}
       <div className="flex justify-end">
