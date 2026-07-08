@@ -4,7 +4,12 @@ import { useCallback, useState } from "react";
 
 import { sendChat } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
-import type { ChatMessage, CompanionMode } from "@/types/chat";
+import type {
+  ChatMessage,
+  CompanionMode,
+  RelationshipRoleId,
+  RoleSelectionMode,
+} from "@/types/chat";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -16,6 +21,12 @@ function newId(): string {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mode, setMode] = useState<CompanionMode>("role_first");
+  const [roleSelectionMode, setRoleSelectionMode] =
+    useState<RoleSelectionMode>("auto");
+  const [selectedRoleIds, setSelectedRoleIds] = useState<RelationshipRoleId[]>([
+    "same_age_peer",
+    "curious_junior",
+  ]);
   const [isSending, setIsSending] = useState(false);
 
   const send = useCallback(
@@ -32,6 +43,9 @@ export function useChat() {
           user_id: DEFAULT_USER_ID,
           message: text,
           mode,
+          role_selection_mode: roleSelectionMode,
+          selected_role_ids:
+            roleSelectionMode === "manual" ? selectedRoleIds : [],
         });
         setMessages((prev) => [
           ...prev,
@@ -57,8 +71,18 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, mode],
+    [isSending, mode, roleSelectionMode, selectedRoleIds],
   );
 
-  return { messages, mode, setMode, isSending, send };
+  return {
+    messages,
+    mode,
+    setMode,
+    roleSelectionMode,
+    setRoleSelectionMode,
+    selectedRoleIds,
+    setSelectedRoleIds,
+    isSending,
+    send,
+  };
 }

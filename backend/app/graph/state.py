@@ -14,6 +14,7 @@ from typing import Any, Optional
 from app.core.constants import CompanionMode, Route
 from app.safety.risk_classifier import RiskClassification
 from app.schemas.profile import UserProfile
+from app.schemas.relationship import RoleId, RoleSelectionMode
 from app.schemas.trace import TraceStep
 
 
@@ -25,6 +26,8 @@ class GraphState:
     user_input: str
     mode: CompanionMode
     user_profile: UserProfile
+    role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
+    selected_role_ids: list[RoleId] = field(default_factory=list)
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None

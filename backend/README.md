@@ -43,7 +43,7 @@ uvicorn app.main:app --reload      # http://localhost:8000
 ```bash
 curl -s -X POST http://localhost:8000/api/chat \
   -H 'Content-Type: application/json' \
-  -d '{"user_id":"demo_user","message":"今天下午适合出去散步吗？","mode":"role_first"}'
+  -d '{"user_id":"demo_user","message":"今天下午适合出去散步吗？","mode":"role_first","role_selection_mode":"auto"}'
 ```
 
 Interactive API docs: `http://localhost:8000/docs`.
@@ -67,6 +67,8 @@ Request:
   "user_id": "demo_user",
   "message": "今天下午适合出去散步吗？",
   "mode": "role_first",
+  "role_selection_mode": "auto",
+  "selected_role_ids": [],
   "voice_enabled": false,
   "sensor_preset_id": null,
   "companion_display_name": null
@@ -105,6 +107,13 @@ Response:
 `mode` is `role_first` or `neutral_assistant`. When `companion_display_name` is
 unset, the backend uses the neutral fallback **陪伴 AI** — no fixed name is
 hardcoded.
+
+`role_selection_mode` is `auto` or `manual` for relationship cueing turns.
+`auto` keeps the default topic-based role orchestration. In `manual` mode,
+`selected_role_ids` can contain up to three visible relationship roles such as
+`same_age_peer`, `curious_junior`, or `theme_companion`; `no_ai_role` is
+exclusive and suppresses staged role cueing. Sensitive topics still stay on the
+boundary-safe route instead of producing role banter.
 
 ### Routing & safety
 

@@ -1,11 +1,23 @@
 import type { AgentTrace } from "./trace";
 
 export type CompanionMode = "role_first" | "neutral_assistant";
+export type RoleSelectionMode = "auto" | "manual";
+export type RelationshipRoleId =
+  | "same_age_peer"
+  | "curious_junior"
+  | "middle_age_bridge"
+  | "elder_mentor"
+  | "theme_companion"
+  | "memory_organizer"
+  | "boundary_guardian"
+  | "no_ai_role";
 
 export interface ChatRequest {
   user_id: string;
   message: string;
   mode: CompanionMode;
+  role_selection_mode?: RoleSelectionMode;
+  selected_role_ids?: RelationshipRoleId[];
   voice_enabled?: boolean;
   sensor_preset_id?: string | null;
   companion_display_name?: string | null;

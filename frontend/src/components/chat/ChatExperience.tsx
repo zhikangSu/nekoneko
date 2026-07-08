@@ -17,7 +17,17 @@ import { SafetyBanner } from "./SafetyBanner";
 // replies aloud; it is an enhancement layered over the text chat.
 export function ChatExperience() {
   const { companionDisplayName } = useProfile();
-  const { messages, mode, setMode, isSending, send } = useChat();
+  const {
+    messages,
+    mode,
+    setMode,
+    roleSelectionMode,
+    setRoleSelectionMode,
+    selectedRoleIds,
+    setSelectedRoleIds,
+    isSending,
+    send,
+  } = useChat();
   const voice = useVoice({ onTranscript: send });
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
   // routing for graders/developers), not something an elderly end user needs —
@@ -65,6 +75,10 @@ export function ChatExperience() {
           isSending={isSending}
           mode={mode}
           onChangeMode={setMode}
+          roleSelectionMode={roleSelectionMode}
+          onChangeRoleSelectionMode={setRoleSelectionMode}
+          selectedRoleIds={selectedRoleIds}
+          onChangeSelectedRoleIds={setSelectedRoleIds}
           onSend={send}
           companionDisplayName={companionDisplayName}
           voice={voice}

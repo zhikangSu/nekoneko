@@ -23,6 +23,7 @@ from app.schemas.relationship import (
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionMode,
 )
 
 REGISTRY_IDS = {p.role_id for p in list_role_profiles()}
@@ -228,6 +229,44 @@ def test_pref_no_ai_selects_no_ai_role_only():
     assert d.selected_roles == [RoleId.no_ai_role]
     assert d.cueing_style == CueingStyle.no_cue
     assert d.should_generate_memory_card is False
+    _assert_common_invariants(d)
+
+
+def test_manual_role_selection_uses_requested_roles():
+    d = _orchestrate(
+        "看到老电视想起以前",
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+    )
+    assert d.selected_roles == [RoleId.same_age_peer, RoleId.curious_junior]
+    assert d.primary_role is RoleId.same_age_peer
+    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert "用户手动选择" in d.role_selection_reason
+    _assert_common_invariants(d)
+
+
+def test_manual_no_ai_role_is_exclusive():
+    d = _orchestrate(
+        "看到老电视想起以前",
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=[RoleId.same_age_peer, RoleId.no_ai_role],
+    )
+    assert d.selected_roles == [RoleId.no_ai_role]
+    assert d.cueing_style == CueingStyle.no_cue
+    assert d.should_generate_memory_card is False
+    _assert_common_invariants(d)
+
+
+def test_manual_empty_selection_falls_back_to_auto():
+    d = _orchestrate(
+        "看到老电视想起以前",
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=[],
+    )
+    assert RoleId.same_age_peer in d.selected_roles
+    assert RoleId.curious_junior in d.selected_roles
+    assert RoleId.middle_age_bridge in d.selected_roles
+    assert "用户手动选择" not in d.role_selection_reason
     _assert_common_invariants(d)
 
 

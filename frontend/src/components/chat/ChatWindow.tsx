@@ -3,16 +3,36 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { VoiceControls } from "@/hooks/useVoice";
-import type { ChatMessage, CompanionMode } from "@/types/chat";
+import type {
+  ChatMessage,
+  CompanionMode,
+  RelationshipRoleId,
+  RoleSelectionMode,
+} from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
 import { ReplayButton } from "./ReplayButton";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
+
+const ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
+  { value: "same_age_peer", label: "同龄" },
+  { value: "curious_junior", label: "晚辈" },
+  { value: "middle_age_bridge", label: "中年" },
+  { value: "elder_mentor", label: "长辈" },
+  { value: "theme_companion", label: "主题" },
+  { value: "memory_organizer", label: "整理" },
+  { value: "boundary_guardian", label: "守护" },
+  { value: "no_ai_role", label: "不需要" },
+];
 
 export function ChatWindow({
   messages,
   isSending,
   mode,
   onChangeMode,
+  roleSelectionMode,
+  onChangeRoleSelectionMode,
+  selectedRoleIds,
+  onChangeSelectedRoleIds,
   onSend,
   companionDisplayName,
   voice,
@@ -21,6 +41,10 @@ export function ChatWindow({
   isSending: boolean;
   mode: CompanionMode;
   onChangeMode: (mode: CompanionMode) => void;
+  roleSelectionMode: RoleSelectionMode;
+  onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
+  selectedRoleIds: RelationshipRoleId[];
+  onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
   onSend: (text: string) => void;
   companionDisplayName?: string | null;
   voice: VoiceControls;
@@ -48,9 +72,17 @@ export function ChatWindow({
 
   return (
     <section className="rounded-2xl bg-surface border border-black/5 flex flex-col h-[78vh] min-h-[520px]">
-      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-black/5">
-        <h2 className="text-lg font-semibold text-ink">聊天</h2>
-        <ModeToggle mode={mode} onChange={onChangeMode} />
+      <div className="px-5 py-3 border-b border-black/5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-ink">聊天</h2>
+          <ModeToggle mode={mode} onChange={onChangeMode} />
+        </div>
+        <RoleSelectionControl
+          mode={roleSelectionMode}
+          onChangeMode={onChangeRoleSelectionMode}
+          selectedRoleIds={selectedRoleIds}
+          onChangeSelectedRoleIds={onChangeSelectedRoleIds}
+        />
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -125,6 +157,92 @@ export function ChatWindow({
         />
       </div>
     </section>
+  );
+}
+
+function RoleSelectionControl({
+  mode,
+  onChangeMode,
+  selectedRoleIds,
+  onChangeSelectedRoleIds,
+}: {
+  mode: RoleSelectionMode;
+  onChangeMode: (mode: RoleSelectionMode) => void;
+  selectedRoleIds: RelationshipRoleId[];
+  onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
+}) {
+  const modeOptions: { value: RoleSelectionMode; label: string }[] = [
+    { value: "auto", label: "系统分配" },
+    { value: "manual", label: "自选角色" },
+  ];
+
+  function toggleRole(roleId: RelationshipRoleId) {
+    if (roleId === "no_ai_role") {
+      onChangeSelectedRoleIds(["no_ai_role"]);
+      return;
+    }
+
+    const withoutNoAi = selectedRoleIds.filter((id) => id !== "no_ai_role");
+    if (withoutNoAi.includes(roleId)) {
+      if (withoutNoAi.length === 1) return;
+      onChangeSelectedRoleIds(withoutNoAi.filter((id) => id !== roleId));
+      return;
+    }
+
+    const next =
+      withoutNoAi.length >= 3
+        ? [...withoutNoAi.slice(1), roleId]
+        : [...withoutNoAi, roleId];
+    onChangeSelectedRoleIds(next);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div
+        role="group"
+        aria-label="关系角色分配"
+        className="inline-flex shrink-0 rounded-xl bg-canvas p-1"
+      >
+        {modeOptions.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChangeMode(option.value)}
+            aria-pressed={mode === option.value}
+            className={`rounded-lg px-3 py-1.5 text-base font-medium ${
+              mode === option.value
+                ? "bg-surface text-ink shadow-sm"
+                : "text-muted"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "manual" ? (
+        <div className="grid w-full min-w-0 grid-cols-4 gap-1.5 sm:flex-1 sm:grid-cols-8">
+          {ROLE_OPTIONS.map((role) => {
+            const selected = selectedRoleIds.includes(role.value);
+            return (
+              <button
+                key={role.value}
+                type="button"
+                onClick={() => toggleRole(role.value)}
+                aria-pressed={selected}
+                className={`min-h-9 rounded-lg border px-2 text-sm font-medium ${
+                  selected
+                    ? "border-companion bg-companion/10 text-companion"
+                    : "border-black/10 bg-canvas text-muted"
+                }`}
+              >
+                {role.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

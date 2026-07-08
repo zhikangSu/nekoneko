@@ -66,6 +66,60 @@ def test_old_tv_routes_to_relationship_cueing_with_multi_role_cue(client):
     assert "same_age_peer" in orch[0]["detail"]["selected_roles"]
 
 
+def test_manual_roles_are_sent_to_orchestrator_trace(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_manual_roles",
+            "message": "看到这个老电视，我想起以前的日子",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["same_age_peer", "curious_junior"],
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    orch = [
+        a
+        for a in body["agent_trace"]["agents"]
+        if a["name"] == "RelationshipOrchestratorAgent"
+    ]
+    assert orch[0]["detail"]["role_selection_mode"] == "manual"
+    assert orch[0]["detail"]["requested_role_ids"] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
+    assert orch[0]["detail"]["selected_roles"] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
+    assert "同龄共鸣者：" in body["response_text"]
+    assert "晚辈好奇者：" in body["response_text"]
+
+
+def test_manual_no_ai_role_suppresses_role_lines(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_manual_no_ai",
+            "message": "看到这个老电视，我想起以前的日子",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["same_age_peer", "no_ai_role"],
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert _role_lines(body["response_text"]) == []
+    assert "不安排 AI 角色" in body["response_text"]
+
+    orch = [
+        a
+        for a in body["agent_trace"]["agents"]
+        if a["name"] == "RelationshipOrchestratorAgent"
+    ]
+    assert orch[0]["detail"]["selected_roles"] == ["no_ai_role"]
+    assert orch[0]["detail"]["cueing_style"] == "no_cue"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 2: culture/arts preference -> cue route AND memory still saved
 # ---------------------------------------------------------------------------
@@ -114,6 +168,20 @@ def test_grief_missing_spouse_stays_companion(client):
         "/api/chat", json={"user_id": "cue_grief1", "message": "我今天有点想老伴了"}
     ).json()
     assert _route(body) == "companion_chat"
+
+
+def test_manual_roles_do_not_override_grief_boundary_route(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_manual_grief",
+            "message": "我今天有点想老伴了",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["same_age_peer", "curious_junior"],
+        },
+    ).json()
+    assert _route(body) == "companion_chat"
+    assert len(_role_lines(body["response_text"])) == 0
 
 
 def test_deceased_spouse_not_cued_and_no_multi_role_banter(client):

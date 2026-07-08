@@ -177,6 +177,9 @@ class CueGenerator:
 
         roles = [r for r in decision.selected_roles][:MAX_ROLES_PER_TURN]
 
+        if RoleId.no_ai_role in roles:
+            return "好，我们先不安排 AI 角色。您可以自己慢慢讲；想停也可以。"
+
         if decision.cueing_style is CueingStyle.no_cue or not roles:
             # Defensive single gentle line — no persona banter.
             role = roles[0] if roles else RoleId.same_age_peer

@@ -34,6 +34,13 @@ class RoleId(str, Enum):
     no_ai_role = "no_ai_role"  # R8
 
 
+class RoleSelectionMode(str, Enum):
+    """Who chooses visible relationship roles for a cueing turn."""
+
+    auto = "auto"
+    manual = "manual"
+
+
 class RoleProfile(BaseModel):
     """A visible relationship function the companion can adopt for one turn.
 
@@ -94,6 +101,8 @@ class OrchestrationInput(BaseModel):
     memory_context: list[str] = Field(default_factory=list)
     recent_emotion_or_tone: str | None = None
     user_role_preferences: dict | None = None
+    role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
+    selected_role_ids: list[RoleId] = Field(default_factory=list)
     risk_flags: dict | None = None
 
 

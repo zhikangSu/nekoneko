@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import CompanionMode
+from app.schemas.relationship import RoleId, RoleSelectionMode
 from app.schemas.trace import AgentTrace
 
 
@@ -19,6 +20,10 @@ class ChatRequest(BaseModel):
     # User-chosen companion name. When unset, the backend uses the neutral
     # fallback. The persistent source of truth is UserProfile / onboarding (#21).
     companion_display_name: Optional[str] = None
+    # Relationship role controls for #73. Defaults keep the existing automatic
+    # orchestration behavior unchanged.
+    role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
+    selected_role_ids: list[RoleId] = Field(default_factory=list)
 
     @field_validator("message")
     @classmethod

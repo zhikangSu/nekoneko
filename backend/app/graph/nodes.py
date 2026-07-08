@@ -175,6 +175,8 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         memory_context=list(state.memory_context or []),
         recent_emotion_or_tone=None,
         user_role_preferences=None,
+        role_selection_mode=state.role_selection_mode,
+        selected_role_ids=list(state.selected_role_ids or []),
         risk_flags=None,
     )
     decision = deps.relationship_orchestrator.orchestrate(inp)
@@ -187,6 +189,8 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             summary=decision.trace_visible_summary,
             detail={
                 "topic": decision.topic,
+                "role_selection_mode": state.role_selection_mode.value,
+                "requested_role_ids": [r.value for r in state.selected_role_ids],
                 "selected_roles": [r.value for r in decision.selected_roles],
                 "primary_role": (
                     decision.primary_role.value if decision.primary_role else None

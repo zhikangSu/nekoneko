@@ -46,6 +46,8 @@ def chat(
         user_input=request.message,
         mode=request.mode,
         user_profile=profile,
+        role_selection_mode=request.role_selection_mode,
+        selected_role_ids=request.selected_role_ids,
     )
     run_turn(state, build_deps(settings))
 

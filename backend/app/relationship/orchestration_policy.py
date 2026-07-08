@@ -45,6 +45,7 @@ from app.schemas.relationship import (
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionMode,
     RoleProfile,
 )
 from app.relationship.topic_classifier import SENSITIVE_TOPICS, Topic
@@ -175,6 +176,20 @@ def _pref_wants_solo_or_no_ai(prefs: dict | None) -> bool:
     return flagged or textual
 
 
+def _manual_requested_roles(inp: OrchestrationInput, registry_ids: set[RoleId]) -> list[RoleId]:
+    """Sanitize roles explicitly selected by the user for manual mode."""
+
+    if inp.role_selection_mode is not RoleSelectionMode.manual:
+        return []
+    requested = [r for r in inp.selected_role_ids if r in registry_ids]
+    if RoleId.no_ai_role in requested:
+        return [RoleId.no_ai_role]
+    return _cap_and_sanitize(
+        [r for r in requested if r is not RoleId.no_ai_role],
+        registry_ids,
+    )
+
+
 def _cap_and_sanitize(roles: list[RoleId], registry_ids: set[RoleId]) -> list[RoleId]:
     """Keep only known roles, dedupe preserving order, cap at MAX_ROLES_PER_TURN."""
 
@@ -253,6 +268,70 @@ def decide(
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
             should_generate_memory_card=False,
+            trace_visible_summary=summary,
+            role_trace=role_trace,
+            topic_trace=topic_trace,
+            memory_trace=_memory_trace(memory_context),
+            boundary_trace=boundary_trace,
+        )
+
+    # ----- Manual role choice: current user control beats topic defaults -----
+    manual_roles = _manual_requested_roles(inp, registry_ids)
+    if manual_roles:
+        if manual_roles == [RoleId.no_ai_role]:
+            reason = "用户手动选择不需要 AI 角色，仅留出空间，不安排任何发言角色。"
+            boundary_notes.append("尊重用户不需要 AI 的选择，不强行加入对话。")
+            role_trace = "用户手动选择 不需要AI角色：完全把空间留给老人或真人陪伴。"
+            topic_trace = f"话题分类：{topic_label}；但用户手动选择优先于话题默认角色。"
+            boundary_trace = "已遵从用户手动选择：不安排 AI 角色发言。"
+            summary = f"{topic_label} → 用户自选无 AI（{CueingStyle.no_cue.value}）"
+            return RelationshipDecision(
+                topic=topic.value,
+                selected_roles=manual_roles,
+                primary_role=RoleId.no_ai_role,
+                cueing_style=CueingStyle.no_cue,
+                role_selection_reason=reason,
+                boundary_notes=boundary_notes,
+                should_generate_memory_card=False,
+                trace_visible_summary=summary,
+                role_trace=role_trace,
+                topic_trace=topic_trace,
+                memory_trace=_memory_trace(memory_context),
+                boundary_trace=boundary_trace,
+            )
+
+        primary = manual_roles[0]
+        cueing = (
+            CueingStyle.single_role_prelude
+            if len(manual_roles) == 1
+            else CueingStyle.agent_agent_then_invite
+        )
+        role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in manual_roles)
+        primary_name = _ROLE_LABEL_ZH.get(primary, primary.value)
+        should_generate_memory_card = topic in {
+            Topic.old_object_photo,
+            Topic.work_collective,
+            Topic.family_education,
+            Topic.culture_arts,
+            Topic.general_reminiscence,
+        }
+        reason = (
+            f"用户手动选择 {role_names}，本轮按自选角色组织发言，"
+            f"以{primary_name}为主；话题分类仍记录为{topic_label}。"
+        )
+        boundary_notes.append("用户自选角色已生效；仍不扮演任何真实熟人或家人。")
+        role_trace = f"用户自选 {role_names}（主：{primary_name}），系统未改用话题默认角色组。"
+        topic_trace = f"话题分类：{topic_label}（非敏感）；角色来源：用户自选。"
+        boundary_trace = "非敏感话题，允许用户自选关系角色；仍保留不扮演真实熟人的边界。"
+        summary = f"{topic_label} → 用户自选 {role_names}（{cueing.value}）"
+        return RelationshipDecision(
+            topic=topic.value,
+            selected_roles=manual_roles,
+            primary_role=primary,
+            cueing_style=cueing,
+            role_selection_reason=reason,
+            boundary_notes=boundary_notes,
+            should_generate_memory_card=should_generate_memory_card,
             trace_visible_summary=summary,
             role_trace=role_trace,
             topic_trace=topic_trace,
