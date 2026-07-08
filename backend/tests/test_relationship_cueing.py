@@ -213,6 +213,27 @@ def test_study_condition_c2_uses_fixed_role_prelude(client):
     ]
 
 
+def test_culture_topic_returns_two_role_lines_before_invitation(client):
+    body = client.post(
+        "/api/chat",
+        json={"user_id": "cue_culture_scene", "message": "我喜欢听粤剧。"},
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert len(body["role_messages"]) >= 3
+    first_two_labels = [m["role_label"] for m in body["role_messages"][:2]]
+    assert first_two_labels == ["主题陪伴者", "同龄共鸣者"]
+    assert body["role_messages"][2]["role_label"] == "晚辈好奇者"
+
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["cueing_style"] == "agent_agent_then_invite"
+    assert metadata["selected_roles"] == [
+        "theme_companion",
+        "same_age_peer",
+        "curious_junior",
+    ]
+
+
 def test_elder_pause_roles_suppresses_relationship_cueing(client):
     body = client.post(
         "/api/chat",
