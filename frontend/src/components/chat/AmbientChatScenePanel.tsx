@@ -10,12 +10,17 @@ import {
 } from "@/lib/proactiveTopics";
 
 export function AmbientChatScenePanel({
+  isSending,
   onDismiss,
   onSceneReady,
+  onSend,
 }: {
+  isSending: boolean;
   onDismiss: (scene: AmbientChatScene) => void;
   onSceneReady: (scene: AmbientChatScene) => void;
+  onSend: (scene: AmbientChatScene, text: string) => void;
 }) {
+  const [draft, setDraft] = useState("");
   const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
   const [hidden, setHidden] = useState(false);
 
@@ -44,6 +49,14 @@ export function AmbientChatScenePanel({
   function dismissCurrentScene() {
     if (activeScene) onDismiss(activeScene);
     setHidden(true);
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!text || isSending) return;
+    onSend(activeScene, text);
+    setDraft("");
   }
 
   return (
@@ -92,6 +105,36 @@ export function AmbientChatScenePanel({
           </div>
         ))}
       </div>
+
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-3 border-t border-black/5 px-5 py-4 sm:flex-row sm:items-end"
+      >
+        <label htmlFor="ambient-chat-input" className="sr-only">
+          聊天场输入
+        </label>
+        <textarea
+          id="ambient-chat-input"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              handleSubmit(event);
+            }
+          }}
+          rows={1}
+          placeholder="顺着这个话题说一句…"
+          className="min-h-12 flex-1 resize-none rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg leading-relaxed focus:border-companion"
+        />
+        <button
+          type="submit"
+          disabled={isSending || !draft.trim()}
+          className="min-h-12 rounded-xl bg-companion px-6 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          发送
+        </button>
+      </form>
     </section>
   );
 }
