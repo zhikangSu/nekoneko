@@ -21,6 +21,7 @@ from app.relationship.cue_generator import (
     role_messages_from_cue,
 )
 from app.schemas.relationship import (
+    ElderControlAction,
     OrchestrationInput,
     RoleId,
     RoleSelectionMode,
@@ -106,6 +107,11 @@ def _relationship_cue_input(state: GraphState) -> str:
 
 
 def _should_route_relationship_cue(state: GraphState) -> bool:
+    if state.elder_control_action in {
+        ElderControlAction.pause_roles,
+        ElderControlAction.stop_reminiscence,
+    }:
+        return False
     if state.study_condition == StudyCondition.c1_direct_question:
         return False
     if is_relationship_cue_turn(state.user_input):
@@ -307,6 +313,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "topic": decision.topic,
                 "study_condition": state.study_condition.value,
                 "study_session_id": state.study_session_id,
+                "elder_control_action": state.elder_control_action.value,
                 "role_selection_mode": role_selection_mode.value,
                 "requested_role_ids": [r.value for r in selected_role_ids],
                 "selected_roles": [r.value for r in decision.selected_roles],

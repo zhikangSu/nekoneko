@@ -204,6 +204,62 @@ def test_study_condition_c2_uses_fixed_role_prelude(client):
     ]
 
 
+def test_elder_pause_roles_suppresses_relationship_cueing(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_control_pause",
+            "message": "看到这个老电视，我想起以前的日子",
+            "study_condition": "c3_relationship_aware",
+            "study_session_id": "session_pause",
+            "elder_control_action": "pause_roles",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["elder_control_action"] == "pause_roles"
+    assert metadata["study_session_id"] == "session_pause"
+
+
+def test_elder_continue_keeps_relationship_cueing(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_control_continue",
+            "message": "看到这个老电视，我想起以前的日子",
+            "study_condition": "c3_relationship_aware",
+            "study_session_id": "session_continue",
+            "elder_control_action": "continue_session",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert len(body["role_messages"]) >= 2
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["elder_control_action"] == "continue_session"
+    assert metadata["study_session_id"] == "session_continue"
+
+
+def test_elder_stop_reminiscence_suppresses_relationship_cueing(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_control_stop",
+            "message": "看到这个老电视，我想起以前的日子",
+            "elder_control_action": "stop_reminiscence",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert (
+        body["agent_trace"]["research_metadata"]["elder_control_action"]
+        == "stop_reminiscence"
+    )
+
+
 def test_topic_card_does_not_override_sensitive_user_input(client):
     body = client.post(
         "/api/chat",

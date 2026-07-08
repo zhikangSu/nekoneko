@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import CompanionMode
 from app.schemas.relationship import (
+    ElderControlAction,
     MaterialType,
     RoleCueMessage,
     RoleId,
@@ -37,6 +38,7 @@ class ChatRequest(BaseModel):
     material_type: Optional[MaterialType] = None
     study_condition: StudyCondition = StudyCondition.c3_relationship_aware
     study_session_id: Optional[str] = Field(default=None, max_length=64)
+    elder_control_action: ElderControlAction = ElderControlAction.continue_session
 
     @field_validator("message")
     @classmethod
