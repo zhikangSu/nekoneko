@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     caregiver,
     chat,
+    evaluation,
     health,
     memory,
     memory_cards,
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(caregiver.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
+    app.include_router(evaluation.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(traces.router, prefix="/api")
     app.include_router(memory.router, prefix="/api")

@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/reminders", label: "提醒" },
   { href: "/sensors", label: "关怀" },
   { href: "/caregiver", label: "照护摘要" },
+  { href: "/evaluation", label: "评估" },
 ];
 
 function NavLink({ href, label }: { href: string; label: string }) {
