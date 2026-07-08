@@ -28,6 +28,8 @@ def test_agent_trace_minimal_valid():
         "memory_used",
         "retrieval_used",
         "safety_critic_used",
+        "conversation_history_used",
+        "conversation_history_count",
         "research_metadata",
         "research_trace",
     ):

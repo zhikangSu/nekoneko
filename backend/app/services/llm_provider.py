@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from app.core.config import Settings
 from app.core.constants import CompanionMode
+from app.schemas.conversation import ConversationMessage
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,10 @@ class CompanionReplyInput:
     system_prompt: Optional[str] = None
     # External fact from InfoRetrievalTool (#13) to weave into the reply.
     retrieval_context: Optional[str] = None
+    # Short-term, in-process history (#82). Real providers include this as
+    # bounded chat messages before the current user turn; fake provider may use
+    # it only for deterministic offline continuity checks.
+    conversation_history: list[ConversationMessage] = field(default_factory=list)
 
 
 class LLMProvider(ABC):

@@ -105,6 +105,18 @@ function TraceView({ trace }: { trace: AgentTrace }) {
         <Flag label="Memory" on={trace.memory_used} />
         <Flag label="Retrieval" on={trace.retrieval_used} />
         <Flag label="SafetyCritic" on={trace.safety_critic_used} />
+        <span
+          className={`rounded-md px-2 py-0.5 ${
+            trace.conversation_history_used
+              ? "bg-companion-soft text-companion"
+              : "bg-black/5 text-muted"
+          }`}
+        >
+          ShortHistory: {trace.conversation_history_used ? "on" : "off"}
+          {trace.conversation_history_count
+            ? ` (${trace.conversation_history_count})`
+            : ""}
+        </span>
       </div>
 
       <ResearchTrace trace={trace.research_trace} />
