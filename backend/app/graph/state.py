@@ -19,6 +19,7 @@ from app.schemas.relationship import (
     RoleCueMessage,
     RoleId,
     RoleSelectionMode,
+    StudyCondition,
 )
 from app.schemas.trace import TraceStep
 
@@ -36,6 +37,8 @@ class GraphState:
     topic_id: Optional[str] = None
     topic_label: Optional[str] = None
     material_type: Optional[MaterialType] = None
+    study_condition: StudyCondition = StudyCondition.c3_relationship_aware
+    study_session_id: Optional[str] = None
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None

@@ -152,6 +152,58 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert metadata["cueing_style"] == "agent_agent_then_invite"
 
 
+def test_study_condition_c1_disables_relationship_cueing_and_binds_session(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_condition_c1",
+            "message": "看到这个老电视，我想起以前的日子",
+            "study_condition": "c1_direct_question",
+            "study_session_id": "session_c1",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["study_condition"] == "c1_direct_question"
+    assert metadata["study_session_id"] == "session_c1"
+
+
+def test_study_condition_c2_uses_fixed_role_prelude(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_condition_c2",
+            "message": "聊这个吧",
+            "topic_id": "T05",
+            "topic_label": "老照片或旧物件",
+            "material_type": "topic_card",
+            "study_condition": "c2_fixed_role_prelude",
+            "study_session_id": "session_c2",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["theme_companion"],
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["study_condition"] == "c2_fixed_role_prelude"
+    assert metadata["study_session_id"] == "session_c2"
+    assert metadata["selected_roles"] == ["same_age_peer", "curious_junior"]
+
+    orch = [
+        a
+        for a in body["agent_trace"]["agents"]
+        if a["name"] == "RelationshipOrchestratorAgent"
+    ]
+    assert orch[0]["detail"]["role_selection_mode"] == "manual"
+    assert orch[0]["detail"]["requested_role_ids"] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
+
+
 def test_topic_card_does_not_override_sensitive_user_input(client):
     body = client.post(
         "/api/chat",

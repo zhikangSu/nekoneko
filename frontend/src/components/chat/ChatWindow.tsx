@@ -8,6 +8,7 @@ import type {
   CompanionMode,
   RelationshipRoleId,
   RoleSelectionMode,
+  StudyCondition,
   TopicMaterialContext,
 } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
@@ -40,6 +41,9 @@ export function ChatWindow({
   onChangeMode,
   roleSelectionMode,
   onChangeRoleSelectionMode,
+  studyCondition,
+  onChangeStudyCondition,
+  studySessionId,
   selectedRoleIds,
   onChangeSelectedRoleIds,
   selectedTopic,
@@ -54,6 +58,9 @@ export function ChatWindow({
   onChangeMode: (mode: CompanionMode) => void;
   roleSelectionMode: RoleSelectionMode;
   onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
+  studyCondition: StudyCondition;
+  onChangeStudyCondition: (condition: StudyCondition) => void;
+  studySessionId: string;
   selectedRoleIds: RelationshipRoleId[];
   onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
   selectedTopic: TopicMaterialContext | null;
@@ -95,6 +102,11 @@ export function ChatWindow({
           onChangeMode={onChangeRoleSelectionMode}
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={onChangeSelectedRoleIds}
+        />
+        <StudyConditionControl
+          condition={studyCondition}
+          onChange={onChangeStudyCondition}
+          sessionId={studySessionId}
         />
         <TopicCardPicker
           selectedTopic={selectedTopic}
@@ -189,6 +201,50 @@ function SelectedTopicBanner({ topic }: { topic: TopicMaterialContext }) {
       <div className="mt-0.5 text-lg font-semibold text-ink">
         {topic.topic_id} · {topic.topic_label}
       </div>
+    </div>
+  );
+}
+
+function StudyConditionControl({
+  condition,
+  onChange,
+  sessionId,
+}: {
+  condition: StudyCondition;
+  onChange: (condition: StudyCondition) => void;
+  sessionId: string;
+}) {
+  const options: { value: StudyCondition; label: string }[] = [
+    { value: "c1_direct_question", label: "C1 直接提问" },
+    { value: "c2_fixed_role_prelude", label: "C2 固定角色" },
+    { value: "c3_relationship_aware", label: "C3 关系编排" },
+  ];
+  const shortSession = sessionId.replace(/^study_/, "").slice(0, 8);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div
+        role="group"
+        aria-label="研究条件"
+        className="inline-flex rounded-xl bg-canvas p-1"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            aria-pressed={condition === option.value}
+            className={`rounded-lg px-3 py-1.5 text-base font-medium ${
+              condition === option.value
+                ? "bg-surface text-ink shadow-sm"
+                : "text-muted"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <span className="text-sm text-muted">Session {shortSession}</span>
     </div>
   );
 }

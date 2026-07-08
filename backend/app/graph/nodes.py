@@ -20,7 +20,12 @@ from app.relationship.cue_generator import (
     is_relationship_cue_turn,
     role_messages_from_cue,
 )
-from app.schemas.relationship import OrchestrationInput
+from app.schemas.relationship import (
+    OrchestrationInput,
+    RoleId,
+    RoleSelectionMode,
+    StudyCondition,
+)
 from app.schemas.trace import TraceStep
 from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
@@ -101,6 +106,8 @@ def _relationship_cue_input(state: GraphState) -> str:
 
 
 def _should_route_relationship_cue(state: GraphState) -> bool:
+    if state.study_condition == StudyCondition.c1_direct_question:
+        return False
     if is_relationship_cue_turn(state.user_input):
         return True
     seed = _topic_card_seed_text(state)
@@ -267,13 +274,19 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     node so preferences (e.g. 粤剧) still get saved.
     """
 
+    role_selection_mode = state.role_selection_mode
+    selected_role_ids = list(state.selected_role_ids or [])
+    if state.study_condition == StudyCondition.c2_fixed_role_prelude:
+        role_selection_mode = RoleSelectionMode.manual
+        selected_role_ids = [RoleId.same_age_peer, RoleId.curious_junior]
+
     inp = OrchestrationInput(
         user_input=_relationship_cue_input(state),
         memory_context=list(state.memory_context or []),
         recent_emotion_or_tone=None,
         user_role_preferences=None,
-        role_selection_mode=state.role_selection_mode,
-        selected_role_ids=list(state.selected_role_ids or []),
+        role_selection_mode=role_selection_mode,
+        selected_role_ids=selected_role_ids,
         risk_flags=None,
     )
     decision = deps.relationship_orchestrator.orchestrate(inp)
@@ -292,8 +305,10 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             summary=decision.trace_visible_summary,
             detail={
                 "topic": decision.topic,
-                "role_selection_mode": state.role_selection_mode.value,
-                "requested_role_ids": [r.value for r in state.selected_role_ids],
+                "study_condition": state.study_condition.value,
+                "study_session_id": state.study_session_id,
+                "role_selection_mode": role_selection_mode.value,
+                "requested_role_ids": [r.value for r in selected_role_ids],
                 "selected_roles": [r.value for r in decision.selected_roles],
                 "topic_id": state.topic_id,
                 "topic_label": state.topic_label,

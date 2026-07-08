@@ -50,6 +50,14 @@ class MaterialType(str, Enum):
     song = "song"
 
 
+class StudyCondition(str, Enum):
+    """Study 2 comparison conditions for the relationship-aware prototype."""
+
+    c1_direct_question = "c1_direct_question"
+    c2_fixed_role_prelude = "c2_fixed_role_prelude"
+    c3_relationship_aware = "c3_relationship_aware"
+
+
 class RoleCueMessage(BaseModel):
     """One visible role bubble rendered inside a single companion turn."""
 
