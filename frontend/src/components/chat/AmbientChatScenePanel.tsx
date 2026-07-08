@@ -10,11 +10,11 @@ import {
 } from "@/lib/proactiveTopics";
 
 export function AmbientChatScenePanel({
-  isSending,
-  onJoin,
+  onDismiss,
+  onSceneReady,
 }: {
-  isSending: boolean;
-  onJoin: (scene: AmbientChatScene) => void;
+  onDismiss: (scene: AmbientChatScene) => void;
+  onSceneReady: (scene: AmbientChatScene) => void;
 }) {
   const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
   const [hidden, setHidden] = useState(false);
@@ -35,25 +35,24 @@ export function AmbientChatScenePanel({
 
   const activeScene = useMemo(() => scenes[0] ?? null, [scenes]);
 
+  useEffect(() => {
+    if (!hidden && activeScene) onSceneReady(activeScene);
+  }, [activeScene, hidden, onSceneReady]);
+
   if (hidden || !activeScene) return null;
 
   function dismissCurrentScene() {
+    if (activeScene) onDismiss(activeScene);
     setHidden(true);
-  }
-
-  function joinCurrentScene() {
-    if (!activeScene || isSending) return;
-    onJoin(activeScene);
-    dismissCurrentScene();
   }
 
   return (
     <section
       aria-label="正在聊的话题场"
-      className="rounded-2xl border border-companion/20 bg-[#f1f8f4] px-5 py-4 shadow-sm"
+      className="rounded-2xl border border-companion/20 bg-surface shadow-sm"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-2">
+      <div className="flex flex-col gap-3 border-b border-black/5 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-companion/10 px-3 py-1 text-sm font-semibold text-companion">
               正在聊
@@ -62,44 +61,32 @@ export function AmbientChatScenePanel({
               {activeScene.sourceLabel}
             </span>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold leading-snug text-ink">
-              {activeScene.headline}
-            </h2>
-            <p className="mt-1 text-base leading-relaxed text-muted">
-              {activeScene.interestAnchor}
-            </p>
-          </div>
+          <h2 className="mt-2 text-xl font-semibold leading-snug text-ink">
+            {activeScene.headline}
+          </h2>
+          <p className="mt-1 text-base leading-relaxed text-muted">
+            {activeScene.interestAnchor}
+          </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={joinCurrentScene}
-            disabled={isSending}
-            className="min-h-11 rounded-xl bg-companion px-5 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            加入聊聊
-          </button>
-          <button
-            type="button"
-            onClick={dismissCurrentScene}
-            className="min-h-11 rounded-xl border border-black/10 bg-surface px-5 text-base font-semibold text-muted hover:text-ink"
-          >
-            不感兴趣
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={dismissCurrentScene}
+          className="min-h-11 shrink-0 rounded-xl border border-black/10 bg-canvas px-5 text-base font-semibold text-muted hover:text-ink"
+        >
+          不感兴趣
+        </button>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      <div className="space-y-3 bg-[#f1f8f4] px-5 py-4">
         {activeScene.roleMessages.map((message) => (
           <div
             key={`${activeScene.id}-${message.role_label}`}
-            className="rounded-xl border border-black/5 bg-surface/80 px-4 py-3"
+            className="flex flex-col gap-1 sm:max-w-[82%]"
           >
             <div className="text-sm font-semibold text-companion">
               {message.role_label}
             </div>
-            <p className="mt-1 text-base leading-relaxed text-ink">
+            <p className="rounded-2xl rounded-tl-sm border border-black/5 bg-surface px-4 py-3 text-base leading-relaxed text-ink">
               {message.text}
             </p>
           </div>
