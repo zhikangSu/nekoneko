@@ -6,6 +6,7 @@ import type {
   TTSResponse,
 } from "@/types/chat";
 import type { CaregiverSummary } from "@/types/caregiver";
+import type { EvaluationExport } from "@/types/evaluation";
 import type {
   CardStatus,
   MemoryCard,
@@ -98,6 +99,29 @@ export async function getCaregiverSummary(
     await fetch(`${API_BASE_URL}/api/caregiver/summary?${params.toString()}`),
     "Get caregiver summary",
   );
+}
+
+// --- Evaluation export (#80) ------------------------------------------------
+
+export async function getEvaluationExport(
+  userId: string,
+): Promise<EvaluationExport> {
+  const params = new URLSearchParams({ user_id: userId });
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/evaluation/export?${params.toString()}`),
+    "Get evaluation export",
+  );
+}
+
+export async function getEvaluationCsv(userId: string): Promise<Blob> {
+  const params = new URLSearchParams({ user_id: userId });
+  const response = await fetch(
+    `${API_BASE_URL}/api/evaluation/export.csv?${params.toString()}`,
+  );
+  if (!response.ok) {
+    throw new Error(`Get evaluation CSV failed with status ${response.status}`);
+  }
+  return response.blob();
 }
 
 // --- Memory (#10) -----------------------------------------------------------
