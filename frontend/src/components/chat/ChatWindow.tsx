@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import type { VoiceControls } from "@/hooks/useVoice";
 import type {
   ChatMessage,
-  CompanionMode,
   ElderControlAction,
   RelationshipRoleId,
   RoleSelectionMode,
@@ -35,8 +34,6 @@ const MATERIAL_LABEL: Record<TopicMaterialContext["material_type"], string> = {
 export function ChatWindow({
   messages,
   isSending,
-  mode,
-  onChangeMode,
   roleSelectionMode,
   onChangeRoleSelectionMode,
   elderControlAction,
@@ -51,8 +48,6 @@ export function ChatWindow({
 }: {
   messages: ChatMessage[];
   isSending: boolean;
-  mode: CompanionMode;
-  onChangeMode: (mode: CompanionMode) => void;
   roleSelectionMode: RoleSelectionMode;
   onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
   elderControlAction: ElderControlAction;
@@ -89,10 +84,7 @@ export function ChatWindow({
   return (
     <section className="rounded-2xl bg-surface border border-black/5 flex flex-col h-[78vh] min-h-[520px]">
       <div className="px-5 py-3 border-b border-black/5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">聊天</h2>
-          <ModeToggle mode={mode} onChange={onChangeMode} />
-        </div>
+        <h2 className="text-lg font-semibold text-ink">聊天</h2>
         <RoleSelectionControl
           mode={roleSelectionMode}
           onChangeMode={onChangeRoleSelectionMode}
@@ -438,42 +430,6 @@ function TTSSpeedControl({ voice }: { voice: VoiceControls }) {
           aria-pressed={voice.ttsSpeed === option.value}
           className={`rounded-lg px-3 py-1.5 text-base font-medium ${
             voice.ttsSpeed === option.value
-              ? "bg-surface text-ink shadow-sm"
-              : "text-muted"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: CompanionMode;
-  onChange: (mode: CompanionMode) => void;
-}) {
-  const options: { value: CompanionMode; label: string }[] = [
-    { value: "role_first", label: "陪伴优先" },
-    { value: "neutral_assistant", label: "助理模式" },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label="对话模式"
-      className="inline-flex rounded-xl bg-canvas p-1"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          aria-pressed={mode === option.value}
-          className={`rounded-lg px-3 py-1.5 text-base font-medium ${
-            mode === option.value
               ? "bg-surface text-ink shadow-sm"
               : "text-muted"
           }`}

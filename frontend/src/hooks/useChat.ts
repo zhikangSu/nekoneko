@@ -15,6 +15,7 @@ import type {
 } from "@/types/chat";
 
 const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
+const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -25,7 +26,6 @@ function newId(): string {
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [mode, setMode] = useState<CompanionMode>("role_first");
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
   const [studySessionId] = useState(() => `study_${newId()}`);
@@ -53,7 +53,7 @@ export function useChat() {
         const response = await sendChat({
           user_id: DEFAULT_USER_ID,
           message: text,
-          mode,
+          mode: DEFAULT_COMPANION_MODE,
           role_selection_mode: roleSelectionMode,
           selected_role_ids:
             roleSelectionMode === "manual" ? selectedRoleIds : [],
@@ -92,7 +92,6 @@ export function useChat() {
     },
     [
       isSending,
-      mode,
       roleSelectionMode,
       selectedRoleIds,
       selectedTopic,
@@ -103,8 +102,6 @@ export function useChat() {
 
   return {
     messages,
-    mode,
-    setMode,
     roleSelectionMode,
     setRoleSelectionMode,
     elderControlAction,
