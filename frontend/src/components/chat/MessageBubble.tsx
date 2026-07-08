@@ -89,7 +89,9 @@ function SocialCueScene({
           <RoleLine
             key={`${roleMessage.role_id ?? "role"}-${index}`}
             message={roleMessage}
-            isInvitation={index === roleMessages.length - 1}
+            isInvitation={
+              roleMessages.length >= 3 && index === roleMessages.length - 1
+            }
           />
         ))}
       </div>

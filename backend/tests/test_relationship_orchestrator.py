@@ -118,6 +118,10 @@ def test_accept_yueju_uses_theme_or_peer():
         RoleId.same_age_peer in d.selected_roles
     )
     assert RoleId.theme_companion in d.selected_roles
+    assert RoleId.same_age_peer in d.selected_roles
+    assert RoleId.curious_junior in d.selected_roles
+    assert len(d.selected_roles) >= 3
+    assert d.cueing_style == CueingStyle.agent_agent_then_invite
     _assert_common_invariants(d)
 
 
@@ -128,8 +132,10 @@ def test_accept_yueju_uses_theme_or_peer():
 
 def test_family_education_uses_junior_and_bridge():
     d = _orchestrate("想聊聊孩子的教育和儿女")
+    assert RoleId.same_age_peer in d.selected_roles
     assert RoleId.curious_junior in d.selected_roles
     assert RoleId.middle_age_bridge in d.selected_roles
+    assert len(d.selected_roles) >= 3
     assert d.primary_role is RoleId.middle_age_bridge
     assert d.cueing_style == CueingStyle.agent_agent_then_invite
     _assert_common_invariants(d)

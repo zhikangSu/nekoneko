@@ -14,10 +14,10 @@ Policy summary (per topic):
   → [same_age_peer, curious_junior, middle_age_bridge], primary same_age_peer,
     cueing agent_agent_then_invite.
 * family_education
-  → [curious_junior, middle_age_bridge], primary middle_age_bridge,
+  → [same_age_peer, middle_age_bridge, curious_junior], primary middle_age_bridge,
     cueing agent_agent_then_invite.
 * culture_arts
-  → [theme_companion, same_age_peer], primary theme_companion,
+  → [theme_companion, same_age_peer, curious_junior], primary theme_companion,
     cueing agent_agent_then_invite.
 * SENSITIVE (deceased_grief / privacy_family_conflict / health_care) or
   risk_flags signalling these
@@ -75,12 +75,12 @@ _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
         CueingStyle.agent_agent_then_invite,
     ),
     Topic.family_education: (
-        [RoleId.curious_junior, RoleId.middle_age_bridge],
+        [RoleId.same_age_peer, RoleId.middle_age_bridge, RoleId.curious_junior],
         RoleId.middle_age_bridge,
         CueingStyle.agent_agent_then_invite,
     ),
     Topic.culture_arts: (
-        [RoleId.theme_companion, RoleId.same_age_peer],
+        [RoleId.theme_companion, RoleId.same_age_peer, RoleId.curious_junior],
         RoleId.theme_companion,
         CueingStyle.agent_agent_then_invite,
     ),
