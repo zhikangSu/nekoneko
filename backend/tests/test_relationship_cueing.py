@@ -128,6 +128,47 @@ def test_manual_no_ai_role_suppresses_role_lines(client):
     assert orch[0]["detail"]["cueing_style"] == "no_cue"
 
 
+def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card",
+            "message": "聊这个吧",
+            "topic_id": "T05",
+            "topic_label": "老照片或旧物件",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert len(body["role_messages"]) >= 2
+    assert body["role_messages"][0]["role_label"]
+    assert body["role_messages"][0]["text"]
+
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["topic_id"] == "T05"
+    assert metadata["material_type"] == "topic_card"
+    assert "same_age_peer" in metadata["selected_roles"]
+    assert metadata["cueing_style"] == "agent_agent_then_invite"
+
+
+def test_topic_card_does_not_override_sensitive_user_input(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_sensitive",
+            "message": "我今天有点想老伴了",
+            "topic_id": "T05",
+            "topic_label": "老照片或旧物件",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert body["agent_trace"]["research_metadata"]["topic_id"] == "T05"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 2: culture/arts preference -> cue route AND memory still saved
 # ---------------------------------------------------------------------------

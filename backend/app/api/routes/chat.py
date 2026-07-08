@@ -29,6 +29,21 @@ def _new_turn_id() -> str:
     return f"t_{uuid.uuid4().hex[:8]}"
 
 
+def _research_metadata(state: GraphState) -> dict:
+    metadata: dict = {}
+    if state.topic_id:
+        metadata["topic_id"] = state.topic_id
+    if state.topic_label:
+        metadata["topic_label"] = state.topic_label
+    if state.material_type:
+        metadata["material_type"] = state.material_type.value
+    if state.selected_relationship_roles:
+        metadata["selected_roles"] = state.selected_relationship_roles
+    if state.cueing_style:
+        metadata["cueing_style"] = state.cueing_style
+    return metadata
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
@@ -48,6 +63,9 @@ def chat(
         user_profile=profile,
         role_selection_mode=request.role_selection_mode,
         selected_role_ids=request.selected_role_ids,
+        topic_id=request.topic_id,
+        topic_label=request.topic_label,
+        material_type=request.material_type,
     )
     run_turn(state, build_deps(settings))
 
@@ -63,6 +81,7 @@ def chat(
         memory_used=state.memory_used,
         retrieval_used=state.retrieval_used,
         safety_critic_used=state.safety_critic_used,
+        research_metadata=_research_metadata(state),
     )
 
     trace_store.save(
@@ -77,6 +96,7 @@ def chat(
     return ChatResponse(
         turn_id=turn_id,
         response_text=state.response_text,
+        role_messages=state.role_messages,
         audio_url=None,
         agent_trace=trace,
     )

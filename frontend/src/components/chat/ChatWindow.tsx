@@ -8,9 +8,11 @@ import type {
   CompanionMode,
   RelationshipRoleId,
   RoleSelectionMode,
+  TopicMaterialContext,
 } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
 import { ReplayButton } from "./ReplayButton";
+import { TopicCardPicker } from "./TopicCardPicker";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 
 const ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
@@ -24,6 +26,13 @@ const ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
   { value: "no_ai_role", label: "不需要" },
 ];
 
+const MATERIAL_LABEL: Record<TopicMaterialContext["material_type"], string> = {
+  topic_card: "话题卡",
+  photo: "照片",
+  object: "旧物",
+  song: "音乐",
+};
+
 export function ChatWindow({
   messages,
   isSending,
@@ -33,6 +42,8 @@ export function ChatWindow({
   onChangeRoleSelectionMode,
   selectedRoleIds,
   onChangeSelectedRoleIds,
+  selectedTopic,
+  onChangeSelectedTopic,
   onSend,
   companionDisplayName,
   voice,
@@ -45,6 +56,8 @@ export function ChatWindow({
   onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
   selectedRoleIds: RelationshipRoleId[];
   onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
+  selectedTopic: TopicMaterialContext | null;
+  onChangeSelectedTopic: (topic: TopicMaterialContext | null) => void;
   onSend: (text: string) => void;
   companionDisplayName?: string | null;
   voice: VoiceControls;
@@ -83,9 +96,14 @@ export function ChatWindow({
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={onChangeSelectedRoleIds}
         />
+        <TopicCardPicker
+          selectedTopic={selectedTopic}
+          onChangeSelectedTopic={onChangeSelectedTopic}
+        />
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {selectedTopic ? <SelectedTopicBanner topic={selectedTopic} /> : null}
         {messages.length === 0 ? (
           <p className="text-muted text-lg">
             您好，想和我说点什么都可以。可以先打个招呼，或者说说今天过得怎么样。
@@ -159,6 +177,19 @@ export function ChatWindow({
         <TTSSpeedControl voice={voice} />
       </div>
     </section>
+  );
+}
+
+function SelectedTopicBanner({ topic }: { topic: TopicMaterialContext }) {
+  return (
+    <div className="rounded-xl border border-companion/20 bg-companion/10 px-4 py-3">
+      <div className="text-sm font-semibold uppercase text-companion">
+        {MATERIAL_LABEL[topic.material_type]}
+      </div>
+      <div className="mt-0.5 text-lg font-semibold text-ink">
+        {topic.topic_id} · {topic.topic_label}
+      </div>
+    </div>
   );
 }
 

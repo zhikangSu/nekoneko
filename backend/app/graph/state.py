@@ -14,7 +14,12 @@ from typing import Any, Optional
 from app.core.constants import CompanionMode, Route
 from app.safety.risk_classifier import RiskClassification
 from app.schemas.profile import UserProfile
-from app.schemas.relationship import RoleId, RoleSelectionMode
+from app.schemas.relationship import (
+    MaterialType,
+    RoleCueMessage,
+    RoleId,
+    RoleSelectionMode,
+)
 from app.schemas.trace import TraceStep
 
 
@@ -28,6 +33,9 @@ class GraphState:
     user_profile: UserProfile
     role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
     selected_role_ids: list[RoleId] = field(default_factory=list)
+    topic_id: Optional[str] = None
+    topic_label: Optional[str] = None
+    material_type: Optional[MaterialType] = None
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None
@@ -45,6 +53,9 @@ class GraphState:
     memory_used: bool = False
     retrieval_used: bool = False
     safety_critic_used: bool = False
+    role_messages: list[RoleCueMessage] = field(default_factory=list)
+    selected_relationship_roles: list[str] = field(default_factory=list)
+    cueing_style: Optional[str] = None
 
     # Trace accumulation, kept separated by kind
     agents: list[TraceStep] = field(default_factory=list)

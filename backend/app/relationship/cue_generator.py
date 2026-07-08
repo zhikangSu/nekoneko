@@ -27,6 +27,7 @@ from app.relationship.topic_classifier import Topic, classify_topic
 from app.schemas.relationship import (
     CueingStyle,
     RelationshipDecision,
+    RoleCueMessage,
     RoleId,
 )
 
@@ -238,3 +239,29 @@ class CueGenerator:
         lines.append(f"{_label(inviting)}：{invite}")
 
         return "\n".join(lines[:MAX_ROLES_PER_TURN])
+
+
+def role_messages_from_cue(cue_text: str, roles: list[RoleId]) -> list[RoleCueMessage]:
+    """Split a visible cue template into structured role bubbles."""
+
+    role_by_label = {
+        get_role_profile(role).label_zh: role
+        for role in roles
+        if role is not RoleId.no_ai_role
+    }
+    messages: list[RoleCueMessage] = []
+
+    for raw_line in cue_text.splitlines():
+        line = raw_line.strip()
+        if "：" not in line:
+            continue
+        label, text = line.split("：", 1)
+        role = role_by_label.get(label)
+        if role is None:
+            continue
+        text = text.strip()
+        if not text:
+            continue
+        messages.append(RoleCueMessage(role_id=role, role_label=label, text=text))
+
+    return messages[:MAX_ROLES_PER_TURN]

@@ -41,6 +41,23 @@ class RoleSelectionMode(str, Enum):
     manual = "manual"
 
 
+class MaterialType(str, Enum):
+    """Topic/material anchors used by the reminiscence prototype."""
+
+    topic_card = "topic_card"
+    photo = "photo"
+    object = "object"
+    song = "song"
+
+
+class RoleCueMessage(BaseModel):
+    """One visible role bubble rendered inside a single companion turn."""
+
+    role_id: RoleId | None = None
+    role_label: str
+    text: str
+
+
 class RoleProfile(BaseModel):
     """A visible relationship function the companion can adopt for one turn.
 
