@@ -12,6 +12,7 @@ from app.schemas.relationship import (
     RoleCueMessage,
     RoleId,
     RoleSelectionMode,
+    StudyCondition,
 )
 from app.schemas.trace import AgentTrace
 
@@ -34,6 +35,8 @@ class ChatRequest(BaseModel):
     topic_id: Optional[str] = Field(default=None, max_length=32)
     topic_label: Optional[str] = Field(default=None, max_length=80)
     material_type: Optional[MaterialType] = None
+    study_condition: StudyCondition = StudyCondition.c3_relationship_aware
+    study_session_id: Optional[str] = Field(default=None, max_length=64)
 
     @field_validator("message")
     @classmethod
@@ -46,6 +49,14 @@ class ChatRequest(BaseModel):
     @field_validator("topic_id", "topic_label")
     @classmethod
     def _optional_text_not_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("study_session_id")
+    @classmethod
+    def _optional_session_not_blank(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         stripped = value.strip()

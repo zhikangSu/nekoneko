@@ -9,6 +9,7 @@ import type {
   CompanionMode,
   RelationshipRoleId,
   RoleSelectionMode,
+  StudyCondition,
   TopicMaterialContext,
 } from "@/types/chat";
 
@@ -24,6 +25,10 @@ export function useChat() {
   const [mode, setMode] = useState<CompanionMode>("role_first");
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
+  const [studyCondition, setStudyCondition] = useState<StudyCondition>(
+    "c3_relationship_aware",
+  );
+  const [studySessionId] = useState(() => `study_${newId()}`);
   const [selectedRoleIds, setSelectedRoleIds] = useState<RelationshipRoleId[]>([
     "same_age_peer",
     "curious_junior",
@@ -53,6 +58,8 @@ export function useChat() {
           topic_id: topic?.topic_id ?? null,
           topic_label: topic?.topic_label ?? null,
           material_type: topic?.material_type ?? null,
+          study_condition: studyCondition,
+          study_session_id: studySessionId,
         });
         setMessages((prev) => [
           ...prev,
@@ -80,7 +87,15 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, mode, roleSelectionMode, selectedRoleIds, selectedTopic],
+    [
+      isSending,
+      mode,
+      roleSelectionMode,
+      selectedRoleIds,
+      selectedTopic,
+      studyCondition,
+      studySessionId,
+    ],
   );
 
   return {
@@ -89,6 +104,9 @@ export function useChat() {
     setMode,
     roleSelectionMode,
     setRoleSelectionMode,
+    studyCondition,
+    setStudyCondition,
+    studySessionId,
     selectedRoleIds,
     setSelectedRoleIds,
     selectedTopic,

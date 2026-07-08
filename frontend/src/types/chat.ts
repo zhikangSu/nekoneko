@@ -2,6 +2,10 @@ import type { AgentTrace } from "./trace";
 
 export type CompanionMode = "role_first" | "neutral_assistant";
 export type RoleSelectionMode = "auto" | "manual";
+export type StudyCondition =
+  | "c1_direct_question"
+  | "c2_fixed_role_prelude"
+  | "c3_relationship_aware";
 export type MaterialType = "topic_card" | "photo" | "object" | "song";
 export type RelationshipRoleId =
   | "same_age_peer"
@@ -22,6 +26,8 @@ export interface ChatRequest {
   topic_id?: string | null;
   topic_label?: string | null;
   material_type?: MaterialType | null;
+  study_condition?: StudyCondition;
+  study_session_id?: string | null;
   voice_enabled?: boolean;
   sensor_preset_id?: string | null;
   companion_display_name?: string | null;
