@@ -29,8 +29,10 @@ def test_agent_trace_minimal_valid():
         "retrieval_used",
         "safety_critic_used",
         "research_metadata",
+        "research_trace",
     ):
         assert key in dumped
+    assert dumped["research_trace"]["boundary"]["boundary_state"] == "none"
 
 
 def test_trace_step_keeps_kind_distinction():

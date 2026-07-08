@@ -24,6 +24,39 @@ class TraceStep(BaseModel):
     detail: dict[str, Any] = Field(default_factory=dict)
 
 
+class ResearchRoleTrace(BaseModel):
+    selected_roles: list[str] = Field(default_factory=list)
+    primary_role: Optional[str] = None
+    role_selection_mode: Optional[str] = None
+    requested_role_ids: list[str] = Field(default_factory=list)
+    cueing_style: Optional[str] = None
+
+
+class ResearchTopicTrace(BaseModel):
+    topic_id: Optional[str] = None
+    topic_label: Optional[str] = None
+    material_type: Optional[str] = None
+    classified_topic: Optional[str] = None
+
+
+class ResearchBoundaryTrace(BaseModel):
+    boundary_state: str = "none"
+    boundary_notes: list[str] = Field(default_factory=list)
+
+
+class ResearchControlTrace(BaseModel):
+    study_condition: Optional[str] = None
+    study_session_id: Optional[str] = None
+    elder_control_action: Optional[str] = None
+
+
+class ResearchTraceMetadata(BaseModel):
+    role: ResearchRoleTrace = Field(default_factory=ResearchRoleTrace)
+    topic: ResearchTopicTrace = Field(default_factory=ResearchTopicTrace)
+    boundary: ResearchBoundaryTrace = Field(default_factory=ResearchBoundaryTrace)
+    control: ResearchControlTrace = Field(default_factory=ResearchControlTrace)
+
+
 class AgentTrace(BaseModel):
     turn_id: str
     mode: CompanionMode
@@ -39,6 +72,7 @@ class AgentTrace(BaseModel):
     # Compact research/demo metadata for relationship-aware turns. Keep this
     # privacy-preserving: IDs/enums/role choices, not full sensitive content.
     research_metadata: dict[str, Any] = Field(default_factory=dict)
+    research_trace: ResearchTraceMetadata = Field(default_factory=ResearchTraceMetadata)
 
 
 class TraceRecord(BaseModel):

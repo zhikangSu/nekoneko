@@ -191,6 +191,15 @@ def test_study_condition_c2_uses_fixed_role_prelude(client):
     assert metadata["study_condition"] == "c2_fixed_role_prelude"
     assert metadata["study_session_id"] == "session_c2"
     assert metadata["selected_roles"] == ["same_age_peer", "curious_junior"]
+    research_trace = body["agent_trace"]["research_trace"]
+    assert research_trace["control"]["study_condition"] == "c2_fixed_role_prelude"
+    assert research_trace["control"]["study_session_id"] == "session_c2"
+    assert research_trace["topic"]["topic_id"] == "T05"
+    assert research_trace["role"]["selected_roles"] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
+    assert research_trace["role"]["role_selection_mode"] == "manual"
 
     orch = [
         a
@@ -221,6 +230,9 @@ def test_elder_pause_roles_suppresses_relationship_cueing(client):
     metadata = body["agent_trace"]["research_metadata"]
     assert metadata["elder_control_action"] == "pause_roles"
     assert metadata["study_session_id"] == "session_pause"
+    research_trace = body["agent_trace"]["research_trace"]
+    assert research_trace["control"]["elder_control_action"] == "pause_roles"
+    assert research_trace["boundary"]["boundary_state"] == "user_paused_roles"
 
 
 def test_elder_continue_keeps_relationship_cueing(client):

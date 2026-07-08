@@ -302,7 +302,14 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         fallback_cue,
         decision.selected_roles,
     )
+    state.requested_relationship_roles = [r.value for r in selected_role_ids]
+    state.relationship_role_selection_mode = role_selection_mode.value
     state.selected_relationship_roles = [r.value for r in decision.selected_roles]
+    state.relationship_primary_role = (
+        decision.primary_role.value if decision.primary_role else None
+    )
+    state.relationship_topic = decision.topic
+    state.relationship_boundary_notes = list(decision.boundary_notes)
     state.cueing_style = decision.cueing_style.value
     state.agents.append(
         TraceStep(
