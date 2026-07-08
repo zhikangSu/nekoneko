@@ -7,6 +7,10 @@ export interface UserProfile {
   onboarding_completed: boolean;
   memory_enabled: boolean;
   proactive_checkin_enabled: boolean;
+  proactive_quiet_hours_start: string;
+  proactive_quiet_hours_end: string;
+  proactive_max_checkins_per_day: number;
+  proactive_same_topic_cooldown_minutes: number;
 }
 
 export interface ProfileUpdate {
@@ -15,4 +19,8 @@ export interface ProfileUpdate {
   onboarding_completed?: boolean;
   memory_enabled?: boolean;
   proactive_checkin_enabled?: boolean;
+  proactive_quiet_hours_start?: string;
+  proactive_quiet_hours_end?: string;
+  proactive_max_checkins_per_day?: number;
+  proactive_same_topic_cooldown_minutes?: number;
 }

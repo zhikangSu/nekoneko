@@ -52,5 +52,7 @@ class ProfileStore:
         for field, value in changes.items():
             if field in _NAME_FIELDS:
                 value = normalize_name(value)
+            elif value is None:
+                continue
             setattr(profile, field, value)
         return self.save(profile)

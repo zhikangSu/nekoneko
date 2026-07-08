@@ -77,6 +77,17 @@ def test_quiet_hours_defers_non_urgent(tmp_path):
     assert decision.decision == GuardianDecisionType.defer
 
 
+def test_user_quiet_hours_override_defers_non_urgent(tmp_path):
+    decision = _guardian(tmp_path).decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+        user_quiet_hours_start="09:00",
+        user_quiet_hours_end="11:00",
+    )
+    assert decision.decision == GuardianDecisionType.defer
+
+
 def test_escalation_ignores_quiet_hours(tmp_path):
     decision = _guardian(tmp_path).decide(
         user_id="u",
@@ -98,6 +109,41 @@ def test_daily_cap_silences(tmp_path):
         user_id="u", state_event=_event(StateEventType.REMINDER_OVERDUE), now=_NOON
     )
     assert fourth.decision == GuardianDecisionType.silent_log
+
+
+def test_user_daily_cap_override_silences(tmp_path):
+    guardian = _guardian(tmp_path)
+    first = guardian.decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+        user_max_checkins_per_day=1,
+    )
+    second = guardian.decide(
+        user_id="u",
+        state_event=_event(StateEventType.LOW_ACTIVITY),
+        now=_NOON + timedelta(minutes=1),
+        user_max_checkins_per_day=1,
+    )
+    assert first.decision == GuardianDecisionType.check_in
+    assert second.decision == GuardianDecisionType.silent_log
+
+
+def test_user_cooldown_override_allows_sooner_checkin(tmp_path):
+    guardian = _guardian(tmp_path)
+    guardian.decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+        user_same_topic_cooldown_minutes=30,
+    )
+    second = guardian.decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON + timedelta(minutes=45),
+        user_same_topic_cooldown_minutes=30,
+    )
+    assert second.decision == GuardianDecisionType.check_in
 
 
 def test_refusal_pauses_same_type(tmp_path):

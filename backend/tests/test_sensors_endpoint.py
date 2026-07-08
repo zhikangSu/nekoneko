@@ -89,6 +89,28 @@ def test_profile_disabled_silences_checkin(client):
     assert body["guardian_decision"]["decision"] == "silent_log"
 
 
+def test_profile_proactive_preferences_feed_guardian_trace(client):
+    uid = "sensor_custom_proactive"
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={
+            "proactive_quiet_hours_start": "11:00",
+            "proactive_quiet_hours_end": "13:00",
+            "proactive_max_checkins_per_day": 1,
+            "proactive_same_topic_cooldown_minutes": 45,
+        },
+    )
+    body = client.post(
+        "/api/sensors/apply-preset", json={"user_id": uid, "preset_id": "poor_sleep"}
+    ).json()
+    assert body["guardian_decision"]["decision"] == "defer"
+    detail = body["agent_trace"]["agents"][0]["detail"]["profile_preferences"]
+    assert detail["quiet_hours_start"] == "11:00"
+    assert detail["quiet_hours_end"] == "13:00"
+    assert detail["max_checkins_per_day"] == 1
+    assert detail["same_topic_cooldown_minutes"] == 45
+
+
 def test_refuse_then_defer(client):
     uid = "sensor_refuse"
     first = client.post(
