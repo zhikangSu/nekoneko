@@ -121,7 +121,7 @@ function RoleLine({
           isInvitation ? "text-companion" : "text-muted"
         }`}
       >
-        {isInvitation ? "轻轻邀请您" : message.role_label}
+        {isInvitation ? "也想听您说说" : message.role_label}
       </div>
       <div className="whitespace-pre-wrap break-words">{message.text}</div>
     </div>
