@@ -39,6 +39,32 @@ class GraphDeps:
     cue_generator: CueGenerator
 
 
+def _append_companion_trace(
+    state: GraphState,
+    deps: GraphDeps,
+    result,
+    *,
+    extra_detail: dict | None = None,
+) -> None:
+    detail = {
+        "mode": result.mode.value,
+        "companion_display_name": result.companion_display_name,
+        "named_by_user": result.named_by_user,
+        "prompt_version": deps.companion.prompt_version,
+        "llm_generation": result.llm_generation,
+    }
+    if extra_detail:
+        detail.update(extra_detail)
+    state.agents.append(
+        TraceStep(
+            kind=TraceEntryKind.agent,
+            name=deps.companion.name,
+            summary=result.trace_summary(),
+            detail=detail,
+        )
+    )
+
+
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.input_guard.run(state.user_input)
     state.risk = result.classification
@@ -144,20 +170,21 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         retrieval_context=state.retrieval_context,
     )
     state.draft_reply = result.reply_text
-    state.agents.append(
-        TraceStep(
-            kind=TraceEntryKind.agent,
-            name=deps.companion.name,
-            summary=result.trace_summary(),
-            detail={
-                "mode": result.mode.value,
-                "companion_display_name": result.companion_display_name,
-                "named_by_user": result.named_by_user,
-                "prompt_version": deps.companion.prompt_version,
-            },
-        )
-    )
+    _append_companion_trace(state, deps, result)
     return state
+
+
+def _relationship_cue_context(decision, fallback_cue: str) -> str:
+    selected_roles = ", ".join(r.value for r in decision.selected_roles) or "none"
+    return (
+        f"topic: {decision.topic}\n"
+        f"selected_relationship_functions: {selected_roles}\n"
+        f"cueing_style: {decision.cueing_style.value}\n"
+        f"role_selection_reason: {decision.role_selection_reason}\n"
+        f"boundary_notes: {'; '.join(decision.boundary_notes)}\n"
+        "offline_template_for_reference:\n"
+        f"{fallback_cue}"
+    )
 
 
 def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -180,7 +207,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         risk_flags=None,
     )
     decision = deps.relationship_orchestrator.orchestrate(inp)
-    state.draft_reply = deps.cue_generator.generate(decision, state.user_input)
+    fallback_cue = deps.cue_generator.generate(decision, state.user_input)
     state.memory_used = bool(state.memory_context)
     state.agents.append(
         TraceStep(
@@ -204,6 +231,27 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "boundary_trace": decision.boundary_trace,
             },
         )
+    )
+    if deps.companion.llm_provider_name == "fake":
+        state.draft_reply = fallback_cue
+        return state
+
+    result = deps.companion.respond(
+        message=state.user_input,
+        mode=state.mode,
+        companion_display_name=state.user_profile.companion_display_name,
+        memory_context=state.memory_context,
+        relationship_cue_context=_relationship_cue_context(decision, fallback_cue),
+    )
+    state.draft_reply = result.reply_text
+    _append_companion_trace(
+        state,
+        deps,
+        result,
+        extra_detail={
+            "relationship_cueing": True,
+            "relationship_cue_fallback_template": fallback_cue,
+        },
     )
     return state
 

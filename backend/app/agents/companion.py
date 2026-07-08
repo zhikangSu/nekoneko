@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from app.core.constants import DEFAULT_COMPANION_DISPLAY_NAME, CompanionMode
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
@@ -41,6 +42,7 @@ class CompanionResult:
     companion_display_name: str
     named_by_user: bool
     rendered_prompt: str
+    llm_generation: dict[str, Any]
 
     def trace_summary(self) -> str:
         source = "用户命名" if self.named_by_user else "默认称呼"
@@ -62,6 +64,7 @@ class CompanionAgent:
         companion_display_name: str | None,
         memory_context: list[str] | None = None,
         retrieval_context: str | None = None,
+        relationship_cue_context: str | None = None,
     ) -> CompanionResult:
         named_by_user = bool(companion_display_name and companion_display_name.strip())
         display_name = (
@@ -96,6 +99,16 @@ class CompanionAgent:
                 "请把它用温和、口语化的方式说给老人听，不要照搬数字术语。\n"
                 "--- 检索结束 ---"
             )
+        if relationship_cue_context:
+            rendered_prompt += (
+                "\n\n--- 关系编排计划（内部指导，不要逐字照搬）---\n"
+                f"{relationship_cue_context}\n"
+                "请把它改写成一个自然、温和、口语化的陪伴回复。"
+                "不要显示内部角色标签，不要写成访谈提纲，不要冒充真实家人。"
+                "不要使用括号式旁白或解释你在怎么设计回复。"
+                "先接住用户当下的话，再给一个低压力邀请；最多一个问题。\n"
+                "--- 关系编排计划结束 ---"
+            )
 
         reply_text = self._llm.generate_companion_reply(
             CompanionReplyInput(
@@ -113,8 +126,13 @@ class CompanionAgent:
             companion_display_name=display_name,
             named_by_user=named_by_user,
             rendered_prompt=rendered_prompt,
+            llm_generation=self._llm.generation_info,
         )
 
     @property
     def prompt_version(self) -> str:
         return _PROMPT_VERSION
+
+    @property
+    def llm_provider_name(self) -> str:
+        return self._llm.name

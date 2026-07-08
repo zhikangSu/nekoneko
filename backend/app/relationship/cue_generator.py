@@ -46,6 +46,31 @@ CUE_ROUTE_TOPICS: frozenset[Topic] = frozenset(
     }
 )
 
+_RELATIONSHIP_STRAIN_MARKERS: tuple[str, ...] = (
+    "不理我",
+    "不搭理",
+    "不跟我说话",
+    "不和我说话",
+    "不想跟我讲话",
+    "不想和我讲话",
+    "不愿意跟我",
+    "不愿意和我",
+    "不回我",
+    "不回消息",
+    "不回微信",
+    "不来看我",
+    "不愿意来看",
+    "冷落",
+    "疏远",
+    "嫌我",
+    "嫌弃",
+    "烦我",
+    "关系不好",
+    "闹别扭",
+    "生我的气",
+    "没人理",
+)
+
 
 def is_relationship_cue_turn(text: str) -> bool:
     """True only for NON-SENSITIVE reminiscence turns that should be cued.
@@ -53,6 +78,9 @@ def is_relationship_cue_turn(text: str) -> bool:
     Sensitive topics, loneliness, and everything else stay on the companion
     path, so existing routing/tests are preserved.
     """
+
+    if any(marker in text for marker in _RELATIONSHIP_STRAIN_MARKERS):
+        return False
 
     return classify_topic(text) in CUE_ROUTE_TOPICS
 

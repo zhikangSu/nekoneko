@@ -66,8 +66,8 @@ class Settings(BaseSettings):
 
     # Real companion-reply LLM (#6, optional). Replies stay on the FakeLLMProvider
     # unless DEMO_MODE=false + LLM_PROVIDER=xiaomimimo + OPENAI_API_KEY. Reuses
-    # openai_base_url/openai_api_key. mimo-v2-flash = fast/low-cost chat default.
-    llm_model: str = "mimo-v2-flash"
+    # openai_base_url/openai_api_key. xiaomimimo v2 is unsupported; use v2.5.
+    llm_model: str = "mimo-v2.5"
     llm_temperature: float = 0.7
     llm_max_tokens: int = 512
     llm_timeout_seconds: float = 30.0
