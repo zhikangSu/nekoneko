@@ -24,11 +24,11 @@ export function ReplayButton({
         type="button"
         onClick={isSpeaking ? onStop : onPlay}
         disabled={disabled}
-        title={disabled ? "还没有可朗读的回复" : isSpeaking ? "停止朗读" : "朗读最近的回复"}
+        title={disabled ? "还没有可朗读的回复" : isSpeaking ? "停止朗读" : "请再说一遍"}
         className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-base text-companion disabled:text-muted disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span aria-hidden>{isSpeaking ? "⏸" : "🔊"}</span>
-        {isSpeaking ? "停止" : "朗读回复"}
+        {isSpeaking ? "停止朗读" : "请再说一遍"}
       </button>
       {isMockVoice && !disabled ? (
         <span className="text-sm text-muted">（演示用模拟语音）</span>

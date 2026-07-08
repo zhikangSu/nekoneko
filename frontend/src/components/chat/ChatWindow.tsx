@@ -105,6 +105,7 @@ export function ChatWindow({
       </div>
 
       <VoiceStatus voice={voice} />
+      <VoiceTranscriptConfirm voice={voice} />
 
       <form
         onSubmit={handleSubmit}
@@ -155,6 +156,7 @@ export function ChatWindow({
           on={voice.autoSpeak}
           onChange={voice.setAutoSpeak}
         />
+        <TTSSpeedControl voice={voice} />
       </div>
     </section>
   );
@@ -260,12 +262,52 @@ function VoiceStatus({ voice }: { voice: VoiceControls }) {
   return (
     <div
       role="status"
-      className="px-5 -mb-1 pt-1 text-base text-muted flex items-center gap-2"
+      className="px-5 -mb-1 pt-1 text-lg text-muted flex items-center gap-2"
     >
       {voice.recorderState === "recording" ? (
         <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-companion animate-pulse" />
       ) : null}
       <span>{text}</span>
+    </div>
+  );
+}
+
+function VoiceTranscriptConfirm({ voice }: { voice: VoiceControls }) {
+  if (!voice.pendingTranscript) return null;
+
+  return (
+    <div className="mx-5 mb-3 rounded-xl border border-companion/20 bg-companion-soft p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-lg font-semibold text-companion">
+          我不太确定刚才听准了，请您确认一下。
+        </p>
+        <span className="text-base text-muted">
+          识别置信度 {Math.round(voice.pendingTranscript.confidence * 100)}%
+        </span>
+      </div>
+      <textarea
+        value={voice.pendingTranscript.text}
+        onChange={(event) => voice.editPendingTranscript(event.target.value)}
+        rows={2}
+        className="w-full resize-none rounded-xl border border-black/10 bg-surface px-4 py-3 text-xl leading-relaxed text-ink focus:border-companion"
+      />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={voice.submitPendingTranscript}
+          disabled={!voice.pendingTranscript.text.trim()}
+          className="rounded-xl bg-companion px-5 py-2.5 text-lg font-semibold text-white disabled:opacity-50"
+        >
+          确认发送
+        </button>
+        <button
+          type="button"
+          onClick={voice.dismissPendingTranscript}
+          className="rounded-xl border border-black/10 bg-surface px-5 py-2.5 text-lg font-semibold text-ink"
+        >
+          重新说
+        </button>
+      </div>
     </div>
   );
 }
@@ -295,6 +337,38 @@ function AutoSpeakToggle({
       </span>
       <span>自动朗读回复</span>
     </button>
+  );
+}
+
+function TTSSpeedControl({ voice }: { voice: VoiceControls }) {
+  const options: { value: VoiceControls["ttsSpeed"]; label: string }[] = [
+    { value: 0.85, label: "慢" },
+    { value: 1, label: "正常" },
+    { value: 1.15, label: "稍快" },
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label="朗读语速"
+      className="inline-flex shrink-0 rounded-xl bg-canvas p-1"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => voice.setTtsSpeed(option.value)}
+          aria-pressed={voice.ttsSpeed === option.value}
+          className={`rounded-lg px-3 py-1.5 text-base font-medium ${
+            voice.ttsSpeed === option.value
+              ? "bg-surface text-ink shadow-sm"
+              : "text-muted"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
