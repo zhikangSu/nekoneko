@@ -64,7 +64,7 @@ export function AmbientChatScenePanel({
   const [isSceneSending, setIsSceneSending] = useState(false);
   const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
   const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
-  const [hidden, setHidden] = useState(false);
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,7 +81,16 @@ export function AmbientChatScenePanel({
     };
   }, []);
 
-  const activeScene = useMemo(() => scenes[0] ?? null, [scenes]);
+  useEffect(() => {
+    if (scenes.length > 0 && activeSceneIndex >= scenes.length) {
+      setActiveSceneIndex(0);
+    }
+  }, [activeSceneIndex, scenes.length]);
+
+  const activeScene = useMemo(() => {
+    if (scenes.length === 0) return null;
+    return scenes[activeSceneIndex % scenes.length] ?? null;
+  }, [activeSceneIndex, scenes]);
 
   useEffect(() => {
     if (!activeScene) return;
@@ -93,16 +102,19 @@ export function AmbientChatScenePanel({
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [threadItems, isSceneSending]);
 
-  if (hidden || !activeScene) return null;
+  if (!activeScene) return null;
 
-  function dismissCurrentScene() {
-    setHidden(true);
+  function showNextScene() {
+    if (isSceneSending || scenes.length === 0) return;
+    setDraft("");
+    setActiveSceneIndex((current) => (current + 1) % scenes.length);
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const scene = activeScene;
     const text = draft.trim();
-    if (!text || isSceneSending) return;
+    if (!scene || !text || isSceneSending) return;
     setDraft("");
     setThreadItems((current) => [
       ...current,
@@ -111,7 +123,7 @@ export function AmbientChatScenePanel({
     setIsSceneSending(true);
 
     try {
-      const reply = await onSend(activeScene, text);
+      const reply = await onSend(scene, text);
       if (!reply) return;
       const messages =
         reply.roleMessages.length > 0
@@ -125,7 +137,7 @@ export function AmbientChatScenePanel({
             ];
       setThreadItems((current) => [
         ...current,
-        ...roleItems(activeScene.id, messages),
+        ...roleItems(scene.id, messages),
       ]);
     } catch {
       setThreadItems((current) => [
@@ -165,8 +177,9 @@ export function AmbientChatScenePanel({
         </div>
         <button
           type="button"
-          onClick={dismissCurrentScene}
-          className="min-h-11 shrink-0 rounded-xl border border-black/10 bg-canvas px-5 text-base font-semibold text-muted hover:text-ink"
+          onClick={showNextScene}
+          disabled={isSceneSending}
+          className="min-h-11 shrink-0 rounded-xl border border-black/10 bg-canvas px-5 text-base font-semibold text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
         >
           不感兴趣
         </button>
