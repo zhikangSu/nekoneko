@@ -102,6 +102,7 @@ function TraceView({ trace }: { trace: AgentTrace }) {
         <Flag label="SafetyCritic" on={trace.safety_critic_used} />
       </div>
 
+      <ResearchMetadata metadata={trace.research_metadata} />
       <Section title="Agents" steps={trace.agents} empty="（本轮无）" />
       <Section title="Tools" steps={trace.tools} empty="（本轮无）" />
       <Section title="Guards" steps={trace.guards} empty="（本轮无）" />
@@ -110,6 +111,39 @@ function TraceView({ trace }: { trace: AgentTrace }) {
       ) : null}
     </div>
   );
+}
+
+function ResearchMetadata({ metadata }: { metadata?: Record<string, unknown> }) {
+  const entries = Object.entries(metadata ?? {}).filter(
+    ([, value]) => value !== null && value !== undefined && value !== "",
+  );
+  if (entries.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="text-base font-semibold text-muted uppercase tracking-wide">
+        Research
+      </h3>
+      <dl className="mt-1 space-y-1 text-base">
+        {entries.map(([key, value]) => (
+          <div key={key} className="grid grid-cols-[7rem_1fr] gap-2">
+            <dt className="text-muted">{key}</dt>
+            <dd className="min-w-0 break-words text-ink">
+              {formatMetadataValue(value)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function formatMetadataValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 
 function StepRow({ step }: { step: TraceStep }) {

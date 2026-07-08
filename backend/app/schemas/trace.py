@@ -36,6 +36,9 @@ class AgentTrace(BaseModel):
     memory_used: bool = False
     retrieval_used: bool = False
     safety_critic_used: bool = False
+    # Compact research/demo metadata for relationship-aware turns. Keep this
+    # privacy-preserving: IDs/enums/role choices, not full sensitive content.
+    research_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TraceRecord(BaseModel):

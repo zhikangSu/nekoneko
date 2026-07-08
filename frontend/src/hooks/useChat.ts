@@ -9,6 +9,7 @@ import type {
   CompanionMode,
   RelationshipRoleId,
   RoleSelectionMode,
+  TopicMaterialContext,
 } from "@/types/chat";
 
 function newId(): string {
@@ -27,6 +28,8 @@ export function useChat() {
     "same_age_peer",
     "curious_junior",
   ]);
+  const [selectedTopic, setSelectedTopic] =
+    useState<TopicMaterialContext | null>(null);
   const [isSending, setIsSending] = useState(false);
 
   const send = useCallback(
@@ -34,7 +37,8 @@ export function useChat() {
       const text = rawText.trim();
       if (!text || isSending) return;
 
-      const userMessage: ChatMessage = { id: newId(), role: "user", text };
+      const topic = selectedTopic;
+      const userMessage: ChatMessage = { id: newId(), role: "user", text, topic };
       setMessages((prev) => [...prev, userMessage]);
       setIsSending(true);
 
@@ -46,6 +50,9 @@ export function useChat() {
           role_selection_mode: roleSelectionMode,
           selected_role_ids:
             roleSelectionMode === "manual" ? selectedRoleIds : [],
+          topic_id: topic?.topic_id ?? null,
+          topic_label: topic?.topic_label ?? null,
+          material_type: topic?.material_type ?? null,
         });
         setMessages((prev) => [
           ...prev,
@@ -53,6 +60,8 @@ export function useChat() {
             id: response.turn_id || newId(),
             role: "companion",
             text: response.response_text,
+            roleMessages: response.role_messages ?? [],
+            topic,
             trace: response.agent_trace,
           },
         ]);
@@ -71,7 +80,7 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, mode, roleSelectionMode, selectedRoleIds],
+    [isSending, mode, roleSelectionMode, selectedRoleIds, selectedTopic],
   );
 
   return {
@@ -82,6 +91,8 @@ export function useChat() {
     setRoleSelectionMode,
     selectedRoleIds,
     setSelectedRoleIds,
+    selectedTopic,
+    setSelectedTopic,
     isSending,
     send,
   };

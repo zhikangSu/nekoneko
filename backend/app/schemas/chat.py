@@ -7,7 +7,12 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import CompanionMode
-from app.schemas.relationship import RoleId, RoleSelectionMode
+from app.schemas.relationship import (
+    MaterialType,
+    RoleCueMessage,
+    RoleId,
+    RoleSelectionMode,
+)
 from app.schemas.trace import AgentTrace
 
 
@@ -24,6 +29,11 @@ class ChatRequest(BaseModel):
     # orchestration behavior unchanged.
     role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
     selected_role_ids: list[RoleId] = Field(default_factory=list)
+    # Optional Study-1 topic/material anchor for the relationship-aware demo
+    # (#83). The backend records only compact metadata in trace.
+    topic_id: Optional[str] = Field(default=None, max_length=32)
+    topic_label: Optional[str] = Field(default=None, max_length=80)
+    material_type: Optional[MaterialType] = None
 
     @field_validator("message")
     @classmethod
@@ -33,9 +43,18 @@ class ChatRequest(BaseModel):
             raise ValueError("message must not be blank")
         return stripped
 
+    @field_validator("topic_id", "topic_label")
+    @classmethod
+    def _optional_text_not_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
 
 class ChatResponse(BaseModel):
     turn_id: str
     response_text: str
+    role_messages: list[RoleCueMessage] = Field(default_factory=list)
     audio_url: Optional[str] = None
     agent_trace: AgentTrace

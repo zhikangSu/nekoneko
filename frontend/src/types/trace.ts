@@ -28,6 +28,7 @@ export interface AgentTrace {
   memory_used: boolean;
   retrieval_used: boolean;
   safety_critic_used: boolean;
+  research_metadata: Record<string, unknown>;
 }
 
 // A persisted trace returned by GET /api/traces/{turn_id} (#9).

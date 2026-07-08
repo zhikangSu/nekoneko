@@ -25,6 +25,8 @@ export function ChatExperience() {
     setRoleSelectionMode,
     selectedRoleIds,
     setSelectedRoleIds,
+    selectedTopic,
+    setSelectedTopic,
     isSending,
     send,
   } = useChat();
@@ -79,6 +81,8 @@ export function ChatExperience() {
           onChangeRoleSelectionMode={setRoleSelectionMode}
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={setSelectedRoleIds}
+          selectedTopic={selectedTopic}
+          onChangeSelectedTopic={setSelectedTopic}
           onSend={send}
           companionDisplayName={companionDisplayName}
           voice={voice}

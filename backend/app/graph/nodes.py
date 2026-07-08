@@ -15,7 +15,11 @@ from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
 from app.agents.safety_critic import SafetyCriticAgent
 from app.core.constants import TraceEntryKind
 from app.graph.state import GraphState
-from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
+from app.relationship.cue_generator import (
+    CueGenerator,
+    is_relationship_cue_turn,
+    role_messages_from_cue,
+)
 from app.schemas.relationship import OrchestrationInput
 from app.schemas.trace import TraceStep
 from app.tools.info_retrieval import InfoRetrievalTool
@@ -37,6 +41,72 @@ class GraphDeps:
     info_retrieval: InfoRetrievalTool
     relationship_orchestrator: RelationshipOrchestratorAgent
     cue_generator: CueGenerator
+
+
+_TOPIC_CARD_CUE_TEXT: dict[str, str] = {
+    "T01": "年轻的时候读书上学",
+    "T02": "年轻时工作上班",
+    "T03": "家庭孩子教育",
+    "T04": "以前的老朋友老邻居集体生活",
+    "T05": "老照片旧物老电视",
+    "T06": "老电影戏曲粤剧老歌地方文化",
+    "T07": "重要人生选择当年",
+    "T08": "人生遗憾后悔",
+    "T09": "已故亲友老伴去世故人",
+    "T10": "身体健康照护吃药",
+    "T11": "新技术手机网络新生活",
+    "T12": "孤独陪伴一个人日常心情",
+}
+
+_GENERIC_TOPIC_CARD_MARKERS: tuple[str, ...] = (
+    "聊这个",
+    "讲这个",
+    "说这个",
+    "这个话题",
+    "这张卡",
+    "这张照片",
+    "这件东西",
+    "这个吧",
+    "开始吧",
+    "可以",
+    "好啊",
+    "继续",
+)
+
+
+def _topic_card_seed_text(state: GraphState) -> str:
+    if not state.topic_id and not state.topic_label:
+        return ""
+    if state.topic_id:
+        mapped = _TOPIC_CARD_CUE_TEXT.get(state.topic_id.upper())
+        if mapped:
+            return mapped
+    return state.topic_label or ""
+
+
+def _can_topic_card_seed_cue(state: GraphState) -> bool:
+    text = state.user_input.strip()
+    if len(text) > 18:
+        return False
+    return any(marker in text for marker in _GENERIC_TOPIC_CARD_MARKERS)
+
+
+def _relationship_cue_input(state: GraphState) -> str:
+    if is_relationship_cue_turn(state.user_input):
+        return state.user_input
+    seed = _topic_card_seed_text(state)
+    if seed and _can_topic_card_seed_cue(state):
+        return f"{seed}。{state.user_input}"
+    return state.user_input
+
+
+def _should_route_relationship_cue(state: GraphState) -> bool:
+    if is_relationship_cue_turn(state.user_input):
+        return True
+    seed = _topic_card_seed_text(state)
+    return bool(
+        seed and _can_topic_card_seed_cue(state) and is_relationship_cue_turn(seed)
+    )
 
 
 def _append_companion_trace(
@@ -89,7 +159,7 @@ def coordinator_node(state: GraphState, deps: GraphDeps) -> GraphState:
         has_state_event=state.has_state_event,
         reminder_intent=deps.reminder_tool.is_reminder_request(state.user_input),
         retrieval_intent=deps.info_retrieval.is_retrieval_query(state.user_input),
-        reminiscence_cue_intent=is_relationship_cue_turn(state.user_input),
+        reminiscence_cue_intent=_should_route_relationship_cue(state),
     )
     state.route = decision.route
     state.agents.append(
@@ -198,7 +268,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     """
 
     inp = OrchestrationInput(
-        user_input=state.user_input,
+        user_input=_relationship_cue_input(state),
         memory_context=list(state.memory_context or []),
         recent_emotion_or_tone=None,
         user_role_preferences=None,
@@ -209,6 +279,12 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     decision = deps.relationship_orchestrator.orchestrate(inp)
     fallback_cue = deps.cue_generator.generate(decision, state.user_input)
     state.memory_used = bool(state.memory_context)
+    state.role_messages = role_messages_from_cue(
+        fallback_cue,
+        decision.selected_roles,
+    )
+    state.selected_relationship_roles = [r.value for r in decision.selected_roles]
+    state.cueing_style = decision.cueing_style.value
     state.agents.append(
         TraceStep(
             kind=TraceEntryKind.agent,
@@ -219,6 +295,11 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "role_selection_mode": state.role_selection_mode.value,
                 "requested_role_ids": [r.value for r in state.selected_role_ids],
                 "selected_roles": [r.value for r in decision.selected_roles],
+                "topic_id": state.topic_id,
+                "topic_label": state.topic_label,
+                "material_type": (
+                    state.material_type.value if state.material_type else None
+                ),
                 "primary_role": (
                     decision.primary_role.value if decision.primary_role else None
                 ),

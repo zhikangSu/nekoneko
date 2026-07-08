@@ -28,6 +28,7 @@ def test_agent_trace_minimal_valid():
         "memory_used",
         "retrieval_used",
         "safety_critic_used",
+        "research_metadata",
     ):
         assert key in dumped
 
