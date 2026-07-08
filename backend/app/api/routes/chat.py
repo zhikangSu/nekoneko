@@ -30,7 +30,10 @@ def _new_turn_id() -> str:
 
 
 def _research_metadata(state: GraphState) -> dict:
-    metadata: dict = {"study_condition": state.study_condition.value}
+    metadata: dict = {
+        "study_condition": state.study_condition.value,
+        "elder_control_action": state.elder_control_action.value,
+    }
     if state.study_session_id:
         metadata["study_session_id"] = state.study_session_id
     if state.topic_id:
@@ -70,6 +73,7 @@ def chat(
         material_type=request.material_type,
         study_condition=request.study_condition,
         study_session_id=request.study_session_id,
+        elder_control_action=request.elder_control_action,
     )
     run_turn(state, build_deps(settings))
 

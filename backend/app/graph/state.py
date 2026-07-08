@@ -15,6 +15,7 @@ from app.core.constants import CompanionMode, Route
 from app.safety.risk_classifier import RiskClassification
 from app.schemas.profile import UserProfile
 from app.schemas.relationship import (
+    ElderControlAction,
     MaterialType,
     RoleCueMessage,
     RoleId,
@@ -39,6 +40,7 @@ class GraphState:
     material_type: Optional[MaterialType] = None
     study_condition: StudyCondition = StudyCondition.c3_relationship_aware
     study_session_id: Optional[str] = None
+    elder_control_action: ElderControlAction = ElderControlAction.continue_session
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None

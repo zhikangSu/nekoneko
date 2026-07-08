@@ -7,6 +7,7 @@ import { DEFAULT_USER_ID } from "@/lib/constants";
 import type {
   ChatMessage,
   CompanionMode,
+  ElderControlAction,
   RelationshipRoleId,
   RoleSelectionMode,
   StudyCondition,
@@ -29,6 +30,8 @@ export function useChat() {
     "c3_relationship_aware",
   );
   const [studySessionId] = useState(() => `study_${newId()}`);
+  const [elderControlAction, setElderControlAction] =
+    useState<ElderControlAction>("continue_session");
   const [selectedRoleIds, setSelectedRoleIds] = useState<RelationshipRoleId[]>([
     "same_age_peer",
     "curious_junior",
@@ -60,6 +63,7 @@ export function useChat() {
           material_type: topic?.material_type ?? null,
           study_condition: studyCondition,
           study_session_id: studySessionId,
+          elder_control_action: elderControlAction,
         });
         setMessages((prev) => [
           ...prev,
@@ -95,6 +99,7 @@ export function useChat() {
       selectedTopic,
       studyCondition,
       studySessionId,
+      elderControlAction,
     ],
   );
 
@@ -107,6 +112,8 @@ export function useChat() {
     studyCondition,
     setStudyCondition,
     studySessionId,
+    elderControlAction,
+    setElderControlAction,
     selectedRoleIds,
     setSelectedRoleIds,
     selectedTopic,

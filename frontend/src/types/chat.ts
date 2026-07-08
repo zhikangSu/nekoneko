@@ -6,6 +6,11 @@ export type StudyCondition =
   | "c1_direct_question"
   | "c2_fixed_role_prelude"
   | "c3_relationship_aware";
+export type ElderControlAction =
+  | "continue_session"
+  | "change_topic"
+  | "pause_roles"
+  | "stop_reminiscence";
 export type MaterialType = "topic_card" | "photo" | "object" | "song";
 export type RelationshipRoleId =
   | "same_age_peer"
@@ -28,6 +33,7 @@ export interface ChatRequest {
   material_type?: MaterialType | null;
   study_condition?: StudyCondition;
   study_session_id?: string | null;
+  elder_control_action?: ElderControlAction;
   voice_enabled?: boolean;
   sensor_preset_id?: string | null;
   companion_display_name?: string | null;

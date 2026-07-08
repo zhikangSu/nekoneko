@@ -58,6 +58,15 @@ class StudyCondition(str, Enum):
     c3_relationship_aware = "c3_relationship_aware"
 
 
+class ElderControlAction(str, Enum):
+    """Elder-facing controls for a reminiscence session."""
+
+    continue_session = "continue_session"
+    change_topic = "change_topic"
+    pause_roles = "pause_roles"
+    stop_reminiscence = "stop_reminiscence"
+
+
 class RoleCueMessage(BaseModel):
     """One visible role bubble rendered inside a single companion turn."""
 

@@ -6,6 +6,7 @@ import type { VoiceControls } from "@/hooks/useVoice";
 import type {
   ChatMessage,
   CompanionMode,
+  ElderControlAction,
   RelationshipRoleId,
   RoleSelectionMode,
   StudyCondition,
@@ -44,6 +45,8 @@ export function ChatWindow({
   studyCondition,
   onChangeStudyCondition,
   studySessionId,
+  elderControlAction,
+  onChangeElderControlAction,
   selectedRoleIds,
   onChangeSelectedRoleIds,
   selectedTopic,
@@ -61,6 +64,8 @@ export function ChatWindow({
   studyCondition: StudyCondition;
   onChangeStudyCondition: (condition: StudyCondition) => void;
   studySessionId: string;
+  elderControlAction: ElderControlAction;
+  onChangeElderControlAction: (action: ElderControlAction) => void;
   selectedRoleIds: RelationshipRoleId[];
   onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
   selectedTopic: TopicMaterialContext | null;
@@ -107,6 +112,10 @@ export function ChatWindow({
           condition={studyCondition}
           onChange={onChangeStudyCondition}
           sessionId={studySessionId}
+        />
+        <ElderControlBar
+          action={elderControlAction}
+          onChange={onChangeElderControlAction}
         />
         <TopicCardPicker
           selectedTopic={selectedTopic}
@@ -201,6 +210,45 @@ function SelectedTopicBanner({ topic }: { topic: TopicMaterialContext }) {
       <div className="mt-0.5 text-lg font-semibold text-ink">
         {topic.topic_id} · {topic.topic_label}
       </div>
+    </div>
+  );
+}
+
+function ElderControlBar({
+  action,
+  onChange,
+}: {
+  action: ElderControlAction;
+  onChange: (action: ElderControlAction) => void;
+}) {
+  const options: { value: ElderControlAction; label: string }[] = [
+    { value: "continue_session", label: "继续" },
+    { value: "change_topic", label: "换话题" },
+    { value: "pause_roles", label: "暂停角色" },
+    { value: "stop_reminiscence", label: "结束回忆" },
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label="回忆控制"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          aria-pressed={action === option.value}
+          className={`min-h-10 rounded-lg border px-3 text-base font-medium ${
+            action === option.value
+              ? "border-companion bg-companion/10 text-companion"
+              : "border-black/10 bg-canvas text-muted"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
