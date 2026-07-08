@@ -6,6 +6,7 @@ import { sendChat } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import type {
   ChatMessage,
+  ChatResponse,
   CompanionMode,
   ElderControlAction,
   RelationshipRoleId,
@@ -16,6 +17,12 @@ import type {
 
 const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
 const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
+
+export interface DetachedChatResult {
+  text: string;
+  topic: TopicMaterialContext | null;
+  response: ChatResponse;
+}
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -39,6 +46,34 @@ export function useChat() {
     useState<TopicMaterialContext | null>(null);
   const [isSending, setIsSending] = useState(false);
 
+  const requestChat = useCallback(
+    async (
+      text: string,
+      topic: TopicMaterialContext | null,
+    ): Promise<ChatResponse> => {
+      return sendChat({
+        user_id: DEFAULT_USER_ID,
+        message: text,
+        mode: DEFAULT_COMPANION_MODE,
+        role_selection_mode: roleSelectionMode,
+        selected_role_ids:
+          roleSelectionMode === "manual" ? selectedRoleIds : [],
+        topic_id: topic?.topic_id ?? null,
+        topic_label: topic?.topic_label ?? null,
+        material_type: topic?.material_type ?? null,
+        study_condition: DEFAULT_STUDY_CONDITION,
+        study_session_id: studySessionId,
+        elder_control_action: elderControlAction,
+      });
+    },
+    [
+      elderControlAction,
+      roleSelectionMode,
+      selectedRoleIds,
+      studySessionId,
+    ],
+  );
+
   const send = useCallback(
     async (
       rawText: string,
@@ -54,20 +89,7 @@ export function useChat() {
       setIsSending(true);
 
       try {
-        const response = await sendChat({
-          user_id: DEFAULT_USER_ID,
-          message: text,
-          mode: DEFAULT_COMPANION_MODE,
-          role_selection_mode: roleSelectionMode,
-          selected_role_ids:
-            roleSelectionMode === "manual" ? selectedRoleIds : [],
-          topic_id: topic?.topic_id ?? null,
-          topic_label: topic?.topic_label ?? null,
-          material_type: topic?.material_type ?? null,
-          study_condition: DEFAULT_STUDY_CONDITION,
-          study_session_id: studySessionId,
-          elder_control_action: elderControlAction,
-        });
+        const response = await requestChat(text, topic);
         setMessages((prev) => [
           ...prev,
           {
@@ -96,12 +118,25 @@ export function useChat() {
     },
     [
       isSending,
-      roleSelectionMode,
-      selectedRoleIds,
       selectedTopic,
-      studySessionId,
-      elderControlAction,
+      requestChat,
     ],
+  );
+
+  const sendDetached = useCallback(
+    async (
+      rawText: string,
+      topicOverride?: TopicMaterialContext | null,
+    ): Promise<DetachedChatResult | null> => {
+      const text = rawText.trim();
+      if (!text) return null;
+
+      const topic =
+        topicOverride === undefined ? selectedTopic : topicOverride;
+      const response = await requestChat(text, topic);
+      return { text, topic, response };
+    },
+    [requestChat, selectedTopic],
   );
 
   return {
@@ -116,5 +151,6 @@ export function useChat() {
     setSelectedTopic,
     isSending,
     send,
+    sendDetached,
   };
 }

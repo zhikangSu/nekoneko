@@ -9,7 +9,10 @@ import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import type { AmbientChatScene } from "@/lib/proactiveTopics";
-import { AmbientChatScenePanel } from "./AmbientChatScenePanel";
+import {
+  AmbientChatScenePanel,
+  type AmbientSceneReply,
+} from "./AmbientChatScenePanel";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
 
@@ -31,12 +34,15 @@ export function ChatExperience() {
     setSelectedTopic,
     isSending,
     send,
+    sendDetached,
   } = useChat();
   const voice = useVoice({ onTranscript: send });
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
   // routing for graders/developers), not something an elderly end user needs —
   // so it can be collapsed, which also gives the chat the full width.
   const [showTrace, setShowTrace] = useState(false);
+  const [ambientTrace, setAmbientTrace] = useState<AgentTrace | undefined>();
+  const [ambientTraceVersion, setAmbientTraceVersion] = useState(0);
 
   // Read each newly-arrived companion reply aloud when auto-read is on. Keyed by
   // message id so toggling the switch never re-reads an older reply.
@@ -52,39 +58,33 @@ export function ChatExperience() {
     if (voiceRef.current.autoSpeak) voiceRef.current.speak(latest.text);
   }, [messages]);
 
-  const latestTrace: AgentTrace | undefined = [...messages]
+  const latestMainTrace: AgentTrace | undefined = [...messages]
     .reverse()
     .find((message) => message.trace)?.trace;
+  const latestTrace = latestMainTrace ?? ambientTrace;
 
-  const handleAmbientSceneReady = useCallback(
-    (scene: AmbientChatScene) => {
-      setSelectedTopic((current) => current ?? scene.topic);
+  const handleAmbientSceneSend = useCallback(
+    async (
+      scene: AmbientChatScene,
+      text: string,
+    ): Promise<AmbientSceneReply | null> => {
+      const result = await sendDetached(text, scene.topic);
+      if (!result) return null;
+      setAmbientTrace(result.response.agent_trace);
+      setAmbientTraceVersion((version) => version + 1);
+      return {
+        roleMessages: result.response.role_messages ?? [],
+        fallbackText: result.response.response_text,
+      };
     },
-    [setSelectedTopic],
-  );
-
-  const handleAmbientSceneDismiss = useCallback(
-    (scene: AmbientChatScene) => {
-      setSelectedTopic((current) =>
-        current?.topic_id === scene.topic.topic_id ? null : current,
-      );
-    },
-    [setSelectedTopic],
+    [sendDetached],
   );
 
   return (
     <div className="space-y-4">
       <SafetyBanner />
       {messages.length === 0 ? (
-        <AmbientChatScenePanel
-          isSending={isSending}
-          onSceneReady={handleAmbientSceneReady}
-          onDismiss={handleAmbientSceneDismiss}
-          onSend={(scene, text) => {
-            setSelectedTopic(scene.topic);
-            send(text, scene.topic);
-          }}
-        />
+        <AmbientChatScenePanel onSend={handleAmbientSceneSend} />
       ) : null}
       <div className="flex justify-end">
         <button
@@ -120,7 +120,7 @@ export function ChatExperience() {
           <AgentTracePanel
             latestTrace={latestTrace}
             userId={DEFAULT_USER_ID}
-            refreshKey={messages.length}
+            refreshKey={messages.length + ambientTraceVersion}
           />
         ) : null}
       </div>
