@@ -60,6 +60,11 @@ class GraphState:
     safety_critic_used: bool = False
     role_messages: list[RoleCueMessage] = field(default_factory=list)
     selected_relationship_roles: list[str] = field(default_factory=list)
+    requested_relationship_roles: list[str] = field(default_factory=list)
+    relationship_role_selection_mode: Optional[str] = None
+    relationship_primary_role: Optional[str] = None
+    relationship_topic: Optional[str] = None
+    relationship_boundary_notes: list[str] = field(default_factory=list)
     cueing_style: Optional[str] = None
 
     # Trace accumulation, kept separated by kind

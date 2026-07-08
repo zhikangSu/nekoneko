@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getTrace, listTraces } from "@/lib/apiClient";
-import type { AgentTrace, TraceStep, TraceSummary } from "@/types/trace";
+import type {
+  AgentTrace,
+  ResearchTraceMetadata,
+  TraceStep,
+  TraceSummary,
+} from "@/types/trace";
 import { AgentToolBadge } from "./AgentToolBadge";
 import { TraceHistory } from "./TraceHistory";
 
@@ -102,6 +107,7 @@ function TraceView({ trace }: { trace: AgentTrace }) {
         <Flag label="SafetyCritic" on={trace.safety_critic_used} />
       </div>
 
+      <ResearchTrace trace={trace.research_trace} />
       <ResearchMetadata metadata={trace.research_metadata} />
       <Section title="Agents" steps={trace.agents} empty="（本轮无）" />
       <Section title="Tools" steps={trace.tools} empty="（本轮无）" />
@@ -109,6 +115,48 @@ function TraceView({ trace }: { trace: AgentTrace }) {
       {trace.state_event ? (
         <Section title="State event" steps={[trace.state_event]} empty="" />
       ) : null}
+    </div>
+  );
+}
+
+function ResearchTrace({ trace }: { trace?: ResearchTraceMetadata }) {
+  if (!trace) return null;
+  const sections: { title: string; values: Record<string, unknown> }[] = [
+    { title: "Control", values: trace.control },
+    { title: "Topic", values: trace.topic },
+    { title: "Role", values: trace.role },
+    { title: "Boundary", values: trace.boundary },
+  ];
+
+  return (
+    <div>
+      <h3 className="text-base font-semibold text-muted uppercase tracking-wide">
+        Research trace
+      </h3>
+      <div className="mt-2 space-y-3 text-base">
+        {sections.map((section) => {
+          const entries = Object.entries(section.values).filter(([, value]) => {
+            if (Array.isArray(value)) return value.length > 0;
+            return value !== null && value !== undefined && value !== "";
+          });
+          if (entries.length === 0) return null;
+          return (
+            <div key={section.title}>
+              <h4 className="font-medium text-ink">{section.title}</h4>
+              <dl className="mt-1 space-y-1">
+                {entries.map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-[7rem_1fr] gap-2">
+                    <dt className="text-muted">{key}</dt>
+                    <dd className="min-w-0 break-words text-ink">
+                      {formatMetadataValue(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

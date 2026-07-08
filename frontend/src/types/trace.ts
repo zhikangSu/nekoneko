@@ -29,6 +29,32 @@ export interface AgentTrace {
   retrieval_used: boolean;
   safety_critic_used: boolean;
   research_metadata: Record<string, unknown>;
+  research_trace?: ResearchTraceMetadata;
+}
+
+export interface ResearchTraceMetadata {
+  role: {
+    selected_roles: string[];
+    primary_role: string | null;
+    role_selection_mode: string | null;
+    requested_role_ids: string[];
+    cueing_style: string | null;
+  };
+  topic: {
+    topic_id: string | null;
+    topic_label: string | null;
+    material_type: string | null;
+    classified_topic: string | null;
+  };
+  boundary: {
+    boundary_state: string;
+    boundary_notes: string[];
+  };
+  control: {
+    study_condition: string | null;
+    study_session_id: string | null;
+    elder_control_action: string | null;
+  };
 }
 
 // A persisted trace returned by GET /api/traces/{turn_id} (#9).

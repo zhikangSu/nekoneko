@@ -18,7 +18,8 @@ from app.core.config import Settings, get_settings
 from app.graph.build_graph import build_deps, run_turn
 from app.graph.state import GraphState
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.schemas.trace import AgentTrace, TraceRecord
+from app.schemas.relationship import ElderControlAction
+from app.schemas.trace import AgentTrace, ResearchTraceMetadata, TraceRecord
 from app.stores.profile_store import ProfileStore
 from app.stores.trace_store import TraceStore
 
@@ -47,6 +48,50 @@ def _research_metadata(state: GraphState) -> dict:
     if state.cueing_style:
         metadata["cueing_style"] = state.cueing_style
     return metadata
+
+
+def _boundary_state(state: GraphState) -> str:
+    if state.elder_control_action == ElderControlAction.pause_roles:
+        return "user_paused_roles"
+    if state.elder_control_action == ElderControlAction.stop_reminiscence:
+        return "user_stopped_reminiscence"
+    if state.relationship_boundary_notes:
+        return "guarded"
+    return "none"
+
+
+def _research_trace(state: GraphState) -> ResearchTraceMetadata:
+    return ResearchTraceMetadata.model_validate(
+        {
+            "role": {
+                "selected_roles": state.selected_relationship_roles,
+                "primary_role": state.relationship_primary_role,
+                "role_selection_mode": (
+                    state.relationship_role_selection_mode
+                    or state.role_selection_mode.value
+                ),
+                "requested_role_ids": state.requested_relationship_roles,
+                "cueing_style": state.cueing_style,
+            },
+            "topic": {
+                "topic_id": state.topic_id,
+                "topic_label": state.topic_label,
+                "material_type": (
+                    state.material_type.value if state.material_type else None
+                ),
+                "classified_topic": state.relationship_topic,
+            },
+            "boundary": {
+                "boundary_state": _boundary_state(state),
+                "boundary_notes": state.relationship_boundary_notes,
+            },
+            "control": {
+                "study_condition": state.study_condition.value,
+                "study_session_id": state.study_session_id,
+                "elder_control_action": state.elder_control_action.value,
+            },
+        }
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -90,6 +135,7 @@ def chat(
         retrieval_used=state.retrieval_used,
         safety_critic_used=state.safety_critic_used,
         research_metadata=_research_metadata(state),
+        research_trace=_research_trace(state),
     )
 
     trace_store.save(
