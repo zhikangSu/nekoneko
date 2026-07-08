@@ -14,6 +14,9 @@ import type {
   TopicMaterialContext,
 } from "@/types/chat";
 
+const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
+const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
+
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -23,12 +26,8 @@ function newId(): string {
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [mode, setMode] = useState<CompanionMode>("role_first");
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
-  const [studyCondition, setStudyCondition] = useState<StudyCondition>(
-    "c3_relationship_aware",
-  );
   const [studySessionId] = useState(() => `study_${newId()}`);
   const [elderControlAction, setElderControlAction] =
     useState<ElderControlAction>("continue_session");
@@ -54,14 +53,14 @@ export function useChat() {
         const response = await sendChat({
           user_id: DEFAULT_USER_ID,
           message: text,
-          mode,
+          mode: DEFAULT_COMPANION_MODE,
           role_selection_mode: roleSelectionMode,
           selected_role_ids:
             roleSelectionMode === "manual" ? selectedRoleIds : [],
           topic_id: topic?.topic_id ?? null,
           topic_label: topic?.topic_label ?? null,
           material_type: topic?.material_type ?? null,
-          study_condition: studyCondition,
+          study_condition: DEFAULT_STUDY_CONDITION,
           study_session_id: studySessionId,
           elder_control_action: elderControlAction,
         });
@@ -93,11 +92,9 @@ export function useChat() {
     },
     [
       isSending,
-      mode,
       roleSelectionMode,
       selectedRoleIds,
       selectedTopic,
-      studyCondition,
       studySessionId,
       elderControlAction,
     ],
@@ -105,13 +102,8 @@ export function useChat() {
 
   return {
     messages,
-    mode,
-    setMode,
     roleSelectionMode,
     setRoleSelectionMode,
-    studyCondition,
-    setStudyCondition,
-    studySessionId,
     elderControlAction,
     setElderControlAction,
     selectedRoleIds,

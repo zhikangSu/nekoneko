@@ -19,13 +19,8 @@ export function ChatExperience() {
   const { companionDisplayName } = useProfile();
   const {
     messages,
-    mode,
-    setMode,
     roleSelectionMode,
     setRoleSelectionMode,
-    studyCondition,
-    setStudyCondition,
-    studySessionId,
     elderControlAction,
     setElderControlAction,
     selectedRoleIds,
@@ -80,13 +75,8 @@ export function ChatExperience() {
         <ChatWindow
           messages={messages}
           isSending={isSending}
-          mode={mode}
-          onChangeMode={setMode}
           roleSelectionMode={roleSelectionMode}
           onChangeRoleSelectionMode={setRoleSelectionMode}
-          studyCondition={studyCondition}
-          onChangeStudyCondition={setStudyCondition}
-          studySessionId={studySessionId}
           elderControlAction={elderControlAction}
           onChangeElderControlAction={setElderControlAction}
           selectedRoleIds={selectedRoleIds}

@@ -5,11 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import type { VoiceControls } from "@/hooks/useVoice";
 import type {
   ChatMessage,
-  CompanionMode,
   ElderControlAction,
   RelationshipRoleId,
   RoleSelectionMode,
-  StudyCondition,
   TopicMaterialContext,
 } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
@@ -17,14 +15,12 @@ import { ReplayButton } from "./ReplayButton";
 import { TopicCardPicker } from "./TopicCardPicker";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 
-const ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
+const MANUAL_ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
   { value: "same_age_peer", label: "同龄" },
   { value: "curious_junior", label: "晚辈" },
   { value: "middle_age_bridge", label: "中年" },
   { value: "elder_mentor", label: "长辈" },
   { value: "theme_companion", label: "主题" },
-  { value: "memory_organizer", label: "整理" },
-  { value: "boundary_guardian", label: "守护" },
   { value: "no_ai_role", label: "不需要" },
 ];
 
@@ -38,13 +34,8 @@ const MATERIAL_LABEL: Record<TopicMaterialContext["material_type"], string> = {
 export function ChatWindow({
   messages,
   isSending,
-  mode,
-  onChangeMode,
   roleSelectionMode,
   onChangeRoleSelectionMode,
-  studyCondition,
-  onChangeStudyCondition,
-  studySessionId,
   elderControlAction,
   onChangeElderControlAction,
   selectedRoleIds,
@@ -57,13 +48,8 @@ export function ChatWindow({
 }: {
   messages: ChatMessage[];
   isSending: boolean;
-  mode: CompanionMode;
-  onChangeMode: (mode: CompanionMode) => void;
   roleSelectionMode: RoleSelectionMode;
   onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
-  studyCondition: StudyCondition;
-  onChangeStudyCondition: (condition: StudyCondition) => void;
-  studySessionId: string;
   elderControlAction: ElderControlAction;
   onChangeElderControlAction: (action: ElderControlAction) => void;
   selectedRoleIds: RelationshipRoleId[];
@@ -98,20 +84,12 @@ export function ChatWindow({
   return (
     <section className="rounded-2xl bg-surface border border-black/5 flex flex-col h-[78vh] min-h-[520px]">
       <div className="px-5 py-3 border-b border-black/5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">聊天</h2>
-          <ModeToggle mode={mode} onChange={onChangeMode} />
-        </div>
+        <h2 className="text-lg font-semibold text-ink">聊天</h2>
         <RoleSelectionControl
           mode={roleSelectionMode}
           onChangeMode={onChangeRoleSelectionMode}
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={onChangeSelectedRoleIds}
-        />
-        <StudyConditionControl
-          condition={studyCondition}
-          onChange={onChangeStudyCondition}
-          sessionId={studySessionId}
         />
         <ElderControlBar
           action={elderControlAction}
@@ -253,50 +231,6 @@ function ElderControlBar({
   );
 }
 
-function StudyConditionControl({
-  condition,
-  onChange,
-  sessionId,
-}: {
-  condition: StudyCondition;
-  onChange: (condition: StudyCondition) => void;
-  sessionId: string;
-}) {
-  const options: { value: StudyCondition; label: string }[] = [
-    { value: "c1_direct_question", label: "C1 直接提问" },
-    { value: "c2_fixed_role_prelude", label: "C2 固定角色" },
-    { value: "c3_relationship_aware", label: "C3 关系编排" },
-  ];
-  const shortSession = sessionId.replace(/^study_/, "").slice(0, 8);
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div
-        role="group"
-        aria-label="研究条件"
-        className="inline-flex rounded-xl bg-canvas p-1"
-      >
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            aria-pressed={condition === option.value}
-            className={`rounded-lg px-3 py-1.5 text-base font-medium ${
-              condition === option.value
-                ? "bg-surface text-ink shadow-sm"
-                : "text-muted"
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <span className="text-sm text-muted">Session {shortSession}</span>
-    </div>
-  );
-}
-
 function RoleSelectionControl({
   mode,
   onChangeMode,
@@ -358,8 +292,8 @@ function RoleSelectionControl({
       </div>
 
       {mode === "manual" ? (
-        <div className="grid w-full min-w-0 grid-cols-4 gap-1.5 sm:flex-1 sm:grid-cols-8">
-          {ROLE_OPTIONS.map((role) => {
+        <div className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:flex-1 sm:grid-cols-6">
+          {MANUAL_ROLE_OPTIONS.map((role) => {
             const selected = selectedRoleIds.includes(role.value);
             return (
               <button
@@ -496,42 +430,6 @@ function TTSSpeedControl({ voice }: { voice: VoiceControls }) {
           aria-pressed={voice.ttsSpeed === option.value}
           className={`rounded-lg px-3 py-1.5 text-base font-medium ${
             voice.ttsSpeed === option.value
-              ? "bg-surface text-ink shadow-sm"
-              : "text-muted"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: CompanionMode;
-  onChange: (mode: CompanionMode) => void;
-}) {
-  const options: { value: CompanionMode; label: string }[] = [
-    { value: "role_first", label: "陪伴优先" },
-    { value: "neutral_assistant", label: "助理模式" },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label="对话模式"
-      className="inline-flex rounded-xl bg-canvas p-1"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          aria-pressed={mode === option.value}
-          className={`rounded-lg px-3 py-1.5 text-base font-medium ${
-            mode === option.value
               ? "bg-surface text-ink shadow-sm"
               : "text-muted"
           }`}
