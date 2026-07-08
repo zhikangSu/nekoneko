@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from app.core.constants import CompanionMode, Route
 from app.safety.risk_classifier import RiskClassification
+from app.schemas.conversation import ConversationMessage
 from app.schemas.profile import UserProfile
 from app.schemas.relationship import (
     ElderControlAction,
@@ -41,6 +42,7 @@ class GraphState:
     study_condition: StudyCondition = StudyCondition.c3_relationship_aware
     study_session_id: Optional[str] = None
     elder_control_action: ElderControlAction = ElderControlAction.continue_session
+    conversation_history: list[ConversationMessage] = field(default_factory=list)
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None
@@ -58,6 +60,7 @@ class GraphState:
     memory_used: bool = False
     retrieval_used: bool = False
     safety_critic_used: bool = False
+    conversation_history_used: bool = False
     role_messages: list[RoleCueMessage] = field(default_factory=list)
     selected_relationship_roles: list[str] = field(default_factory=list)
     requested_relationship_roles: list[str] = field(default_factory=list)

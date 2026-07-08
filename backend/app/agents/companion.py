@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.constants import DEFAULT_COMPANION_DISPLAY_NAME, CompanionMode
+from app.schemas.conversation import ConversationMessage
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
 _PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts"
@@ -65,6 +66,7 @@ class CompanionAgent:
         memory_context: list[str] | None = None,
         retrieval_context: str | None = None,
         relationship_cue_context: str | None = None,
+        conversation_history: list[ConversationMessage] | None = None,
     ) -> CompanionResult:
         named_by_user = bool(companion_display_name and companion_display_name.strip())
         display_name = (
@@ -117,6 +119,7 @@ class CompanionAgent:
                 companion_display_name=display_name,
                 system_prompt=rendered_prompt,
                 retrieval_context=retrieval_context,
+                conversation_history=list(conversation_history or []),
             )
         )
 

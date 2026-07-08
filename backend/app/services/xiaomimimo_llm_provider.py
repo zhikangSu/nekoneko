@@ -48,6 +48,13 @@ class XiaomiMiMoLLMProvider(LLMProvider):
         messages: list[dict[str, str]] = []
         if payload.system_prompt:
             messages.append({"role": "system", "content": payload.system_prompt})
+        for history_message in payload.conversation_history:
+            messages.append(
+                {
+                    "role": history_message.role,
+                    "content": history_message.content,
+                }
+            )
         messages.append({"role": "user", "content": payload.message})
         body = {
             "model": self._model,

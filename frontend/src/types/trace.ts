@@ -28,6 +28,8 @@ export interface AgentTrace {
   memory_used: boolean;
   retrieval_used: boolean;
   safety_critic_used: boolean;
+  conversation_history_used: boolean;
+  conversation_history_count: number;
   research_metadata: Record<string, unknown>;
   research_trace?: ResearchTraceMetadata;
 }

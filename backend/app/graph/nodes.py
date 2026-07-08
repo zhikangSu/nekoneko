@@ -135,6 +135,8 @@ def _append_companion_trace(
         "named_by_user": result.named_by_user,
         "prompt_version": deps.companion.prompt_version,
         "llm_generation": result.llm_generation,
+        "conversation_history_used": state.conversation_history_used,
+        "conversation_history_count": len(state.conversation_history),
     }
     if extra_detail:
         detail.update(extra_detail)
@@ -245,12 +247,14 @@ def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    state.conversation_history_used = bool(state.conversation_history)
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
         retrieval_context=state.retrieval_context,
+        conversation_history=state.conversation_history,
     )
     state.draft_reply = result.reply_text
     _append_companion_trace(state, deps, result)
@@ -346,11 +350,13 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         state.draft_reply = fallback_cue
         return state
 
+    state.conversation_history_used = bool(state.conversation_history)
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
+        conversation_history=state.conversation_history,
         relationship_cue_context=_relationship_cue_context(decision, fallback_cue),
     )
     state.draft_reply = result.reply_text

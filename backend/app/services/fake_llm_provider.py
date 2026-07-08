@@ -25,6 +25,16 @@ _NEUTRAL_REPLIES = (
     "知道了，谢谢您告诉我。您方便的话，可以再说说具体想怎么安排吗？",
 )
 
+_FOLLOW_UP_MARKERS = (
+    "刚才",
+    "继续",
+    "接着",
+    "上一句",
+    "前面",
+    "这个话题",
+    "你刚说",
+)
+
 
 class FakeLLMProvider(LLMProvider):
     name = "fake"
@@ -36,6 +46,14 @@ class FakeLLMProvider(LLMProvider):
             return (
                 f"我帮您看了一下：{payload.retrieval_context}"
                 "您要是想出门，我可以帮您一起看看怎么安排，比如提醒您带把伞或带点水。"
+            )
+
+        if payload.conversation_history and any(
+            marker in payload.message for marker in _FOLLOW_UP_MARKERS
+        ):
+            return (
+                "我记得您刚才已经说过前面的那件事了。"
+                "我们可以接着刚才的话慢慢聊，不用重新开始。"
             )
 
         replies = (
