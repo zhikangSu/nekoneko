@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   TTSResponse,
 } from "@/types/chat";
+import type { CaregiverSummary } from "@/types/caregiver";
 import type {
   CardStatus,
   MemoryCard,
@@ -85,6 +86,18 @@ export async function listTraces(
     throw new Error(`List traces failed with status ${response.status}`);
   }
   return (await response.json()) as TraceSummary[];
+}
+
+// --- Caregiver mock dashboard (#79) -----------------------------------------
+
+export async function getCaregiverSummary(
+  userId: string,
+): Promise<CaregiverSummary> {
+  const params = new URLSearchParams({ user_id: userId });
+  return jsonOrThrow(
+    await fetch(`${API_BASE_URL}/api/caregiver/summary?${params.toString()}`),
+    "Get caregiver summary",
+  );
 }
 
 // --- Memory (#10) -----------------------------------------------------------

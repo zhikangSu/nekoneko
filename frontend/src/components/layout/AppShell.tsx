@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/memory", label: "记忆" },
   { href: "/reminders", label: "提醒" },
   { href: "/sensors", label: "关怀" },
+  { href: "/caregiver", label: "照护摘要" },
 ];
 
 function NavLink({ href, label }: { href: string; label: string }) {
