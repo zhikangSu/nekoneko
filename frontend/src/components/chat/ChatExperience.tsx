@@ -8,6 +8,7 @@ import type { AgentTrace } from "@/types/trace";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { AmbientChatScenePanel } from "./AmbientChatScenePanel";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
 
@@ -57,6 +58,13 @@ export function ChatExperience() {
   return (
     <div className="space-y-4">
       <SafetyBanner />
+      <AmbientChatScenePanel
+        isSending={isSending}
+        onJoin={(scene) => {
+          setSelectedTopic(scene.topic);
+          send(scene.joinMessage, scene.topic);
+        }}
+      />
       <div className="flex justify-end">
         <button
           type="button"
