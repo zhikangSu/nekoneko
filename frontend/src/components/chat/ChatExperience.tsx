@@ -23,9 +23,6 @@ export function ChatExperience() {
     setMode,
     roleSelectionMode,
     setRoleSelectionMode,
-    studyCondition,
-    setStudyCondition,
-    studySessionId,
     elderControlAction,
     setElderControlAction,
     selectedRoleIds,
@@ -84,9 +81,6 @@ export function ChatExperience() {
           onChangeMode={setMode}
           roleSelectionMode={roleSelectionMode}
           onChangeRoleSelectionMode={setRoleSelectionMode}
-          studyCondition={studyCondition}
-          onChangeStudyCondition={setStudyCondition}
-          studySessionId={studySessionId}
           elderControlAction={elderControlAction}
           onChangeElderControlAction={setElderControlAction}
           selectedRoleIds={selectedRoleIds}
