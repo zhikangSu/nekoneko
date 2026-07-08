@@ -25,23 +25,32 @@ from app.graph.nodes import (
 )
 from app.graph.state import GraphState
 from app.services.llm_provider import get_llm_provider
+from app.stores.memory_card_store import MemoryCardStore
 from app.stores.memory_store import MemoryStore
 from app.stores.reminder_store import ReminderStore
 from app.tools.info_retrieval import InfoRetrievalTool
 from app.tools.input_rule_guard import InputRuleGuard
+from app.tools.memory_card_tool import MemoryCardTool
+from app.tools.memory_candidate_extractor import MemoryCandidateExtractor
+from app.tools.memory_triage_policy import MemoryTriagePolicy
 from app.tools.memory_tool import MemoryTool
 from app.tools.output_rule_guard import OutputRuleGuard
 from app.tools.reminder_tool import ReminderTool
 
 
 def build_deps(settings: Settings) -> GraphDeps:
+    memory_store = MemoryStore(settings.resolved_memory_root)
     return GraphDeps(
         input_guard=InputRuleGuard(),
         output_guard=OutputRuleGuard(),
         coordinator=CoordinatorAgent(),
         companion=CompanionAgent(get_llm_provider(settings)),
         safety_critic=SafetyCriticAgent(),
-        memory_tool=MemoryTool(MemoryStore(settings.resolved_memory_root)),
+        memory_tool=MemoryTool(memory_store),
+        memory_card_tool=MemoryCardTool(memory_store),
+        memory_card_store=MemoryCardStore(settings.resolved_memory_cards_dir),
+        memory_candidate_extractor=MemoryCandidateExtractor(),
+        memory_triage_policy=MemoryTriagePolicy(),
         reminder_tool=ReminderTool(ReminderStore(settings.resolved_reminder_dir)),
         info_retrieval=InfoRetrievalTool(
             settings.retrieval_provider,

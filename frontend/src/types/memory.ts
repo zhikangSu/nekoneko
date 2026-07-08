@@ -32,7 +32,8 @@ export type CandidateType =
   | "fact"
   | "emotion"
   | "sensitive"
-  | "boundary_preference";
+  | "boundary_preference"
+  | "role_preference";
 
 export type Sensitivity = "low" | "medium" | "high";
 

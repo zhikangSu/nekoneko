@@ -23,6 +23,7 @@ class CandidateType(str, Enum):
     emotion = "emotion"
     sensitive = "sensitive"
     boundary_preference = "boundary_preference"
+    role_preference = "role_preference"
 
 
 class Sensitivity(str, Enum):
