@@ -61,10 +61,25 @@ class GuardianAgent:
         state_event: StateEvent,
         now: datetime,
         user_proactive_enabled: bool = True,
+        user_quiet_hours_start: str | None = None,
+        user_quiet_hours_end: str | None = None,
+        user_max_checkins_per_day: int | None = None,
+        user_same_topic_cooldown_minutes: int | None = None,
     ) -> GuardianDecision:
         event = state_event.event_type
         name = event.value
-        cooldown_minutes = self._settings.proactive_same_topic_cooldown_minutes
+        cooldown_minutes = (
+            user_same_topic_cooldown_minutes
+            if user_same_topic_cooldown_minutes is not None
+            else self._settings.proactive_same_topic_cooldown_minutes
+        )
+        quiet_hours_start = user_quiet_hours_start or self._settings.quiet_hours_start
+        quiet_hours_end = user_quiet_hours_end or self._settings.quiet_hours_end
+        max_checkins_per_day = (
+            user_max_checkins_per_day
+            if user_max_checkins_per_day is not None
+            else self._settings.proactive_max_checkins_per_day
+        )
 
         if not self._settings.proactive_enabled:
             return self._silent(name, "主动关怀已全局关闭")
@@ -89,10 +104,12 @@ class GuardianAgent:
 
         if not is_escalation and _in_quiet_hours(
             now,
-            _parse_hhmm(self._settings.quiet_hours_start),
-            _parse_hhmm(self._settings.quiet_hours_end),
+            _parse_hhmm(quiet_hours_start),
+            _parse_hhmm(quiet_hours_end),
         ):
-            return self._defer(name, "处于安静时段（默认 22:00–07:00），非紧急不打扰")
+            return self._defer(
+                name, f"处于安静时段（{quiet_hours_start}–{quiet_hours_end}），非紧急不打扰"
+            )
 
         last = self._store.last_checkin_at(user_id, name)
         if (
@@ -105,10 +122,11 @@ class GuardianAgent:
         if (
             not is_escalation
             and self._store.checkins_today(user_id, now)
-            >= self._settings.proactive_max_checkins_per_day
+            >= max_checkins_per_day
         ):
-            cap = self._settings.proactive_max_checkins_per_day
-            return self._silent(name, f"今日主动关怀已达上限（{cap} 次），改为静默记录")
+            return self._silent(
+                name, f"今日主动关怀已达上限（{max_checkins_per_day} 次），改为静默记录"
+            )
 
         # Surface the care.
         self._store.record_checkin(user_id, name, now)

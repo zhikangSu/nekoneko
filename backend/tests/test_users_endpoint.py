@@ -20,6 +20,10 @@ def test_get_profile_default_for_new_user(profile_client):
     assert body["user_id"] == "demo_user"
     assert body["companion_display_name"] is None
     assert body["onboarding_completed"] is False
+    assert body["proactive_quiet_hours_start"] == "22:00"
+    assert body["proactive_quiet_hours_end"] == "07:00"
+    assert body["proactive_max_checkins_per_day"] == 3
+    assert body["proactive_same_topic_cooldown_minutes"] == 120
 
 
 def test_patch_sets_companion_name(profile_client):
@@ -53,6 +57,35 @@ def test_patch_toggles_preferences(profile_client):
     ).json()
     assert body["memory_enabled"] is False
     assert body["proactive_checkin_enabled"] is False
+
+
+def test_patch_sets_proactive_preferences(profile_client):
+    body = profile_client.patch(
+        "/api/users/demo_user/profile",
+        json={
+            "proactive_quiet_hours_start": "21:30",
+            "proactive_quiet_hours_end": "06:30",
+            "proactive_max_checkins_per_day": 2,
+            "proactive_same_topic_cooldown_minutes": 45,
+        },
+    ).json()
+    assert body["proactive_quiet_hours_start"] == "21:30"
+    assert body["proactive_quiet_hours_end"] == "06:30"
+    assert body["proactive_max_checkins_per_day"] == 2
+    assert body["proactive_same_topic_cooldown_minutes"] == 45
+
+
+def test_invalid_proactive_preferences_rejected(profile_client):
+    bad_time = profile_client.patch(
+        "/api/users/demo_user/profile",
+        json={"proactive_quiet_hours_start": "25:00"},
+    )
+    bad_cap = profile_client.patch(
+        "/api/users/demo_user/profile",
+        json={"proactive_max_checkins_per_day": 7},
+    )
+    assert bad_time.status_code == 422
+    assert bad_cap.status_code == 422
 
 
 def test_skip_onboarding_keeps_name_empty(profile_client):

@@ -81,6 +81,12 @@ def apply_preset(
         state_event=state_event,
         now=now,
         user_proactive_enabled=profile.proactive_checkin_enabled,
+        user_quiet_hours_start=profile.proactive_quiet_hours_start,
+        user_quiet_hours_end=profile.proactive_quiet_hours_end,
+        user_max_checkins_per_day=profile.proactive_max_checkins_per_day,
+        user_same_topic_cooldown_minutes=(
+            profile.proactive_same_topic_cooldown_minutes
+        ),
     )
 
     turn_id = f"t_{uuid.uuid4().hex[:8]}"
@@ -100,6 +106,19 @@ def apply_preset(
                     "reason": decision.reason,
                     "cooldown_applied": decision.cooldown_applied,
                     "cooldown_minutes": decision.cooldown_minutes,
+                    "profile_preferences": {
+                        "proactive_checkin_enabled": (
+                            profile.proactive_checkin_enabled
+                        ),
+                        "quiet_hours_start": profile.proactive_quiet_hours_start,
+                        "quiet_hours_end": profile.proactive_quiet_hours_end,
+                        "max_checkins_per_day": (
+                            profile.proactive_max_checkins_per_day
+                        ),
+                        "same_topic_cooldown_minutes": (
+                            profile.proactive_same_topic_cooldown_minutes
+                        ),
+                    },
                 },
             )
         ],

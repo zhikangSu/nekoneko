@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { COMPANION_FALLBACK_NAME } from "@/lib/constants";
+import { PROACTIVE_TOPIC_BANK } from "@/lib/proactiveTopics";
 import { useProfile } from "./ProfileProvider";
 
 // Rename / clear the companion name and toggle basic preferences (#21). The
@@ -17,6 +18,10 @@ export function ProfileSettingsDialog({
   const { profile, update } = useProfile();
   const [companionName, setCompanionName] = useState("");
   const [userName, setUserName] = useState("");
+  const [quietStart, setQuietStart] = useState("22:00");
+  const [quietEnd, setQuietEnd] = useState("07:00");
+  const [maxCheckins, setMaxCheckins] = useState("3");
+  const [cooldownMinutes, setCooldownMinutes] = useState("120");
   const [saving, setSaving] = useState(false);
 
   // Re-sync form when opened or when the profile changes.
@@ -24,6 +29,12 @@ export function ProfileSettingsDialog({
     if (open) {
       setCompanionName(profile?.companion_display_name ?? "");
       setUserName(profile?.user_display_name ?? "");
+      setQuietStart(profile?.proactive_quiet_hours_start ?? "22:00");
+      setQuietEnd(profile?.proactive_quiet_hours_end ?? "07:00");
+      setMaxCheckins(String(profile?.proactive_max_checkins_per_day ?? 3));
+      setCooldownMinutes(
+        String(profile?.proactive_same_topic_cooldown_minutes ?? 120),
+      );
     }
   }, [open, profile]);
 
@@ -36,6 +47,15 @@ export function ProfileSettingsDialog({
       await update({
         companion_display_name: companionName.trim() || null,
         user_display_name: userName.trim() || null,
+        proactive_quiet_hours_start: quietStart,
+        proactive_quiet_hours_end: quietEnd,
+        proactive_max_checkins_per_day: clampInt(maxCheckins, 0, 6, 3),
+        proactive_same_topic_cooldown_minutes: clampInt(
+          cooldownMinutes,
+          0,
+          720,
+          120,
+        ),
       });
       onClose();
     } finally {
@@ -68,7 +88,7 @@ export function ProfileSettingsDialog({
       aria-modal="true"
       aria-labelledby="settings-title"
     >
-      <div className="w-full max-w-lg rounded-2xl bg-surface p-7 shadow-xl">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-surface p-7 shadow-xl">
         <h2 id="settings-title" className="text-2xl font-semibold text-ink">
           设置
         </h2>
@@ -125,6 +145,67 @@ export function ProfileSettingsDialog({
             checked={profile?.proactive_checkin_enabled ?? true}
             onChange={(value) => void toggle("proactive_checkin_enabled", value)}
           />
+
+          <div className="border-t border-black/10 pt-4">
+            <h3 className="text-lg font-semibold text-ink">主动关怀规则</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-base text-muted">安静时段开始</span>
+                <input
+                  type="time"
+                  value={quietStart}
+                  onChange={(event) => setQuietStart(event.target.value)}
+                  className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-base text-muted">安静时段结束</span>
+                <input
+                  type="time"
+                  value={quietEnd}
+                  onChange={(event) => setQuietEnd(event.target.value)}
+                  className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-base text-muted">每日最多问候</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={maxCheckins}
+                  onChange={(event) => setMaxCheckins(event.target.value)}
+                  className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-base text-muted">
+                  同类话题冷却（分钟）
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={720}
+                  step={15}
+                  value={cooldownMinutes}
+                  onChange={(event) => setCooldownMinutes(event.target.value)}
+                  className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="border-t border-black/10 pt-4">
+            <h3 className="text-lg font-semibold text-ink">低风险话题库</h3>
+            <ul className="mt-3 space-y-3">
+              {PROACTIVE_TOPIC_BANK.map((topic) => (
+                <li key={topic.id} className="border-l-4 border-companion/45 pl-3">
+                  <p className="text-base font-semibold text-ink">{topic.label}</p>
+                  <p className="text-sm leading-6 text-muted">{topic.cue}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
@@ -148,6 +229,17 @@ export function ProfileSettingsDialog({
       </div>
     </div>
   );
+}
+
+function clampInt(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
 
 function Toggle({
