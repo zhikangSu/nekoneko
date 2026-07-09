@@ -19,7 +19,6 @@ const MANUAL_ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
   { value: "curious_junior", label: "晚辈" },
   { value: "middle_age_bridge", label: "中年" },
   { value: "elder_mentor", label: "长辈" },
-  { value: "theme_companion", label: "主题" },
   { value: "no_ai_role", label: "不需要" },
 ];
 
@@ -249,7 +248,7 @@ function RoleSelectionControl({
       </div>
 
       {mode === "manual" ? (
-        <div className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:flex-1 sm:grid-cols-6">
+        <div className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:flex-1 sm:grid-cols-5">
           {MANUAL_ROLE_OPTIONS.map((role) => {
             const selected = selectedRoleIds.includes(role.value);
             const disabledByLimit =

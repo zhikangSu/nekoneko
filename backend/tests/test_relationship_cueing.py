@@ -223,13 +223,13 @@ def test_culture_topic_returns_two_role_lines_before_invitation(client):
     assert _route(body) == "relationship_cueing"
     assert len(body["role_messages"]) >= 3
     first_two_labels = [m["role_label"] for m in body["role_messages"][:2]]
-    assert first_two_labels == ["主题陪伴者", "同龄共鸣者"]
+    assert first_two_labels == ["中年传承者", "同龄共鸣者"]
     assert body["role_messages"][2]["role_label"] == "晚辈好奇者"
 
     metadata = body["agent_trace"]["research_metadata"]
     assert metadata["cueing_style"] == "agent_agent_then_invite"
     assert metadata["selected_roles"] == [
-        "theme_companion",
+        "middle_age_bridge",
         "same_age_peer",
         "curious_junior",
     ]
