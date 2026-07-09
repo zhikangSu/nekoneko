@@ -83,9 +83,7 @@ export function ChatExperience() {
   return (
     <div className="space-y-4">
       <SafetyBanner />
-      {messages.length === 0 ? (
-        <AmbientChatScenePanel onSend={handleAmbientSceneSend} />
-      ) : null}
+      <AmbientChatScenePanel onSend={handleAmbientSceneSend} />
       <div className="flex justify-end">
         <button
           type="button"

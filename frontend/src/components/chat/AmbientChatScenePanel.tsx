@@ -64,7 +64,8 @@ export function AmbientChatScenePanel({
   const [isSceneSending, setIsSceneSending] = useState(false);
   const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
   const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
-  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(() => new Set());
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,15 +83,31 @@ export function AmbientChatScenePanel({
   }, []);
 
   useEffect(() => {
-    if (scenes.length > 0 && activeSceneIndex >= scenes.length) {
-      setActiveSceneIndex(0);
+    if (scenes.length === 0) {
+      if (activeSceneId !== null) setActiveSceneId(null);
+      return;
     }
-  }, [activeSceneIndex, scenes.length]);
+
+    const activeStillExists = activeSceneId
+      ? scenes.some((scene) => scene.id === activeSceneId)
+      : false;
+    if (!activeStillExists) {
+      const firstScene = scenes[0];
+      setActiveSceneId(firstScene.id);
+      setSeenSceneIds((current) => {
+        if (current.has(firstScene.id)) return current;
+        const next = new Set(current);
+        next.add(firstScene.id);
+        return next;
+      });
+    }
+  }, [activeSceneId, scenes]);
 
   const activeScene = useMemo(() => {
     if (scenes.length === 0) return null;
-    return scenes[activeSceneIndex % scenes.length] ?? null;
-  }, [activeSceneIndex, scenes]);
+    if (!activeSceneId) return scenes[0] ?? null;
+    return scenes.find((scene) => scene.id === activeSceneId) ?? scenes[0] ?? null;
+  }, [activeSceneId, scenes]);
 
   useEffect(() => {
     if (!activeScene) return;
@@ -105,9 +122,26 @@ export function AmbientChatScenePanel({
   if (!activeScene) return null;
 
   function showNextScene() {
-    if (isSceneSending || scenes.length === 0) return;
+    if (isSceneSending || scenes.length === 0 || !activeScene) return;
+    const currentIndex = scenes.findIndex((scene) => scene.id === activeScene.id);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextCandidates = [
+      ...scenes.slice(safeIndex + 1),
+      ...scenes.slice(0, safeIndex),
+    ];
+    const nextScene =
+      nextCandidates.find((scene) => !seenSceneIds.has(scene.id)) ??
+      nextCandidates[0] ??
+      activeScene;
+
     setDraft("");
-    setActiveSceneIndex((current) => (current + 1) % scenes.length);
+    setActiveSceneId(nextScene.id);
+    setSeenSceneIds((current) => {
+      if (current.has(nextScene.id)) return current;
+      const next = new Set(current);
+      next.add(nextScene.id);
+      return next;
+    });
   }
 
   async function handleSubmit(event: React.FormEvent) {
