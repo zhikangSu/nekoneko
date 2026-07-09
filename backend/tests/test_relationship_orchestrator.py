@@ -114,9 +114,11 @@ def test_accept_deceased_partner_is_boundary_path():
 
 def test_accept_yueju_uses_bridge_peer_and_junior():
     d = _orchestrate("我喜欢粤剧")
-    assert RoleId.middle_age_bridge in d.selected_roles
-    assert RoleId.same_age_peer in d.selected_roles
-    assert RoleId.curious_junior in d.selected_roles
+    assert d.selected_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
     assert RoleId.theme_companion not in d.selected_roles
     assert len(d.selected_roles) >= 3
     assert d.cueing_style == CueingStyle.agent_agent_then_invite
@@ -141,8 +143,11 @@ def test_family_education_uses_junior_and_bridge():
 
 def test_work_collective_uses_peer_set():
     d = _orchestrate("那会儿在厂里车间跟老同事一起上班")
-    for role in (RoleId.same_age_peer, RoleId.curious_junior, RoleId.middle_age_bridge):
-        assert role in d.selected_roles
+    assert d.selected_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
     assert d.primary_role is RoleId.same_age_peer
     _assert_common_invariants(d)
 

@@ -226,14 +226,16 @@ def test_culture_topic_returns_two_role_lines_before_invitation(client):
     assert _route(body) == "relationship_cueing"
     assert len(body["role_messages"]) >= 3
     first_two_labels = [m["role_label"] for m in body["role_messages"][:2]]
-    assert first_two_labels == ["中年传承者", "同龄共鸣者"]
+    assert first_two_labels == ["同龄共鸣者", "中年传承者"]
     assert body["role_messages"][2]["role_label"] == "晚辈好奇者"
+    assert body["role_messages"][1]["text"].startswith("是啊")
+    assert body["role_messages"][2]["text"].startswith("听前面这么一说")
 
     metadata = body["agent_trace"]["research_metadata"]
     assert metadata["cueing_style"] == "agent_agent_then_invite"
     assert metadata["selected_roles"] == [
-        "middle_age_bridge",
         "same_age_peer",
+        "middle_age_bridge",
         "curious_junior",
     ]
 
@@ -487,8 +489,13 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
     relationship_cueing_node(state, deps)
 
     assert provider.payloads
-    assert state.draft_reply.startswith("这些粤剧")
     assert "关系编排计划" in (provider.payloads[0].system_prompt or "")
+    assert "必须让每个角色分别说一句" in (provider.payloads[0].system_prompt or "")
+    assert [m.role_label for m in state.role_messages] == [
+        "同龄共鸣者",
+        "中年传承者",
+        "晚辈好奇者",
+    ]
     companion_steps = [a for a in state.agents if a.name == "CompanionAgent"]
     assert len(companion_steps) == 1
     detail = companion_steps[0].detail
@@ -558,6 +565,9 @@ def test_companion_chat_multi_role_reply_becomes_separate_role_messages():
     companion_node(state, deps)
 
     assert "必须让每个角色分别说一句" in provider.payloads[0].system_prompt
+    assert "第二位必须接上一位的意思继续说" in provider.payloads[0].system_prompt
+    assert "最后一位再把话题自然递给用户" in provider.payloads[0].system_prompt
+    assert "不要使用“您们”" in provider.payloads[0].system_prompt
     assert [message.role_label for message in state.role_messages] == [
         "同龄共鸣者",
         "晚辈好奇者",

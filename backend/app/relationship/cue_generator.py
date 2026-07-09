@@ -3,8 +3,8 @@
 Turns a :class:`RelationshipDecision` (from the deterministic
 RelationshipOrchestratorAgent, #52) into a short, visible social cue for a
 NON-SENSITIVE reminiscence turn: two or three VISIBLE relationship roles briefly
-resonate about the shared object/topic, then the last line gently invites the
-elder in — without forcing an answer.
+respond to one another about the shared object/topic, then the last line gently
+opens a next turn for the elder — without forcing an answer.
 
 This is pure templates — NO LLM. It stages VISIBLE relationship personas (from
 #51); those personas are not autonomous agents. It never touches the existing
@@ -116,7 +116,7 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.middle_age_bridge: {
         Topic.old_object_photo: "这些旧物背后都是您经历过的日子，我在想它对后来的人也很有意思。",
         Topic.work_collective: "您这份经历很难得，我在想它对我们后来的人也很有启发。",
-        Topic.culture_arts: "这些老文化里藏着很多故事，能听您聊聊我觉得很珍贵。",
+        Topic.culture_arts: "这些老文化里藏着很多故事，一代代传下去很珍贵。",
         Topic.family_education: "您把孩子拉扯大的这份经验很难得，对后来的人也很有启发。",
         Topic.general_reminiscence: "您这份经历很难得，我在想它对后来的人也很有启发。",
         None: "您这份经历很难得，我在想它对后来的人也很有启发。",
@@ -131,13 +131,13 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
 }
 
 # _INVITE[role][topic] -> line; _INVITE[role][None] -> default. Used for the
-# LAST line: it turns to the elder and invites without forcing an answer.
+# LAST line: it turns to the elder without forcing an answer.
 _INVITE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.same_age_peer: {
         None: "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。",
     },
     RoleId.curious_junior: {
-        None: "您愿意的话，我想听听当时最让您记得的一件小事。",
+        None: "当时最让您记得的一件小事是什么呢？不着急，想到哪儿说到哪儿。",
     },
     RoleId.middle_age_bridge: {
         Topic.old_object_photo: "您那时候有没有一件一直记到现在的老物件？不着急，慢慢想。",
@@ -145,7 +145,7 @@ _INVITE: dict[RoleId, dict[Topic | None, str]] = {
         None: "您想到哪段就说哪段，我慢慢听着。",
     },
     RoleId.theme_companion: {
-        None: "您最爱的是哪一段呢？我想听您慢慢说说。",
+        None: "哪一段现在想起来最有味道呢？",
     },
     RoleId.elder_mentor: {
         None: "您想到哪儿说到哪儿，我在这儿慢慢听。",
@@ -175,6 +175,16 @@ def _label(role: RoleId) -> str:
     """Human-visible Chinese label for a role, from the #51 registry."""
 
     return get_role_profile(role).label_zh
+
+
+def _dialogue_line(line: str, *, index: int, total: int) -> str:
+    """Make multi-role cue lines read like a short role-role exchange."""
+
+    if index == 0:
+        return line
+    if index == total - 1:
+        return f"听前面这么一说，{line}"
+    return f"是啊，接着刚才说的，{line}"
 
 
 class CueGenerator:
@@ -231,12 +241,15 @@ class CueGenerator:
         invite_fallback = "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。"
 
         *resonating, inviting = roles
-        for role in resonating:
+        total = len(roles)
+        for index, role in enumerate(resonating):
             line = _line_for(_RESONATE, role, topic, resonate_fallback)
-            lines.append(f"{_label(role)}：{line}")
+            lines.append(f"{_label(role)}：{_dialogue_line(line, index=index, total=total)}")
 
         invite = _line_for(_INVITE, inviting, topic, invite_fallback)
-        lines.append(f"{_label(inviting)}：{invite}")
+        lines.append(
+            f"{_label(inviting)}：{_dialogue_line(invite, index=total - 1, total=total)}"
+        )
 
         return "\n".join(lines[:MAX_ROLES_PER_TURN])
 

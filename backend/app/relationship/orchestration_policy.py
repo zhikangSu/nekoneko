@@ -56,21 +56,33 @@ from app.relationship.topic_classifier import SENSITIVE_TOPICS, Topic
 _LONG_NARRATIVE_CHARS = 60
 
 # Base role plans per topic: (selected_roles, primary_role, cueing_style).
-_PEER_SET = [RoleId.same_age_peer, RoleId.curious_junior, RoleId.middle_age_bridge]
+#
+# For agent-agent cueing, order is part of the interaction design:
+# 1. a same-age peer first makes the topic feel familiar,
+# 2. a middle-age bridge then responds and carries the meaning forward,
+# 3. a curious junior asks the lightest concrete follow-up last.
+#
+# The primary role can still be the role whose function is most central to the
+# topic; it does not have to speak first.
+_PEER_DIALOGUE_SET = [
+    RoleId.same_age_peer,
+    RoleId.middle_age_bridge,
+    RoleId.curious_junior,
+]
 
 _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
     Topic.old_object_photo: (
-        list(_PEER_SET),
+        list(_PEER_DIALOGUE_SET),
         RoleId.same_age_peer,
         CueingStyle.agent_agent_then_invite,
     ),
     Topic.work_collective: (
-        list(_PEER_SET),
+        list(_PEER_DIALOGUE_SET),
         RoleId.same_age_peer,
         CueingStyle.agent_agent_then_invite,
     ),
     Topic.general_reminiscence: (
-        list(_PEER_SET),
+        list(_PEER_DIALOGUE_SET),
         RoleId.same_age_peer,
         CueingStyle.agent_agent_then_invite,
     ),
@@ -80,7 +92,7 @@ _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
         CueingStyle.agent_agent_then_invite,
     ),
     Topic.culture_arts: (
-        [RoleId.middle_age_bridge, RoleId.same_age_peer, RoleId.curious_junior],
+        list(_PEER_DIALOGUE_SET),
         RoleId.middle_age_bridge,
         CueingStyle.agent_agent_then_invite,
     ),

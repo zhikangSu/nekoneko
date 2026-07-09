@@ -205,7 +205,11 @@ def _role_style_context_for_profiles(profiles, source: str) -> str:
             "\n输出格式要求：本轮有多个可见关系角色，必须让每个角色分别说一句。"
             f"请严格输出 {len(profiles)} 行，顺序为：{labels}。"
             "每行必须以完整角色名和中文冒号开头，例如“同龄共鸣者：...”。"
-            "不要把多个角色合并成一个总回复，不要写总括句、主持人话术或角色选择解释。"
+            "这几行要形成角色之间的短对话：第一位先接住用户的话或话题，"
+            "第二位必须接上一位的意思继续说，最后一位再把话题自然递给用户。"
+            "不要让每个角色都独立重复用户的话，不要把多个角色合并成一个总回复，"
+            "不要写总括句、主持人话术或角色选择解释。"
+            "角色之间接话不要使用“您们”这类生硬称呼，可用“刚才说的”或“听前面这么一说”。"
         )
     return context
 
@@ -591,7 +595,14 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result.reply_text,
         decision.selected_roles,
     )
-    state.role_messages = real_role_messages
+    if real_role_messages:
+        state.role_messages = real_role_messages
+    else:
+        state.draft_reply = fallback_cue
+        state.role_messages = role_messages_from_cue(
+            fallback_cue,
+            decision.selected_roles,
+        )
     _append_companion_trace(
         state,
         deps,
