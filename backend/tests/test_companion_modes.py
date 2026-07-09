@@ -65,7 +65,7 @@ def test_manual_role_style_context_is_added_to_prompt():
         role_style_context="elder_mentor / 长辈引导者：温厚、包容，先安抚再反思。",
     )
 
-    assert "用户自选关系角色口吻" in result.rendered_prompt
+    assert "关系角色口吻" in result.rendered_prompt
     assert "长辈引导者" in result.rendered_prompt
     assert "不要退回默认的“陪伴 AI”泛化口吻" in result.rendered_prompt
 

@@ -198,7 +198,16 @@ def _role_style_context_for_profiles(profiles, source: str) -> str:
             f"边界：{boundary}"
         )
 
-    return f"{source}，请只使用这些角色的关系视角。\n" + "\n".join(role_lines)
+    context = f"{source}，请只使用这些角色的关系视角。\n" + "\n".join(role_lines)
+    if len(profiles) > 1:
+        labels = "、".join(profile.label_zh for profile in profiles)
+        context += (
+            "\n输出格式要求：本轮有多个可见关系角色，必须让每个角色分别说一句。"
+            f"请严格输出 {len(profiles)} 行，顺序为：{labels}。"
+            "每行必须以完整角色名和中文冒号开头，例如“同龄共鸣者：...”。"
+            "不要把多个角色合并成一个总回复，不要写总括句、主持人话术或角色选择解释。"
+        )
+    return context
 
 
 def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | None]:
@@ -332,6 +341,22 @@ def _companion_role_style_context(
     return _auto_role_style_context(state, deps)
 
 
+def _role_ids_for_structured_reply(role_style_trace: dict | None) -> list[RoleId]:
+    if not role_style_trace:
+        return []
+
+    role_ids: list[RoleId] = []
+    for raw_role_id in role_style_trace.get("selected_roles") or []:
+        try:
+            role_id = RoleId(raw_role_id)
+        except ValueError:
+            continue
+        if role_id is RoleId.no_ai_role:
+            continue
+        role_ids.append(role_id)
+    return role_ids
+
+
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.input_guard.run(state.user_input)
     state.risk = result.classification
@@ -441,6 +466,12 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         conversation_history=state.conversation_history,
     )
     state.draft_reply = result.reply_text
+    structured_role_ids = _role_ids_for_structured_reply(role_style_trace)
+    if len(structured_role_ids) > 1:
+        state.role_messages = role_messages_from_cue(
+            result.reply_text,
+            structured_role_ids,
+        )
     _append_companion_trace(state, deps, result, extra_detail=role_style_trace)
     return state
 
@@ -535,6 +566,17 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         return state
 
     state.conversation_history_used = bool(state.conversation_history)
+    role_style_context = None
+    selected_talk_roles = [
+        role_id
+        for role_id in decision.selected_roles
+        if role_id is not RoleId.no_ai_role
+    ]
+    if selected_talk_roles:
+        role_style_context = _role_style_context_for_profiles(
+            [get_role_profile(role_id) for role_id in selected_talk_roles],
+            "系统本轮为话题引导分配了这些关系角色",
+        )
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
@@ -542,6 +584,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         memory_context=state.memory_context,
         conversation_history=state.conversation_history,
         relationship_cue_context=_relationship_cue_context(decision, fallback_cue),
+        role_style_context=role_style_context,
     )
     state.draft_reply = result.reply_text
     real_role_messages = role_messages_from_cue(
@@ -556,6 +599,13 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         extra_detail={
             "relationship_cueing": True,
             "relationship_cue_fallback_template": fallback_cue,
+            "manual_role_style": role_selection_mode is RoleSelectionMode.manual,
+            "auto_role_style": role_selection_mode is RoleSelectionMode.auto,
+            "manual_no_ai_role": RoleId.no_ai_role in selected_role_ids,
+            "selected_roles": [role_id.value for role_id in selected_talk_roles],
+            "role_labels": [
+                get_role_profile(role_id).label_zh for role_id in selected_talk_roles
+            ],
         },
     )
     return state

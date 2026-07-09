@@ -12,12 +12,12 @@ from types import SimpleNamespace
 from app.agents.companion import CompanionAgent
 from app.agents.relationship_orchestrator import RelationshipOrchestratorAgent
 from app.core.constants import CompanionMode
-from app.graph.nodes import relationship_cueing_node
+from app.graph.nodes import companion_node, relationship_cueing_node
 from app.graph.state import GraphState
 from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, list_role_profiles
 from app.schemas.profile import UserProfile
-from app.schemas.relationship import OrchestrationInput
+from app.schemas.relationship import OrchestrationInput, RoleId, RoleSelectionMode
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
 
@@ -527,3 +527,40 @@ def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
         "晚辈好奇者",
     ]
     assert state.role_messages[0].text.startswith("这些粤剧唱段里")
+
+
+def test_companion_chat_multi_role_reply_becomes_separate_role_messages():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = (
+        "同龄共鸣者：聊工作啊，我们那会儿在单位里忙起来，确实有累也有热闹。\n"
+        "晚辈好奇者：我有点好奇，您那时候最常做的是哪一类活儿？\n"
+        "中年传承者：这些在岗位上熬出来的经验，后来回头看很有分量。"
+    )
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+    )
+    state = GraphState(
+        turn_id="t_companion_multi_roles",
+        user_id="u_companion_multi_roles",
+        user_input="聊聊工作，以前在单位里的日子",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_multi_roles"),
+        memory_context=[],
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=[
+            RoleId.same_age_peer,
+            RoleId.curious_junior,
+            RoleId.middle_age_bridge,
+        ],
+    )
+
+    companion_node(state, deps)
+
+    assert "必须让每个角色分别说一句" in provider.payloads[0].system_prompt
+    assert [message.role_label for message in state.role_messages] == [
+        "同龄共鸣者",
+        "晚辈好奇者",
+        "中年传承者",
+    ]
+    assert state.role_messages[0].text.startswith("聊工作啊")
