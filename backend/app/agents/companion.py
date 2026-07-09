@@ -66,6 +66,7 @@ class CompanionAgent:
         memory_context: list[str] | None = None,
         retrieval_context: str | None = None,
         relationship_cue_context: str | None = None,
+        role_style_context: str | None = None,
         conversation_history: list[ConversationMessage] | None = None,
     ) -> CompanionResult:
         named_by_user = bool(companion_display_name and companion_display_name.strip())
@@ -110,6 +111,16 @@ class CompanionAgent:
                 "不要使用括号式旁白或解释你在怎么设计回复。"
                 "先接住用户当下的话，再给一个低压力邀请；最多一个问题。\n"
                 "--- 关系编排计划结束 ---"
+            )
+        if role_style_context:
+            rendered_prompt += (
+                "\n\n--- 用户自选关系角色口吻（内部指导，不要逐字照搬）---\n"
+                f"{role_style_context}\n"
+                "本轮用户已经明确选择这些可见关系角色。请严格按所选角色的关系功能和语气回复，"
+                "不要自行换成其他角色，也不要退回默认的“陪伴 AI”泛化口吻。"
+                "不要在正文中解释角色选择，不要说“作为某某角色”，不要冒充真实家人、医生或照护者。"
+                "若多个角色被选择，保持自然，不要七嘴八舌；最多一个轻问题。\n"
+                "--- 用户自选关系角色口吻结束 ---"
             )
 
         reply_text = self._llm.generate_companion_reply(

@@ -20,6 +20,7 @@ from app.relationship.cue_generator import (
     is_relationship_cue_turn,
     role_messages_from_cue,
 )
+from app.relationship.role_profiles import MAX_ROLES_PER_TURN, get_role_profile
 from app.schemas.memory_candidate import MemoryTriageAction
 from app.schemas.relationship import (
     ElderControlAction,
@@ -159,6 +160,76 @@ def _append_companion_trace(
     )
 
 
+def _manual_role_ids_for_talk(state: GraphState) -> list[RoleId]:
+    if state.role_selection_mode is not RoleSelectionMode.manual:
+        return []
+    if RoleId.no_ai_role in state.selected_role_ids:
+        return []
+
+    seen: set[RoleId] = set()
+    role_ids: list[RoleId] = []
+    for role_id in state.selected_role_ids:
+        if role_id is RoleId.no_ai_role or role_id in seen:
+            continue
+        role_ids.append(role_id)
+        seen.add(role_id)
+    return role_ids[:MAX_ROLES_PER_TURN]
+
+
+def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | None]:
+    if state.role_selection_mode is not RoleSelectionMode.manual:
+        return None, None
+
+    requested_role_ids = [role_id.value for role_id in state.selected_role_ids]
+    state.requested_relationship_roles = requested_role_ids
+    state.relationship_role_selection_mode = RoleSelectionMode.manual.value
+
+    if RoleId.no_ai_role in state.selected_role_ids:
+        state.selected_relationship_roles = [RoleId.no_ai_role.value]
+        state.relationship_primary_role = RoleId.no_ai_role.value
+        return None, {
+            "manual_role_style": False,
+            "manual_no_ai_role": True,
+            "requested_role_ids": requested_role_ids,
+            "selected_roles": [RoleId.no_ai_role.value],
+            "role_labels": [],
+        }
+
+    role_ids = _manual_role_ids_for_talk(state)
+    if not role_ids:
+        return None, {
+            "manual_role_style": False,
+            "manual_no_ai_role": False,
+            "requested_role_ids": requested_role_ids,
+            "selected_roles": [],
+            "role_labels": [],
+        }
+
+    profiles = [get_role_profile(role_id) for role_id in role_ids]
+    state.selected_relationship_roles = [profile.role_id.value for profile in profiles]
+    state.relationship_primary_role = profiles[0].role_id.value
+    role_lines = []
+    for profile in profiles:
+        boundary = "；".join(profile.boundary_rules[:3])
+        role_lines.append(
+            f"- {profile.role_id.value} / {profile.label_zh}: "
+            f"{profile.relationship_function}；说话方式：{profile.speaking_style}；"
+            f"边界：{boundary}"
+        )
+
+    context = (
+        "用户本轮手动选择了这些关系角色，请只使用这些角色的关系视角。\n"
+        + "\n".join(role_lines)
+    )
+    return context, {
+        "manual_role_style": True,
+        "manual_no_ai_role": False,
+        "requested_role_ids": requested_role_ids,
+        "selected_roles": [profile.role_id.value for profile in profiles],
+        "role_labels": [profile.label_zh for profile in profiles],
+    }
+
+
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.input_guard.run(state.user_input)
     state.risk = result.classification
@@ -257,16 +328,18 @@ def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
     state.conversation_history_used = bool(state.conversation_history)
+    role_style_context, role_style_trace = _manual_role_style_context(state)
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
         retrieval_context=state.retrieval_context,
+        role_style_context=role_style_context,
         conversation_history=state.conversation_history,
     )
     state.draft_reply = result.reply_text
-    _append_companion_trace(state, deps, result)
+    _append_companion_trace(state, deps, result, extra_detail=role_style_trace)
     return state
 
 

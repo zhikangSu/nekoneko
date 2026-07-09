@@ -51,6 +51,36 @@ def test_chat_neutral_assistant_mode(client):
     assert response.json()["agent_trace"]["mode"] == "neutral_assistant"
 
 
+def test_manual_role_selection_guides_companion_chat_trace(client):
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": "manual_elder_role_chat",
+            "message": "我终于也是活到了我妈妈的那个年纪",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["elder_mentor"],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["agent_trace"]["route"] == "companion_chat"
+    assert body["role_messages"] == []
+
+    role_trace = body["agent_trace"]["research_trace"]["role"]
+    assert role_trace["role_selection_mode"] == "manual"
+    assert role_trace["requested_role_ids"] == ["elder_mentor"]
+    assert role_trace["selected_roles"] == ["elder_mentor"]
+    assert role_trace["primary_role"] == "elder_mentor"
+
+    companion_step = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "CompanionAgent"
+    )
+    assert companion_step["detail"]["manual_role_style"] is True
+    assert companion_step["detail"]["role_labels"] == ["长辈引导者"]
+
+
 def test_chat_rejects_blank_message(client):
     assert client.post("/api/chat", json={"message": ""}).status_code == 422
     assert client.post("/api/chat", json={"message": "   "}).status_code == 422

@@ -57,6 +57,19 @@ def test_modes_select_different_prompts():
     assert role.trace_summary() != neutral.trace_summary()
 
 
+def test_manual_role_style_context_is_added_to_prompt():
+    result = _agent().respond(
+        message="我终于也是活到了我妈妈的那个年纪",
+        mode=CompanionMode.role_first,
+        companion_display_name=None,
+        role_style_context="elder_mentor / 长辈引导者：温厚、包容，先安抚再反思。",
+    )
+
+    assert "用户自选关系角色口吻" in result.rendered_prompt
+    assert "长辈引导者" in result.rendered_prompt
+    assert "不要退回默认的“陪伴 AI”泛化口吻" in result.rendered_prompt
+
+
 def test_reply_is_deterministic():
     a = _agent().respond(
         message="我有点累", mode=CompanionMode.role_first, companion_display_name="阿南"

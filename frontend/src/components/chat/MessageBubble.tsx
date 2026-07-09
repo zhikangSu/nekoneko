@@ -16,6 +16,17 @@ const ROLE_ACCENT_STYLE: Record<RelationshipRoleId, string> = {
   no_ai_role: "border-stone-300",
 };
 
+const ROLE_LABELS: Record<RelationshipRoleId, string> = {
+  same_age_peer: "同龄共鸣者",
+  curious_junior: "晚辈好奇者",
+  middle_age_bridge: "中年传承者",
+  elder_mentor: "长辈引导者",
+  theme_companion: "主题陪伴者",
+  memory_organizer: "回忆整理者",
+  boundary_guardian: "边界守护者",
+  no_ai_role: "不需要 AI 角色",
+};
+
 const GENERAL_NO_ROLE_LABEL = "百事通";
 
 export function MessageBubble({
@@ -104,11 +115,35 @@ function getCompanionSpeakerLabel(
     return GENERAL_NO_ROLE_LABEL;
   }
 
+  const manualRoleLabels = selectedTalkRoleLabels(message);
+  if (manualRoleLabels.length > 0) {
+    return manualRoleLabels.join("、");
+  }
+
   return companionLabel;
 }
 
 function uniqueLabels(labels: string[]) {
   return labels.filter((label, index) => label && labels.indexOf(label) === index);
+}
+
+function selectedTalkRoleLabels(message: ChatMessage) {
+  const traceRole = message.trace?.research_trace?.role;
+  const ids = [
+    ...(message.requestedRoleIds ?? []),
+    ...(traceRole?.selected_roles ?? []),
+    ...(traceRole?.requested_role_ids ?? []),
+  ];
+  return uniqueLabels(
+    ids
+      .filter(isRelationshipRoleId)
+      .filter((id) => id !== "no_ai_role")
+      .map((id) => ROLE_LABELS[id]),
+  );
+}
+
+function isRelationshipRoleId(value: string): value is RelationshipRoleId {
+  return value in ROLE_LABELS;
 }
 
 function usesNoRoleResponder(message: ChatMessage) {
