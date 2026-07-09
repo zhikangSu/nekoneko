@@ -299,7 +299,7 @@ export function AmbientChatScenePanel({
           ),
         )}
         {isSceneSending ? (
-          <p className="text-base text-muted">几位角色正在接着聊…</p>
+          <p className="text-base text-muted">正在回复…</p>
         ) : null}
       </div>
 

@@ -33,6 +33,14 @@ function newId(): string {
   return `m_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 }
 
+function visibleCompanionText(response: ChatResponse): string {
+  const roleMessages = response.role_messages ?? [];
+  if (roleMessages.length === 0) return response.response_text;
+  return roleMessages
+    .map((message) => `${message.role_label}：${message.text}`)
+    .join("\n");
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roleSelectionMode, setRoleSelectionMode] =
@@ -92,7 +100,7 @@ export function useChat() {
           {
             id: response.turn_id || newId(),
             role: "companion",
-            text: response.response_text,
+            text: visibleCompanionText(response),
             roleMessages: response.role_messages ?? [],
             requestedRoleIds: requestedRoleIdsForTurn,
             topic,
@@ -156,7 +164,7 @@ export function useChat() {
           {
             id: response.turn_id || newId(),
             role: "companion",
-            text: response.response_text,
+            text: visibleCompanionText(response),
             roleMessages: response.role_messages ?? [],
             requestedRoleIds: requestedRoleIdsForTurn,
             topic,

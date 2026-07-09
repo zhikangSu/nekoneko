@@ -145,6 +145,9 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert len(body["role_messages"]) >= 2
     assert body["role_messages"][0]["role_label"]
     assert body["role_messages"][0]["text"]
+    assert "给我们讲讲" not in body["response_text"]
+    assert "跟我们说说" not in body["response_text"]
+    assert "不想说也没关系" not in body["response_text"]
 
     metadata = body["agent_trace"]["research_metadata"]
     assert metadata["topic_id"] == "T05"

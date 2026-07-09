@@ -16,11 +16,9 @@ export function TopicCardPicker({
     <div className="rounded-xl border border-black/10 bg-canvas px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-base font-semibold text-ink">话题卡</div>
+          <div className="text-base font-semibold text-ink">可选话题</div>
           <div className="truncate text-sm text-muted">
-            {selectedTopic
-              ? `${selectedTopic.topic_id} · ${selectedTopic.topic_label}`
-              : "未选择"}
+            {selectedTopic ? `已选：${selectedTopic.topic_label}` : "未选择"}
           </div>
         </div>
         {selectedTopic ? (
@@ -53,8 +51,9 @@ export function TopicCardPicker({
                 disabled ? "cursor-not-allowed opacity-60" : "",
               ].join(" ")}
             >
-              <span className="block font-semibold">{card.topic_id}</span>
-              <span className="line-clamp-2 leading-snug">{card.topic_label}</span>
+              <span className="line-clamp-2 leading-snug font-semibold">
+                {card.topic_label}
+              </span>
             </button>
           );
         })}

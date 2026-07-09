@@ -108,7 +108,7 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.curious_junior: {
         Topic.old_object_photo: "这台老电视当年是不是很稀罕呀，您还记得头一回打开它是什么时候吗？",
         Topic.work_collective: "那时候在单位是做什么活儿的呀，听起来挺不容易的。",
-        Topic.culture_arts: "您最爱听的是哪一段呀，能给我们讲讲吗？",
+        Topic.culture_arts: "您最爱听的是哪一段呀？我挺想听听。",
         Topic.family_education: "那会儿带孩子有没有什么让您特别难忘的小事呀？",
         Topic.general_reminiscence: "这段听起来好有意思，您当时是怎么开始的呀？",
         None: "这段听起来好有意思，您当时是怎么开始的呀？",
@@ -134,21 +134,21 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
 # LAST line: it turns to the elder and invites without forcing an answer.
 _INVITE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.same_age_peer: {
-        None: "您那时候有没有类似的经历？想聊就跟我们说说，不着急。",
+        None: "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。",
     },
     RoleId.curious_junior: {
-        None: "您愿意的话，能给我们讲讲吗？不想说也没关系。",
+        None: "您愿意的话，我想听听当时最让您记得的一件小事。",
     },
     RoleId.middle_age_bridge: {
-        Topic.old_object_photo: "您那时候有没有类似的经历？想聊就跟我们说说，不着急。",
-        Topic.family_education: "您当年是怎么走过来的？愿意就跟我们说说，不想说也没关系。",
-        None: "您愿意的话，可以慢慢跟我们说说当年的事，不着急。",
+        Topic.old_object_photo: "您那时候有没有一件一直记到现在的老物件？不着急，慢慢想。",
+        Topic.family_education: "您当年带孩子时，哪件小事现在想起来最深？不着急。",
+        None: "您想到哪段就说哪段，我慢慢听着。",
     },
     RoleId.theme_companion: {
-        None: "您最爱的是哪一段呢？想聊就跟我们说说，不想说也没关系。",
+        None: "您最爱的是哪一段呢？我想听您慢慢说说。",
     },
     RoleId.elder_mentor: {
-        None: "如果您愿意，可以慢慢跟我们说说，不想说也没关系。",
+        None: "您想到哪儿说到哪儿，我在这儿慢慢听。",
     },
 }
 
@@ -220,7 +220,7 @@ class CueGenerator:
             # Single role picks up the thread + one gentle open invitation.
             role = decision.primary_role or roles[0]
             resonate_fallback = "您说的这些，一提起来就觉得亲切。"
-            invite_fallback = "想聊就跟我们说说，不想说也没关系。"
+            invite_fallback = "您想到哪儿说到哪儿，我慢慢听。"
             resonate = _line_for(_RESONATE, role, topic, resonate_fallback)
             invite = _line_for(_INVITE, role, topic, invite_fallback)
             return f"{_label(role)}：{resonate}{invite}"
@@ -228,7 +228,7 @@ class CueGenerator:
         # agent_agent_then_invite: earlier roles resonate; the LAST role invites.
         lines: list[str] = []
         resonate_fallback = "您说的这些，我们那会儿也常经历，一提起来就觉得亲切。"
-        invite_fallback = "您那时候有没有类似的经历？想聊就跟我们说说，不着急。"
+        invite_fallback = "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。"
 
         *resonating, inviting = roles
         for role in resonating:

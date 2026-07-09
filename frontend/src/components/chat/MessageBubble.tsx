@@ -47,6 +47,19 @@ export function MessageBubble({
     roleMessages.length === 0 ||
     message.text.trim() !== roleText;
 
+  if (!isUser && !message.isError && roleMessages.length > 0) {
+    return (
+      <div className="space-y-3">
+        {roleMessages.map((roleMessage, index) => (
+          <RoleMessageBubble
+            key={`${roleMessage.role_id ?? "role"}-${index}`}
+            message={roleMessage}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div className="max-w-[85%]">
@@ -55,9 +68,6 @@ export function MessageBubble({
         >
           {speakerLabel}
         </div>
-        {roleMessages.length > 0 ? (
-          <SocialCueScene roleMessages={roleMessages} />
-        ) : null}
         {showPrimaryBubble ? (
           <div
             className={[
@@ -111,61 +121,30 @@ function usesNoRoleResponder(message: ChatMessage) {
   );
 }
 
-function SocialCueScene({
-  roleMessages,
-}: {
-  roleMessages: RoleCueMessage[];
-}) {
-  return (
-    <div className="rounded-2xl rounded-tl-sm border border-companion/15 bg-companion-soft px-5 py-4 text-ink">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <div className="text-base font-semibold text-companion">
-          几位陪伴角色先聊两句
-        </div>
-        <div className="text-sm text-muted">想说就说，不着急</div>
-      </div>
-      <div className="space-y-3">
-        {roleMessages.map((roleMessage, index) => (
-          <RoleLine
-            key={`${roleMessage.role_id ?? "role"}-${index}`}
-            message={roleMessage}
-            isInvitation={
-              roleMessages.length >= 3 && index === roleMessages.length - 1
-            }
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RoleLine({
+function RoleMessageBubble({
   message,
-  isInvitation,
 }: {
   message: RoleCueMessage;
-  isInvitation: boolean;
 }) {
   const accentStyle = message.role_id
     ? ROLE_ACCENT_STYLE[message.role_id] ?? "border-black/10"
     : "border-black/10";
 
   return (
-    <div
-      className={[
-        "border-l-4 pl-4 text-lg leading-relaxed text-ink",
-        isInvitation ? "bg-surface/70 py-3 pr-4" : "py-1",
-        isInvitation ? "rounded-xl border-companion" : accentStyle,
-      ].join(" ")}
-    >
-      <div
-        className={`mb-1 text-sm font-semibold ${
-          isInvitation ? "text-companion" : "text-muted"
-        }`}
-      >
-        {isInvitation ? "也想听您说说" : message.role_label}
+    <div className="flex justify-start">
+      <div className="max-w-[85%]">
+        <div className="mb-1 text-base font-semibold text-companion">
+          {message.role_label}
+        </div>
+        <div
+          className={[
+            "rounded-2xl rounded-tl-sm border-l-4 bg-companion-soft px-5 py-3 text-lg leading-relaxed text-ink whitespace-pre-wrap break-words",
+            accentStyle,
+          ].join(" ")}
+        >
+          {message.text}
+        </div>
       </div>
-      <div className="whitespace-pre-wrap break-words">{message.text}</div>
     </div>
   );
 }

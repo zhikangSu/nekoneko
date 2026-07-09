@@ -22,13 +22,6 @@ const MANUAL_ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
   { value: "no_ai_role", label: "不需要" },
 ];
 
-const MATERIAL_LABEL: Record<TopicMaterialContext["material_type"], string> = {
-  topic_card: "话题卡",
-  photo: "照片",
-  object: "旧物",
-  song: "音乐",
-};
-
 export function ChatWindow({
   messages,
   isSending,
@@ -93,7 +86,6 @@ export function ChatWindow({
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {selectedTopic ? <SelectedTopicBanner topic={selectedTopic} /> : null}
         {messages.length === 0 && !selectedTopic ? (
           <p className="text-muted text-lg">
             您今天身体怎么样，心情还好吗？有什么想说的，我都在这儿听您慢慢说。
@@ -108,9 +100,7 @@ export function ChatWindow({
           ))
         )}
         {isSending ? (
-          <p className="text-muted text-base">
-            {selectedTopic ? "正在围绕这个话题安排几位角色…" : "正在想…"}
-          </p>
+          <p className="text-muted text-base">正在想…</p>
         ) : null}
       </div>
 
@@ -169,19 +159,6 @@ export function ChatWindow({
         <TTSSpeedControl voice={voice} />
       </div>
     </section>
-  );
-}
-
-function SelectedTopicBanner({ topic }: { topic: TopicMaterialContext }) {
-  return (
-    <div className="rounded-xl border border-companion/20 bg-companion/10 px-4 py-3">
-      <div className="text-sm font-semibold uppercase text-companion">
-        {MATERIAL_LABEL[topic.material_type]}
-      </div>
-      <div className="mt-0.5 text-lg font-semibold text-ink">
-        {topic.topic_id} · {topic.topic_label}
-      </div>
-    </div>
   );
 }
 
