@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@/hooks/useChat";
 import { useVoice } from "@/hooks/useVoice";
 import type { AgentTrace } from "@/types/trace";
+import type { TopicMaterialContext } from "@/types/chat";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
@@ -35,6 +36,7 @@ export function ChatExperience() {
     isSending,
     send,
     sendDetached,
+    startTopicConversation,
   } = useChat();
   const voice = useVoice({ onTranscript: send });
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
@@ -80,6 +82,17 @@ export function ChatExperience() {
     [sendDetached],
   );
 
+  const handleSelectedTopicChange = useCallback(
+    (topic: TopicMaterialContext | null) => {
+      if (!topic) {
+        setSelectedTopic(null);
+        return;
+      }
+      void startTopicConversation(topic);
+    },
+    [setSelectedTopic, startTopicConversation],
+  );
+
   return (
     <div className="space-y-4">
       <SafetyBanner />
@@ -109,7 +122,7 @@ export function ChatExperience() {
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={setSelectedRoleIds}
           selectedTopic={selectedTopic}
-          onChangeSelectedTopic={setSelectedTopic}
+          onChangeSelectedTopic={handleSelectedTopicChange}
           onSend={send}
           companionDisplayName={companionDisplayName}
           voice={voice}
