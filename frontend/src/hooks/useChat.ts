@@ -17,6 +17,7 @@ import type {
 
 const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
 const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
+const TOPIC_CARD_STARTER_TEXT = "开始吧";
 
 export interface DetachedChatResult {
   text: string;
@@ -139,6 +140,44 @@ export function useChat() {
     [requestChat, selectedTopic],
   );
 
+  const startTopicConversation = useCallback(
+    async (topic: TopicMaterialContext) => {
+      if (isSending) return;
+
+      setSelectedTopic(topic);
+      setIsSending(true);
+
+      try {
+        const response = await requestChat(TOPIC_CARD_STARTER_TEXT, topic);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: response.turn_id || newId(),
+            role: "companion",
+            text: response.response_text,
+            roleMessages: response.role_messages ?? [],
+            topic,
+            trace: response.agent_trace,
+          },
+        ]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: newId(),
+            role: "companion",
+            text: "我现在好像连不上后台服务。请确认后端已启动（http://localhost:8000），我们再继续聊。",
+            isError: true,
+            topic,
+          },
+        ]);
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [isSending, requestChat],
+  );
+
   return {
     messages,
     roleSelectionMode,
@@ -152,5 +191,6 @@ export function useChat() {
     isSending,
     send,
     sendDetached,
+    startTopicConversation,
   };
 }

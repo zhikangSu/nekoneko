@@ -18,9 +18,11 @@ const SENSITIVITY_STYLE: Record<TopicMaterialContext["sensitivity"], string> = {
 export function TopicCardPicker({
   selectedTopic,
   onChangeSelectedTopic,
+  disabled = false,
 }: {
   selectedTopic: TopicMaterialContext | null;
   onChangeSelectedTopic: (topic: TopicMaterialContext | null) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-black/10 bg-canvas px-3 py-2">
@@ -37,7 +39,8 @@ export function TopicCardPicker({
           <button
             type="button"
             onClick={() => onChangeSelectedTopic(null)}
-            className="shrink-0 rounded-lg border border-black/10 bg-surface px-3 py-1.5 text-sm font-medium text-muted"
+            disabled={disabled}
+            className="shrink-0 rounded-lg border border-black/10 bg-surface px-3 py-1.5 text-sm font-medium text-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             清除
           </button>
@@ -53,11 +56,13 @@ export function TopicCardPicker({
               type="button"
               aria-pressed={selected}
               onClick={() => onChangeSelectedTopic(card)}
+              disabled={disabled}
               className={[
                 "min-h-12 rounded-lg border px-2 py-1.5 text-left text-sm transition",
                 selected
                   ? "border-companion bg-companion/10 text-companion"
                   : "border-black/10 bg-surface text-ink hover:border-companion/50",
+                disabled ? "cursor-not-allowed opacity-60" : "",
               ].join(" ")}
             >
               <span className="block font-semibold">{card.topic_id}</span>

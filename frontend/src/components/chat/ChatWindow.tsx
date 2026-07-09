@@ -98,12 +98,13 @@ export function ChatWindow({
         <TopicCardPicker
           selectedTopic={selectedTopic}
           onChangeSelectedTopic={onChangeSelectedTopic}
+          disabled={isSending}
         />
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {selectedTopic ? <SelectedTopicBanner topic={selectedTopic} /> : null}
-        {messages.length === 0 ? (
+        {messages.length === 0 && !selectedTopic ? (
           <p className="text-muted text-lg">
             您好，想和我说点什么都可以。可以先打个招呼，或者说说今天过得怎么样。
           </p>
@@ -117,7 +118,9 @@ export function ChatWindow({
           ))
         )}
         {isSending ? (
-          <p className="text-muted text-base">我听到了，正在想…</p>
+          <p className="text-muted text-base">
+            {selectedTopic ? "正在围绕这个话题安排几位角色…" : "正在想…"}
+          </p>
         ) : null}
       </div>
 
