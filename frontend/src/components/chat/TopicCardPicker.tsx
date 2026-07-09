@@ -3,18 +3,6 @@
 import { TOPIC_CARDS } from "@/lib/topicCards";
 import type { TopicMaterialContext } from "@/types/chat";
 
-const SENSITIVITY_LABEL: Record<TopicMaterialContext["sensitivity"], string> = {
-  low: "低",
-  medium: "中",
-  high: "高",
-};
-
-const SENSITIVITY_STYLE: Record<TopicMaterialContext["sensitivity"], string> = {
-  low: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  medium: "border-amber-200 bg-amber-50 text-amber-800",
-  high: "border-rose-200 bg-rose-50 text-rose-800",
-};
-
 export function TopicCardPicker({
   selectedTopic,
   onChangeSelectedTopic,
@@ -67,14 +55,6 @@ export function TopicCardPicker({
             >
               <span className="block font-semibold">{card.topic_id}</span>
               <span className="line-clamp-2 leading-snug">{card.topic_label}</span>
-              <span
-                className={[
-                  "mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-xs",
-                  SENSITIVITY_STYLE[card.sensitivity],
-                ].join(" ")}
-              >
-                敏感度 {SENSITIVITY_LABEL[card.sensitivity]}
-              </span>
             </button>
           );
         })}

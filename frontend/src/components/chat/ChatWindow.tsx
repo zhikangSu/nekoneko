@@ -97,7 +97,7 @@ export function ChatWindow({
         {selectedTopic ? <SelectedTopicBanner topic={selectedTopic} /> : null}
         {messages.length === 0 && !selectedTopic ? (
           <p className="text-muted text-lg">
-            您好，想和我说点什么都可以。可以先打个招呼，或者说说今天过得怎么样。
+            您今天身体怎么样，心情还好吗？有什么想说的，我都在这儿听您慢慢说。
           </p>
         ) : (
           messages.map((message) => (
