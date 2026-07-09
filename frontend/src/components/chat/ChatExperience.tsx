@@ -27,8 +27,6 @@ export function ChatExperience() {
     messages,
     roleSelectionMode,
     setRoleSelectionMode,
-    elderControlAction,
-    setElderControlAction,
     selectedRoleIds,
     setSelectedRoleIds,
     selectedTopic,
@@ -117,8 +115,6 @@ export function ChatExperience() {
           isSending={isSending}
           roleSelectionMode={roleSelectionMode}
           onChangeRoleSelectionMode={setRoleSelectionMode}
-          elderControlAction={elderControlAction}
-          onChangeElderControlAction={setElderControlAction}
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={setSelectedRoleIds}
           selectedTopic={selectedTopic}

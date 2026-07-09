@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import type { VoiceControls } from "@/hooks/useVoice";
 import type {
   ChatMessage,
-  ElderControlAction,
   RelationshipRoleId,
   RoleSelectionMode,
   TopicMaterialContext,
@@ -36,8 +35,6 @@ export function ChatWindow({
   isSending,
   roleSelectionMode,
   onChangeRoleSelectionMode,
-  elderControlAction,
-  onChangeElderControlAction,
   selectedRoleIds,
   onChangeSelectedRoleIds,
   selectedTopic,
@@ -50,8 +47,6 @@ export function ChatWindow({
   isSending: boolean;
   roleSelectionMode: RoleSelectionMode;
   onChangeRoleSelectionMode: (mode: RoleSelectionMode) => void;
-  elderControlAction: ElderControlAction;
-  onChangeElderControlAction: (action: ElderControlAction) => void;
   selectedRoleIds: RelationshipRoleId[];
   onChangeSelectedRoleIds: (roleIds: RelationshipRoleId[]) => void;
   selectedTopic: TopicMaterialContext | null;
@@ -91,10 +86,6 @@ export function ChatWindow({
           selectedRoleIds={selectedRoleIds}
           onChangeSelectedRoleIds={onChangeSelectedRoleIds}
         />
-        <ElderControlBar
-          action={elderControlAction}
-          onChange={onChangeElderControlAction}
-        />
         <TopicCardPicker
           selectedTopic={selectedTopic}
           onChangeSelectedTopic={onChangeSelectedTopic}
@@ -106,7 +97,7 @@ export function ChatWindow({
         {selectedTopic ? <SelectedTopicBanner topic={selectedTopic} /> : null}
         {messages.length === 0 && !selectedTopic ? (
           <p className="text-muted text-lg">
-            您好，想和我说点什么都可以。可以先打个招呼，或者说说今天过得怎么样。
+            您今天身体怎么样，心情还好吗？有什么想说的，我都在这儿听您慢慢说。
           </p>
         ) : (
           messages.map((message) => (
@@ -195,45 +186,6 @@ function SelectedTopicBanner({ topic }: { topic: TopicMaterialContext }) {
   );
 }
 
-function ElderControlBar({
-  action,
-  onChange,
-}: {
-  action: ElderControlAction;
-  onChange: (action: ElderControlAction) => void;
-}) {
-  const options: { value: ElderControlAction; label: string }[] = [
-    { value: "continue_session", label: "继续" },
-    { value: "change_topic", label: "换话题" },
-    { value: "pause_roles", label: "暂停角色" },
-    { value: "stop_reminiscence", label: "结束回忆" },
-  ];
-
-  return (
-    <div
-      role="group"
-      aria-label="回忆控制"
-      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          aria-pressed={action === option.value}
-          className={`min-h-10 rounded-lg border px-3 text-base font-medium ${
-            action === option.value
-              ? "border-companion bg-companion/10 text-companion"
-              : "border-black/10 bg-canvas text-muted"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function RoleSelectionControl({
   mode,
   onChangeMode,
@@ -263,12 +215,14 @@ function RoleSelectionControl({
       return;
     }
 
-    const next =
-      withoutNoAi.length >= 3
-        ? [...withoutNoAi.slice(1), roleId]
-        : [...withoutNoAi, roleId];
-    onChangeSelectedRoleIds(next);
+    if (withoutNoAi.length >= 3) return;
+    onChangeSelectedRoleIds([...withoutNoAi, roleId]);
   }
+
+  const selectedTalkRoleIds = selectedRoleIds.filter(
+    (id) => id !== "no_ai_role",
+  );
+  const roleLimitReached = selectedTalkRoleIds.length >= 3;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -298,13 +252,16 @@ function RoleSelectionControl({
         <div className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:flex-1 sm:grid-cols-6">
           {MANUAL_ROLE_OPTIONS.map((role) => {
             const selected = selectedRoleIds.includes(role.value);
+            const disabledByLimit =
+              role.value !== "no_ai_role" && !selected && roleLimitReached;
             return (
               <button
                 key={role.value}
                 type="button"
                 onClick={() => toggleRole(role.value)}
+                disabled={disabledByLimit}
                 aria-pressed={selected}
-                className={`min-h-9 rounded-lg border px-2 text-sm font-medium ${
+                className={`min-h-9 rounded-lg border px-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-45 ${
                   selected
                     ? "border-companion bg-companion/10 text-companion"
                     : "border-black/10 bg-canvas text-muted"

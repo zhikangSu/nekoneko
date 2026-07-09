@@ -7,7 +7,7 @@ export function SafetyBanner() {
       role="note"
       className="rounded-xl bg-caution-soft text-caution px-4 py-3 text-base leading-relaxed"
     >
-      这是一个陪伴演示，不能提供医疗诊断或用药建议，也不会代为拨打急救电话。遇到紧急情况，请联系家人或当地急救服务。
+      目前只是演示陪伴，不能提供医疗诊断或用药建议，也不会代为拨打急救电话。遇到紧急情况，请联系家人或当地急救服务。
     </div>
   );
 }

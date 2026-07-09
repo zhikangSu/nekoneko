@@ -17,6 +17,7 @@ import type {
 
 const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
 const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
+const DEFAULT_ELDER_CONTROL_ACTION: ElderControlAction = "continue_session";
 const TOPIC_CARD_STARTER_TEXT = "开始吧";
 
 export interface DetachedChatResult {
@@ -37,8 +38,6 @@ export function useChat() {
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
   const [studySessionId] = useState(() => `study_${newId()}`);
-  const [elderControlAction, setElderControlAction] =
-    useState<ElderControlAction>("continue_session");
   const [selectedRoleIds, setSelectedRoleIds] = useState<RelationshipRoleId[]>([
     "same_age_peer",
     "curious_junior",
@@ -64,15 +63,10 @@ export function useChat() {
         material_type: topic?.material_type ?? null,
         study_condition: DEFAULT_STUDY_CONDITION,
         study_session_id: studySessionId,
-        elder_control_action: elderControlAction,
+        elder_control_action: DEFAULT_ELDER_CONTROL_ACTION,
       });
     },
-    [
-      elderControlAction,
-      roleSelectionMode,
-      selectedRoleIds,
-      studySessionId,
-    ],
+    [roleSelectionMode, selectedRoleIds, studySessionId],
   );
 
   const send = useCallback(
@@ -192,8 +186,6 @@ export function useChat() {
     messages,
     roleSelectionMode,
     setRoleSelectionMode,
-    elderControlAction,
-    setElderControlAction,
     selectedRoleIds,
     setSelectedRoleIds,
     selectedTopic,

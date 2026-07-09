@@ -8,7 +8,7 @@ import {
   buildAmbientChatScenes,
   type AmbientChatScene,
 } from "@/lib/proactiveTopics";
-import type { RoleCueMessage } from "@/types/chat";
+import type { RelationshipRoleId, RoleCueMessage } from "@/types/chat";
 
 export interface AmbientSceneReply {
   roleMessages: RoleCueMessage[];
@@ -50,6 +50,62 @@ function roleItems(
     roleLabel: message.role_label,
     text: message.text,
   }));
+}
+
+const AMBIENT_FALLBACK_ROLES: RoleCueMessage[] = [
+  {
+    role_id: "same_age_peer",
+    role_label: "同龄共鸣者",
+    text: "这个话题我也能接上，咱们顺着刚才那点慢慢聊。",
+  },
+  {
+    role_id: "curious_junior",
+    role_label: "晚辈好奇者",
+    text: "我也想听听这里面的细节，您愿意说多少都可以。",
+  },
+];
+
+function uniqueRoleKey(message: RoleCueMessage): string {
+  return message.role_id ?? message.role_label;
+}
+
+function isAmbientRoleMessage(
+  message: RoleCueMessage,
+): message is RoleCueMessage & { role_id: RelationshipRoleId } {
+  return Boolean(
+    message.text.trim() &&
+      message.role_label.trim() &&
+      message.role_id &&
+      message.role_id !== "no_ai_role",
+  );
+}
+
+function ensureAmbientRoleMessages(
+  scene: AmbientChatScene,
+  reply: AmbientSceneReply,
+): RoleCueMessage[] {
+  const messages: RoleCueMessage[] = [];
+  const seen = new Set<string>();
+
+  function add(message: RoleCueMessage) {
+    if (!isAmbientRoleMessage(message)) return;
+    const key = uniqueRoleKey(message);
+    if (seen.has(key)) return;
+    seen.add(key);
+    messages.push(message);
+  }
+
+  for (const message of reply.roleMessages) add(message);
+
+  const sceneMessages = scene.roleMessages.filter(isAmbientRoleMessage);
+  if (messages.length === 0 && reply.fallbackText.trim() && sceneMessages[0]) {
+    add({ ...sceneMessages[0], text: reply.fallbackText.trim() });
+  }
+
+  for (const message of sceneMessages) add(message);
+  for (const message of AMBIENT_FALLBACK_ROLES) add(message);
+
+  return messages.slice(0, Math.max(2, Math.min(messages.length, 3)));
 }
 
 export function AmbientChatScenePanel({
@@ -159,16 +215,7 @@ export function AmbientChatScenePanel({
     try {
       const reply = await onSend(scene, text);
       if (!reply) return;
-      const messages =
-        reply.roleMessages.length > 0
-          ? reply.roleMessages
-          : [
-              {
-                role_id: "theme_companion" as const,
-                role_label: "主题陪伴者",
-                text: reply.fallbackText,
-              },
-            ];
+      const messages = ensureAmbientRoleMessages(scene, reply);
       setThreadItems((current) => [
         ...current,
         ...roleItems(scene.id, messages),

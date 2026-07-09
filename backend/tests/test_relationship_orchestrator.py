@@ -239,13 +239,18 @@ def test_pref_no_ai_selects_no_ai_role_only():
 
 
 def test_manual_role_selection_uses_requested_roles():
+    requested_roles = [
+        RoleId.curious_junior,
+        RoleId.theme_companion,
+        RoleId.same_age_peer,
+    ]
     d = _orchestrate(
         "看到老电视想起以前",
         role_selection_mode=RoleSelectionMode.manual,
-        selected_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+        selected_role_ids=requested_roles,
     )
-    assert d.selected_roles == [RoleId.same_age_peer, RoleId.curious_junior]
-    assert d.primary_role is RoleId.same_age_peer
+    assert d.selected_roles == requested_roles
+    assert d.primary_role is RoleId.curious_junior
     assert d.cueing_style == CueingStyle.agent_agent_then_invite
     assert "用户手动选择" in d.role_selection_reason
     _assert_common_invariants(d)
