@@ -75,13 +75,18 @@ def test_old_tv_routes_to_relationship_cueing_with_multi_role_cue(client):
 
 
 def test_manual_roles_are_sent_to_orchestrator_trace(client):
+    requested_roles = [
+        "curious_junior",
+        "theme_companion",
+        "same_age_peer",
+    ]
     body = client.post(
         "/api/chat",
         json={
             "user_id": "cue_manual_roles",
             "message": "看到这个老电视，我想起以前的日子",
             "role_selection_mode": "manual",
-            "selected_role_ids": ["same_age_peer", "curious_junior"],
+            "selected_role_ids": requested_roles,
         },
     ).json()
 
@@ -92,16 +97,12 @@ def test_manual_roles_are_sent_to_orchestrator_trace(client):
         if a["name"] == "RelationshipOrchestratorAgent"
     ]
     assert orch[0]["detail"]["role_selection_mode"] == "manual"
-    assert orch[0]["detail"]["requested_role_ids"] == [
-        "same_age_peer",
-        "curious_junior",
-    ]
-    assert orch[0]["detail"]["selected_roles"] == [
-        "same_age_peer",
-        "curious_junior",
-    ]
-    assert "同龄共鸣者：" in body["response_text"]
+    assert orch[0]["detail"]["requested_role_ids"] == requested_roles
+    assert orch[0]["detail"]["selected_roles"] == requested_roles
+    assert [m["role_id"] for m in body["role_messages"]] == requested_roles
     assert "晚辈好奇者：" in body["response_text"]
+    assert "主题陪伴者：" in body["response_text"]
+    assert "同龄共鸣者：" in body["response_text"]
 
 
 def test_manual_no_ai_role_suppresses_role_lines(client):
