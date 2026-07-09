@@ -79,6 +79,75 @@ def test_manual_role_selection_guides_companion_chat_trace(client):
     )
     assert companion_step["detail"]["manual_role_style"] is True
     assert companion_step["detail"]["role_labels"] == ["长辈引导者"]
+    assert "长辈引导者" in companion_step["summary"]
+    assert "陪伴 AI" not in companion_step["summary"]
+
+
+def test_auto_role_selection_guides_companion_chat_trace(client):
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": "auto_role_chat",
+            "message": "我今天心情有点复杂，想找人聊聊",
+            "role_selection_mode": "auto",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["agent_trace"]["route"] == "companion_chat"
+    assert body["role_messages"] == []
+
+    role_trace = body["agent_trace"]["research_trace"]["role"]
+    assert role_trace["role_selection_mode"] == "auto"
+    assert role_trace["requested_role_ids"] == []
+    assert role_trace["selected_roles"]
+    assert "no_ai_role" not in role_trace["selected_roles"]
+
+    orchestrator_step = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator_step["detail"]["auto_role_style"] is True
+
+    companion_step = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "CompanionAgent"
+    )
+    assert companion_step["detail"]["auto_role_style"] is True
+    assert companion_step["detail"]["role_labels"]
+    assert "系统分配关系角色" in companion_step["summary"]
+    assert "陪伴 AI" not in companion_step["summary"]
+
+
+def test_manual_no_ai_role_does_not_auto_allocate_companion_chat(client):
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": "manual_no_ai_role_chat",
+            "message": "我就想自己说说",
+            "role_selection_mode": "manual",
+            "selected_role_ids": ["no_ai_role"],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    role_trace = body["agent_trace"]["research_trace"]["role"]
+    assert role_trace["role_selection_mode"] == "manual"
+    assert role_trace["requested_role_ids"] == ["no_ai_role"]
+    assert role_trace["selected_roles"] == ["no_ai_role"]
+    assert role_trace["primary_role"] == "no_ai_role"
+    companion_step = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "CompanionAgent"
+    )
+    assert "百事通" in companion_step["summary"]
+    assert "陪伴 AI" not in companion_step["summary"]
+    assert "RelationshipOrchestratorAgent" not in [
+        step["name"] for step in body["agent_trace"]["agents"]
+    ]
 
 
 def test_chat_rejects_blank_message(client):

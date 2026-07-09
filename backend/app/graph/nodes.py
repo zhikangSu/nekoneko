@@ -154,10 +154,22 @@ def _append_companion_trace(
         TraceStep(
             kind=TraceEntryKind.agent,
             name=deps.companion.name,
-            summary=result.trace_summary(),
+            summary=_companion_trace_summary(result, extra_detail),
             detail=detail,
         )
     )
+
+
+def _companion_trace_summary(result, extra_detail: dict | None = None) -> str:
+    detail = extra_detail or {}
+    role_labels = detail.get("role_labels") or []
+    style = "情绪承接优先" if result.mode.value == "role_first" else "中性助理对照"
+    if role_labels:
+        source = "用户自选" if detail.get("manual_role_style") else "系统分配"
+        return f"{style}；{source}关系角色「{'、'.join(role_labels)}」"
+    if detail.get("manual_no_ai_role"):
+        return f"{style}；用户选择不需要关系角色，使用「百事通」轻量回应"
+    return result.trace_summary()
 
 
 def _manual_role_ids_for_talk(state: GraphState) -> list[RoleId]:
@@ -174,6 +186,19 @@ def _manual_role_ids_for_talk(state: GraphState) -> list[RoleId]:
         role_ids.append(role_id)
         seen.add(role_id)
     return role_ids[:MAX_ROLES_PER_TURN]
+
+
+def _role_style_context_for_profiles(profiles, source: str) -> str:
+    role_lines = []
+    for profile in profiles:
+        boundary = "；".join(profile.boundary_rules[:3])
+        role_lines.append(
+            f"- {profile.role_id.value} / {profile.label_zh}: "
+            f"{profile.relationship_function}；说话方式：{profile.speaking_style}；"
+            f"边界：{boundary}"
+        )
+
+    return f"{source}，请只使用这些角色的关系视角。\n" + "\n".join(role_lines)
 
 
 def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | None]:
@@ -208,18 +233,9 @@ def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | No
     profiles = [get_role_profile(role_id) for role_id in role_ids]
     state.selected_relationship_roles = [profile.role_id.value for profile in profiles]
     state.relationship_primary_role = profiles[0].role_id.value
-    role_lines = []
-    for profile in profiles:
-        boundary = "；".join(profile.boundary_rules[:3])
-        role_lines.append(
-            f"- {profile.role_id.value} / {profile.label_zh}: "
-            f"{profile.relationship_function}；说话方式：{profile.speaking_style}；"
-            f"边界：{boundary}"
-        )
-
-    context = (
-        "用户本轮手动选择了这些关系角色，请只使用这些角色的关系视角。\n"
-        + "\n".join(role_lines)
+    context = _role_style_context_for_profiles(
+        profiles,
+        "用户本轮手动选择了这些关系角色",
     )
     return context, {
         "manual_role_style": True,
@@ -228,6 +244,92 @@ def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | No
         "selected_roles": [profile.role_id.value for profile in profiles],
         "role_labels": [profile.label_zh for profile in profiles],
     }
+
+
+def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | None, dict | None]:
+    if state.role_selection_mode is RoleSelectionMode.manual:
+        return None, None
+
+    decision = deps.relationship_orchestrator.orchestrate(
+        OrchestrationInput(
+            user_input=state.user_input,
+            memory_context=list(state.memory_context or []),
+            recent_emotion_or_tone=None,
+            user_role_preferences=None,
+            role_selection_mode=RoleSelectionMode.auto,
+            selected_role_ids=[],
+            risk_flags={
+                "risk_level": state.risk.level.value,
+                "category": state.risk.category,
+                "matched_terms": state.risk.matched_terms,
+            },
+        )
+    )
+    role_ids = [
+        role_id
+        for role_id in decision.selected_roles
+        if role_id is not RoleId.no_ai_role
+    ][:MAX_ROLES_PER_TURN]
+    if not role_ids:
+        return None, {
+            "auto_role_style": False,
+            "selected_roles": [role.value for role in decision.selected_roles],
+            "role_labels": [],
+        }
+
+    profiles = [get_role_profile(role_id) for role_id in role_ids]
+    state.relationship_role_selection_mode = RoleSelectionMode.auto.value
+    state.selected_relationship_roles = [profile.role_id.value for profile in profiles]
+    state.relationship_primary_role = (
+        decision.primary_role.value
+        if decision.primary_role in role_ids
+        else profiles[0].role_id.value
+    )
+    state.relationship_topic = decision.topic
+    state.relationship_boundary_notes = list(decision.boundary_notes)
+    state.cueing_style = decision.cueing_style.value
+    state.agents.append(
+        TraceStep(
+            kind=TraceEntryKind.agent,
+            name=deps.relationship_orchestrator.name,
+            summary=f"普通聊天自动分配关系角色：{decision.trace_visible_summary}",
+            detail={
+                "auto_role_style": True,
+                "topic": decision.topic,
+                "role_selection_mode": RoleSelectionMode.auto.value,
+                "selected_roles": [profile.role_id.value for profile in profiles],
+                "primary_role": state.relationship_primary_role,
+                "cueing_style": decision.cueing_style.value,
+                "role_selection_reason": decision.role_selection_reason,
+                "boundary_notes": decision.boundary_notes,
+                "role_trace": decision.role_trace,
+                "topic_trace": decision.topic_trace,
+                "memory_trace": decision.memory_trace,
+                "boundary_trace": decision.boundary_trace,
+            },
+        )
+    )
+    context = _role_style_context_for_profiles(
+        profiles,
+        "系统本轮自动分配了这些关系角色",
+    )
+    return context, {
+        "auto_role_style": True,
+        "manual_role_style": False,
+        "manual_no_ai_role": False,
+        "requested_role_ids": [],
+        "selected_roles": [profile.role_id.value for profile in profiles],
+        "role_labels": [profile.label_zh for profile in profiles],
+    }
+
+
+def _companion_role_style_context(
+    state: GraphState,
+    deps: GraphDeps,
+) -> tuple[str | None, dict | None]:
+    if state.role_selection_mode is RoleSelectionMode.manual:
+        return _manual_role_style_context(state)
+    return _auto_role_style_context(state, deps)
 
 
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -328,7 +430,7 @@ def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
     state.conversation_history_used = bool(state.conversation_history)
-    role_style_context, role_style_trace = _manual_role_style_context(state)
+    role_style_context, role_style_trace = _companion_role_style_context(state, deps)
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,

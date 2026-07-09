@@ -366,7 +366,13 @@ def test_family_relationship_strain_stays_companion(client):
     assert len(_role_lines(body["response_text"])) == 0
     agent_names = [a["name"] for a in body["agent_trace"]["agents"]]
     assert "CompanionAgent" in agent_names
-    assert "RelationshipOrchestratorAgent" not in agent_names
+    orch = [
+        a
+        for a in body["agent_trace"]["agents"]
+        if a["name"] == "RelationshipOrchestratorAgent"
+    ]
+    assert len(orch) == 1
+    assert orch[0]["detail"]["auto_role_style"] is True
 
 
 def test_grief_missing_spouse_stays_companion(client):
