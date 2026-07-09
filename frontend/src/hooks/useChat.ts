@@ -18,7 +18,7 @@ import type {
 const DEFAULT_STUDY_CONDITION: StudyCondition = "c3_relationship_aware";
 const DEFAULT_COMPANION_MODE: CompanionMode = "role_first";
 const DEFAULT_ELDER_CONTROL_ACTION: ElderControlAction = "continue_session";
-const TOPIC_CARD_STARTER_TEXT = "开始吧";
+const TOPIC_CARD_STARTER_TEXT = "聊这个吧";
 
 export interface DetachedChatResult {
   text: string;

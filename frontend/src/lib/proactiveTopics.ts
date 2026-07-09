@@ -79,8 +79,8 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
     keywords: ["粤剧", "戏曲", "老歌", "唱歌", "音乐", "地方文化", "电影"],
     roleMessages: [
       {
-        role_id: "theme_companion",
-        role_label: "主题陪伴者",
+        role_id: "middle_age_bridge",
+        role_label: "中年传承者",
         text: "说到最近大家聊的地方文化，我一下想到粤剧和老戏，老腔老调里常有一个年代的味道。",
       },
       {
@@ -104,8 +104,8 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
     keywords: ["散步", "走路", "社区", "邻居", "公园", "买菜", "活动"],
     roleMessages: [
       {
-        role_id: "theme_companion",
-        role_label: "主题陪伴者",
+        role_id: "memory_organizer",
+        role_label: "回忆整理者",
         text: "最近不少人会聊社区里有什么新变化，哪条路好走，哪里坐一会儿舒服。",
       },
       {
@@ -129,8 +129,8 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
     keywords: ["照片", "相册", "旧物", "老物件", "纪念", "以前", "从前"],
     roleMessages: [
       {
-        role_id: "theme_companion",
-        role_label: "主题陪伴者",
+        role_id: "memory_organizer",
+        role_label: "回忆整理者",
         text: "一张旧照片有时候不只是照片，还藏着当时的天气、衣服、地方和人情。",
       },
       {
@@ -154,8 +154,8 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
     keywords: ["手机", "科技", "技术", "电视", "支付", "智能", "新生活"],
     roleMessages: [
       {
-        role_id: "theme_companion",
-        role_label: "主题陪伴者",
+        role_id: "middle_age_bridge",
+        role_label: "中年传承者",
         text: "现在很多服务都搬到手机上，有些确实方便，有些也让人觉得太绕。",
       },
       {
@@ -179,8 +179,8 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
     keywords: ["天气", "节气", "吃饭", "喝茶", "休息", "日常", "心情"],
     roleMessages: [
       {
-        role_id: "theme_companion",
-        role_label: "主题陪伴者",
+        role_id: "elder_mentor",
+        role_label: "长辈引导者",
         text: "说到时令日常，有时就是一杯茶、一顿顺口的饭，或者一天里最安静的一小段。",
       },
       {
