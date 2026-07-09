@@ -16,6 +16,8 @@ const ROLE_ACCENT_STYLE: Record<RelationshipRoleId, string> = {
   no_ai_role: "border-stone-300",
 };
 
+const GENERAL_NO_ROLE_LABEL = "百事通";
+
 export function MessageBubble({
   message,
   companionDisplayName,
@@ -30,6 +32,11 @@ export function MessageBubble({
       : COMPANION_FALLBACK_NAME_SHORT;
   const roleMessages =
     !isUser && !message.isError ? message.roleMessages ?? [] : [];
+  const speakerLabel = isUser
+    ? "您"
+    : message.isError
+      ? companionLabel
+      : getCompanionSpeakerLabel(message, roleMessages, companionLabel);
   const roleText = roleMessages
     .map((roleMessage) => `${roleMessage.role_label}：${roleMessage.text}`)
     .join("\n")
@@ -46,7 +53,7 @@ export function MessageBubble({
         <div
           className={`mb-1 text-base ${isUser ? "text-right text-muted" : "text-companion"}`}
         >
-          {isUser ? "您" : companionLabel}
+          {speakerLabel}
         </div>
         {roleMessages.length > 0 ? (
           <SocialCueScene roleMessages={roleMessages} />
@@ -68,6 +75,39 @@ export function MessageBubble({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function getCompanionSpeakerLabel(
+  message: ChatMessage,
+  roleMessages: RoleCueMessage[],
+  companionLabel: string,
+) {
+  if (roleMessages.length > 0) {
+    const roleLabels = uniqueLabels(
+      roleMessages.map((roleMessage) => roleMessage.role_label),
+    );
+    return roleLabels.length > 0 ? roleLabels.join("、") : "关系角色";
+  }
+
+  if (usesNoRoleResponder(message)) {
+    return GENERAL_NO_ROLE_LABEL;
+  }
+
+  return companionLabel;
+}
+
+function uniqueLabels(labels: string[]) {
+  return labels.filter((label, index) => label && labels.indexOf(label) === index);
+}
+
+function usesNoRoleResponder(message: ChatMessage) {
+  const traceRole = message.trace?.research_trace?.role;
+  return (
+    message.requestedRoleIds?.includes("no_ai_role") ||
+    traceRole?.selected_roles?.includes("no_ai_role") ||
+    traceRole?.requested_role_ids?.includes("no_ai_role") ||
+    traceRole?.primary_role === "no_ai_role"
   );
 }
 

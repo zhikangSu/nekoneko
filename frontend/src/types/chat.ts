@@ -89,6 +89,7 @@ export interface ChatMessage {
   // Present on companion replies; drives the Agent Trace Panel.
   trace?: AgentTrace;
   roleMessages?: RoleCueMessage[];
+  requestedRoleIds?: RelationshipRoleId[];
   topic?: TopicMaterialContext | null;
   // True for a friendly local fallback message (e.g. backend unreachable).
   isError?: boolean;
