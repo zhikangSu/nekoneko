@@ -321,7 +321,7 @@ export function AmbientChatScenePanel({
             }
           }}
           rows={1}
-          placeholder="顺着这个话题说一句…"
+          placeholder="您想到了什么，都可以慢慢说…"
           className="min-h-12 flex-1 resize-none rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg leading-relaxed focus:border-companion"
         />
         <button
