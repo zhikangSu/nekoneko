@@ -85,6 +85,8 @@ export function useChat() {
 
       const topic =
         topicOverride === undefined ? selectedTopic : topicOverride;
+      const requestedRoleIdsForTurn =
+        roleSelectionMode === "manual" ? selectedRoleIds : [];
       const userMessage: ChatMessage = { id: newId(), role: "user", text, topic };
       setMessages((prev) => [...prev, userMessage]);
       setIsSending(true);
@@ -98,6 +100,7 @@ export function useChat() {
             role: "companion",
             text: response.response_text,
             roleMessages: response.role_messages ?? [],
+            requestedRoleIds: requestedRoleIdsForTurn,
             topic,
             trace: response.agent_trace,
           },
@@ -111,6 +114,7 @@ export function useChat() {
             role: "companion",
             text: "我现在好像连不上后台服务。请确认后端已启动（http://localhost:8000），我们再继续聊。",
             isError: true,
+            requestedRoleIds: requestedRoleIdsForTurn,
           },
         ]);
       } finally {
@@ -120,6 +124,8 @@ export function useChat() {
     [
       isSending,
       selectedTopic,
+      roleSelectionMode,
+      selectedRoleIds,
       requestChat,
     ],
   );
@@ -144,6 +150,8 @@ export function useChat() {
     async (topic: TopicMaterialContext) => {
       if (isSending) return;
 
+      const requestedRoleIdsForTurn =
+        roleSelectionMode === "manual" ? selectedRoleIds : [];
       setSelectedTopic(topic);
       setIsSending(true);
 
@@ -156,6 +164,7 @@ export function useChat() {
             role: "companion",
             text: response.response_text,
             roleMessages: response.role_messages ?? [],
+            requestedRoleIds: requestedRoleIdsForTurn,
             topic,
             trace: response.agent_trace,
           },
@@ -168,6 +177,7 @@ export function useChat() {
             role: "companion",
             text: "我现在好像连不上后台服务。请确认后端已启动（http://localhost:8000），我们再继续聊。",
             isError: true,
+            requestedRoleIds: requestedRoleIdsForTurn,
             topic,
           },
         ]);
@@ -175,7 +185,7 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, requestChat],
+    [isSending, roleSelectionMode, selectedRoleIds, requestChat],
   );
 
   return {
