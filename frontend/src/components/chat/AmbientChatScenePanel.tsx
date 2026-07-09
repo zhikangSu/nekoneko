@@ -8,7 +8,10 @@ import {
   buildAmbientChatScenes,
   type AmbientChatScene,
 } from "@/lib/proactiveTopics";
+import { useVoice, type VoiceControls } from "@/hooks/useVoice";
 import type { RelationshipRoleId, RoleCueMessage } from "@/types/chat";
+import { ReplayButton } from "./ReplayButton";
+import { VoiceRecorderButton } from "./VoiceRecorderButton";
 
 export interface AmbientSceneReply {
   roleMessages: RoleCueMessage[];
@@ -65,8 +68,10 @@ const AMBIENT_FALLBACK_ROLES: RoleCueMessage[] = [
   },
 ];
 
-function uniqueRoleKey(message: RoleCueMessage): string {
-  return message.role_id ?? message.role_label;
+const ROLE_REVEAL_DELAY_MS = 850;
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isAmbientRoleMessage(
@@ -80,32 +85,23 @@ function isAmbientRoleMessage(
   );
 }
 
-function ensureAmbientRoleMessages(
+function ambientReplyMessages(
   scene: AmbientChatScene,
   reply: AmbientSceneReply,
 ): RoleCueMessage[] {
-  const messages: RoleCueMessage[] = [];
-  const seen = new Set<string>();
-
-  function add(message: RoleCueMessage) {
-    if (!isAmbientRoleMessage(message)) return;
-    const key = uniqueRoleKey(message);
-    if (seen.has(key)) return;
-    seen.add(key);
-    messages.push(message);
+  const realRoleMessages = reply.roleMessages
+    .filter(isAmbientRoleMessage)
+    .slice(0, 3);
+  if (realRoleMessages.length > 0) {
+    return realRoleMessages;
   }
 
-  for (const message of reply.roleMessages) add(message);
+  const text = reply.fallbackText.trim();
+  if (!text) return [];
 
-  const sceneMessages = scene.roleMessages.filter(isAmbientRoleMessage);
-  if (messages.length === 0 && reply.fallbackText.trim() && sceneMessages[0]) {
-    add({ ...sceneMessages[0], text: reply.fallbackText.trim() });
-  }
-
-  for (const message of sceneMessages) add(message);
-  for (const message of AMBIENT_FALLBACK_ROLES) add(message);
-
-  return messages.slice(0, Math.max(2, Math.min(messages.length, 3)));
+  const speaker =
+    scene.roleMessages.find(isAmbientRoleMessage) ?? AMBIENT_FALLBACK_ROLES[0];
+  return [{ ...speaker, text }];
 }
 
 export function AmbientChatScenePanel({
@@ -123,6 +119,11 @@ export function AmbientChatScenePanel({
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(() => new Set());
   const threadRef = useRef<HTMLDivElement>(null);
+  const voice = useVoice({
+    onTranscript: (text) => {
+      void submitText(text);
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +176,13 @@ export function AmbientChatScenePanel({
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [threadItems, isSceneSending]);
 
+  const lastReplyText = useMemo(() => {
+    return (
+      [...threadItems].reverse().find((item) => item.kind === "role")?.text ??
+      null
+    );
+  }, [threadItems]);
+
   if (!activeScene) return null;
 
   function showNextScene() {
@@ -200,10 +208,23 @@ export function AmbientChatScenePanel({
     });
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function appendRoleItemsSequentially(
+    sceneId: string,
+    messages: RoleCueMessage[],
+  ) {
+    for (const message of messages) {
+      const [item] = roleItems(sceneId, [message]);
+      setThreadItems((current) => [...current, item]);
+      if (voice.autoSpeak) {
+        void voice.speak(`${message.role_label}：${message.text}`);
+      }
+      await delay(ROLE_REVEAL_DELAY_MS);
+    }
+  }
+
+  async function submitText(rawText: string) {
     const scene = activeScene;
-    const text = draft.trim();
+    const text = rawText.trim();
     if (!scene || !text || isSceneSending) return;
     setDraft("");
     setThreadItems((current) => [
@@ -215,11 +236,8 @@ export function AmbientChatScenePanel({
     try {
       const reply = await onSend(scene, text);
       if (!reply) return;
-      const messages = ensureAmbientRoleMessages(scene, reply);
-      setThreadItems((current) => [
-        ...current,
-        ...roleItems(scene.id, messages),
-      ]);
+      const messages = ambientReplyMessages(scene, reply);
+      await appendRoleItemsSequentially(scene.id, messages);
     } catch {
       setThreadItems((current) => [
         ...current,
@@ -232,6 +250,11 @@ export function AmbientChatScenePanel({
     } finally {
       setIsSceneSending(false);
     }
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    await submitText(draft);
   }
 
   return (
@@ -307,6 +330,13 @@ export function AmbientChatScenePanel({
         onSubmit={handleSubmit}
         className="flex flex-col gap-3 border-t border-black/5 px-5 py-4 sm:flex-row sm:items-end"
       >
+        <VoiceRecorderButton
+          supported={voice.recordingSupported}
+          state={voice.recorderState}
+          disabled={isSceneSending}
+          onStart={voice.startRecording}
+          onStop={voice.stopRecording}
+        />
         <label htmlFor="ambient-chat-input" className="sr-only">
           聊天场输入
         </label>
@@ -332,6 +362,140 @@ export function AmbientChatScenePanel({
           发送
         </button>
       </form>
+      <AmbientVoiceStatus voice={voice} />
+      <AmbientVoiceTranscriptConfirm voice={voice} />
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 pb-4">
+        <ReplayButton
+          text={lastReplyText}
+          isSpeaking={voice.isSpeaking}
+          isMockVoice={voice.isMockVoice}
+          onPlay={() => lastReplyText && void voice.speak(lastReplyText)}
+          onStop={voice.stopSpeaking}
+        />
+        <AmbientAutoSpeakToggle
+          on={voice.autoSpeak}
+          onChange={voice.setAutoSpeak}
+        />
+        <AmbientTTSSpeedControl voice={voice} />
+      </div>
     </section>
+  );
+}
+
+function AmbientVoiceStatus({ voice }: { voice: VoiceControls }) {
+  let text: string | null = null;
+  if (voice.recorderState === "recording") {
+    text = "正在听您说，讲完点一下停止…";
+  } else if (voice.recorderState === "transcribing") {
+    text = "正在识别您说的话…";
+  } else if (voice.hint) {
+    text = voice.hint;
+  }
+  if (!text) return null;
+
+  return (
+    <div className="px-5 pb-2 text-base text-muted">
+      {text}
+    </div>
+  );
+}
+
+function AmbientVoiceTranscriptConfirm({ voice }: { voice: VoiceControls }) {
+  if (!voice.pendingTranscript) return null;
+
+  return (
+    <div className="mx-5 mb-3 rounded-xl border border-companion/20 bg-companion-soft p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-base font-semibold text-companion">
+          我不太确定刚才听准了，请您确认一下。
+        </p>
+        <span className="text-sm text-muted">
+          识别置信度 {Math.round(voice.pendingTranscript.confidence * 100)}%
+        </span>
+      </div>
+      <textarea
+        value={voice.pendingTranscript.text}
+        onChange={(event) => voice.editPendingTranscript(event.target.value)}
+        rows={2}
+        className="w-full resize-none rounded-xl border border-black/10 bg-surface px-4 py-3 text-lg leading-relaxed text-ink focus:border-companion"
+      />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={voice.submitPendingTranscript}
+          disabled={!voice.pendingTranscript.text.trim()}
+          className="rounded-xl bg-companion px-5 py-2.5 text-base font-semibold text-white disabled:opacity-50"
+        >
+          确认发送
+        </button>
+        <button
+          type="button"
+          onClick={voice.dismissPendingTranscript}
+          className="rounded-xl border border-black/10 bg-surface px-5 py-2.5 text-base font-semibold text-ink"
+        >
+          重新说
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AmbientAutoSpeakToggle({
+  on,
+  onChange,
+}: {
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-base text-muted"
+    >
+      <span
+        aria-hidden
+        className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+          on ? "justify-end bg-companion" : "justify-start bg-black/15"
+        }`}
+      >
+        <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+      </span>
+      <span>自动朗读回复</span>
+    </button>
+  );
+}
+
+function AmbientTTSSpeedControl({ voice }: { voice: VoiceControls }) {
+  const options: { value: VoiceControls["ttsSpeed"]; label: string }[] = [
+    { value: 0.85, label: "慢" },
+    { value: 1, label: "正常" },
+    { value: 1.15, label: "稍快" },
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label="聊天场朗读语速"
+      className="inline-flex shrink-0 rounded-xl bg-canvas p-1"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => voice.setTtsSpeed(option.value)}
+          aria-pressed={voice.ttsSpeed === option.value}
+          className={`rounded-lg px-3 py-1.5 text-base font-medium ${
+            voice.ttsSpeed === option.value
+              ? "bg-surface text-ink shadow-sm"
+              : "text-muted"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }

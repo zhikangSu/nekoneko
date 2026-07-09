@@ -22,7 +22,7 @@ export interface VoiceControls {
   setTtsSpeed: (speed: TTSSpeed) => void;
   isSpeaking: boolean;
   isMockVoice: boolean;
-  speak: (text: string) => void; // play / replay a reply on demand
+  speak: (text: string) => Promise<void>; // play / replay a reply on demand
   stopSpeaking: () => void;
   // Input (record → ASR)
   recordingSupported: boolean;

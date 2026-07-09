@@ -451,10 +451,11 @@ class _SpyRealLLMProvider(LLMProvider):
 
     def __init__(self) -> None:
         self.payloads: list[CompanionReplyInput] = []
+        self.reply_text = "这些粤剧老段子听起来很有味道。您最喜欢的是哪一段呀？"
 
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
         self.payloads.append(payload)
-        return "这些粤剧老段子听起来很有味道。您最喜欢的是哪一段呀？"
+        return self.reply_text
 
     @property
     def generation_info(self) -> dict:
@@ -488,3 +489,35 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
     assert detail["relationship_cueing"] is True
     assert detail["llm_generation"]["provider"] == "xiaomimimo"
     assert detail["llm_generation"]["used_fallback"] is False
+
+
+def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = (
+        "中年传承者：这些粤剧唱段里有很多老街坊的味道，听您提起来很亲切。\n"
+        "同龄共鸣者：我们那时候听戏，常常一听前奏就知道是哪一段。\n"
+        "晚辈好奇者：您最记得的是哪一段？我想听听。"
+    )
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_cue_llm_roles",
+        user_id="u_cue_llm_roles",
+        user_input="我喜欢听粤剧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_cue_llm_roles"),
+        memory_context=[],
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert state.draft_reply == provider.reply_text
+    assert [m.role_label for m in state.role_messages] == [
+        "中年传承者",
+        "同龄共鸣者",
+        "晚辈好奇者",
+    ]
+    assert state.role_messages[0].text.startswith("这些粤剧唱段里")

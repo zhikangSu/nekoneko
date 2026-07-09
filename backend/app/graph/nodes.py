@@ -369,6 +369,11 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         relationship_cue_context=_relationship_cue_context(decision, fallback_cue),
     )
     state.draft_reply = result.reply_text
+    real_role_messages = role_messages_from_cue(
+        result.reply_text,
+        decision.selected_roles,
+    )
+    state.role_messages = real_role_messages
     _append_companion_trace(
         state,
         deps,
