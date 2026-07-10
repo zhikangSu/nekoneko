@@ -173,11 +173,46 @@ def test_learning_topic_card_introduces_concrete_learning_scene(client):
     assert len(body["role_messages"]) == 3
     assert any(word in text for word in ("读书", "上学", "学校", "老师", "同学"))
     assert "想聊什么都行" not in text
+    assert "接着刚才说的" not in text
+    assert "听前面这么一说" not in text
+    assert "您这份经历" not in text
+    assert "最让您记得" not in text
     assert "带孩子" not in text
     assert "孙辈" not in text
     assert body["agent_trace"]["research_trace"]["topic"]["classified_topic"] == (
         "study_learning"
     )
+
+
+def test_work_topic_card_opening_does_not_assume_elder_story(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_work",
+            "message": "聊这个吧",
+            "topic_id": "T02",
+            "topic_label": "年轻时的工作经历",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    text = body["response_text"]
+    assert len(body["role_messages"]) == 3
+    assert any(word in text for word in ("工作", "单位", "车间", "同事", "上班"))
+    assert "接着刚才说的" not in text
+    assert "听前面这么一说" not in text
+    assert "您这份经历" not in text
+    assert "最让您记得" not in text
+    assert body["agent_trace"]["research_trace"]["topic"]["classified_topic"] == (
+        "work_collective"
+    )
+    orch = [
+        a
+        for a in body["agent_trace"]["agents"]
+        if a["name"] == "RelationshipOrchestratorAgent"
+    ]
+    assert orch[0]["detail"]["topic_card_opening"] is True
 
 
 def test_study_condition_c1_disables_relationship_cueing_and_binds_session(client):
@@ -556,6 +591,10 @@ def test_topic_card_start_uses_stable_intro_before_real_llm():
     ]
     assert "读书" in state.draft_reply or "上学" in state.draft_reply
     assert "想聊什么都行" not in state.draft_reply
+    assert "接着刚才说的" not in state.draft_reply
+    assert "听前面这么一说" not in state.draft_reply
+    assert "您这份经历" not in state.draft_reply
+    assert "最让您记得" not in state.draft_reply
 
 
 def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():

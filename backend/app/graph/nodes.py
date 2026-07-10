@@ -569,6 +569,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         role_selection_mode = RoleSelectionMode.manual
         selected_role_ids = [RoleId.same_age_peer, RoleId.curious_junior]
 
+    topic_card_start = _is_topic_card_start_turn(state)
     inp = OrchestrationInput(
         user_input=_relationship_cue_input(state),
         memory_context=list(state.memory_context or []),
@@ -579,7 +580,11 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         risk_flags=None,
     )
     decision = deps.relationship_orchestrator.orchestrate(inp)
-    fallback_cue = deps.cue_generator.generate(decision, state.user_input)
+    fallback_cue = deps.cue_generator.generate(
+        decision,
+        state.user_input,
+        topic_card_opening=topic_card_start,
+    )
     state.memory_used = bool(state.memory_context)
     state.role_messages = role_messages_from_cue(
         fallback_cue,
@@ -609,6 +614,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "selected_roles": [r.value for r in decision.selected_roles],
                 "topic_id": state.topic_id,
                 "topic_label": state.topic_label,
+                "topic_card_opening": topic_card_start,
                 "material_type": (
                     state.material_type.value if state.material_type else None
                 ),
@@ -625,7 +631,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             },
         )
     )
-    if deps.companion.llm_provider_name == "fake" or _is_topic_card_start_turn(state):
+    if deps.companion.llm_provider_name == "fake" or topic_card_start:
         state.draft_reply = fallback_cue
         return state
 

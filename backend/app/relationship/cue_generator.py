@@ -158,6 +158,46 @@ _INVITE: dict[RoleId, dict[Topic | None, str]] = {
     },
 }
 
+# Opening lines are used only when the elder has just selected a topic card and
+# has not yet shared a story. They should introduce the topic concretely without
+# pretending the user already said anything.
+_TOPIC_CARD_OPENING: dict[RoleId, dict[Topic | None, str]] = {
+    RoleId.same_age_peer: {
+        Topic.study_learning: "说到年轻时学习，课本、教室、老师和同学这些小地方，很容易带出一个年代的味道。",
+        Topic.old_object_photo: "一张老照片或一件旧物，常常会把衣服、地方、天气和人情一起带出来。",
+        Topic.work_collective: "说到年轻时工作，单位、车间、大院和同事这些场景，往往很有生活气。",
+        Topic.culture_arts: "老电影、戏曲和老歌一响起来，很容易把地方话、街巷和从前的场面带出来。",
+        Topic.family_education: "说到家庭和孩子，很多日子都藏在吃饭、接送、叮嘱这些小事里。",
+        Topic.general_reminiscence: "从前的日子常常藏在一个地方、一个人、一件小事里。",
+        None: "这个话题可以先从从前生活里的一个小场景慢慢展开。",
+    },
+    RoleId.curious_junior: {
+        Topic.study_learning: "这个话题可以先从一段上学路、一位老师，或者一本课本慢慢说起。",
+        Topic.old_object_photo: "这个话题可以先从照片里的一个细节，或者一件旧物的来历说起。",
+        Topic.work_collective: "这个话题可以先从第一次上班、一个老同事，或者一段忙碌的日子说起。",
+        Topic.culture_arts: "这个话题可以先从一段唱腔、一首老歌，或者一部老电影说起。",
+        Topic.family_education: "这个话题可以先从一个家里的小场景慢慢说起。",
+        Topic.general_reminiscence: "这个话题可以先从一个记得清楚的场景慢慢说起。",
+        None: "这个话题可以先从一个人、一件小事，或者一个记得清楚的地方说起。",
+    },
+    RoleId.middle_age_bridge: {
+        Topic.study_learning: "读书这件事不只是考试和功课，也常常连着后来做人做事的习惯。",
+        Topic.old_object_photo: "旧物背后不只是物件，也有那个年代怎么过日子的痕迹。",
+        Topic.work_collective: "工作经历里常有一代人的认真、手艺和责任感，慢慢聊会很有意思。",
+        Topic.culture_arts: "这些地方文化里有一代人的审美和生活节奏，越聊越有味道。",
+        Topic.family_education: "养育和教育的经验里有辛苦，也有后来才看明白的心意。",
+        Topic.general_reminiscence: "有些经历放到后来再看，常常能看见那个年代留下的分量。",
+        None: "有些经历放到后来再看，常常能看见那个年代留下的分量。",
+    },
+    RoleId.theme_companion: {
+        Topic.culture_arts: "这个话题本身就有味道，唱腔、曲调和地方话都能慢慢带出回忆。",
+        None: "这个话题可以慢慢铺开，不急着一下子说完。",
+    },
+    RoleId.elder_mentor: {
+        None: "这个话题可以慢慢想，先从最容易想起的一点开始就好。",
+    },
+}
+
 
 def _line_for(
     table: dict[RoleId, dict[Topic | None, str]],
@@ -203,7 +243,13 @@ class CueGenerator:
 
     name = "CueGenerator"
 
-    def generate(self, decision: RelationshipDecision, user_input: str) -> str:
+    def generate(
+        self,
+        decision: RelationshipDecision,
+        user_input: str,
+        *,
+        topic_card_opening: bool = False,
+    ) -> str:
         """Render ``decision`` into a short, visible relationship cue.
 
         * ``agent_agent_then_invite`` — the first role(s) resonate with each
@@ -224,6 +270,15 @@ class CueGenerator:
 
         if RoleId.no_ai_role in roles:
             return "好，我们先不安排 AI 角色。您可以自己慢慢讲；想停也可以。"
+
+        if topic_card_opening:
+            opening_fallback = "这个话题可以先从从前生活里的一个小场景慢慢展开。"
+            lines = [
+                f"{_label(role)}：{_line_for(_TOPIC_CARD_OPENING, role, topic, opening_fallback)}"
+                for role in roles
+                if role is not RoleId.no_ai_role
+            ]
+            return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         if decision.cueing_style is CueingStyle.no_cue or not roles:
             # Defensive single gentle line — no persona banter.
