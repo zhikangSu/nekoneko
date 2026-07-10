@@ -13,7 +13,10 @@ import {
 } from "react";
 
 import { getMemory } from "@/lib/apiClient";
-import { DEFAULT_USER_ID } from "@/lib/constants";
+import {
+  COMPANION_FALLBACK_NAME_SHORT,
+  DEFAULT_USER_ID,
+} from "@/lib/constants";
 import {
   buildAmbientChatScenes,
   type AmbientChatScene,
@@ -38,6 +41,11 @@ export type AmbientThreadItem =
     }
   | {
       id: string;
+      kind: "companion";
+      text: string;
+    }
+  | {
+      id: string;
       kind: "user";
       text: string;
     }
@@ -46,6 +54,11 @@ export type AmbientThreadItem =
       kind: "error";
       text: string;
     };
+
+type AmbientReplyItem = Extract<
+  AmbientThreadItem,
+  { kind: "role" | "companion" }
+>;
 
 interface AmbientChatStateContextValue {
   draft: string;
@@ -88,7 +101,7 @@ function newItemId(): string {
 function roleItems(
   sceneId: string,
   messages: RoleCueMessage[],
-): AmbientThreadItem[] {
+): AmbientReplyItem[] {
   return messages.map((message, index) => ({
     id: `${sceneId}_${message.role_label}_${index}_${newItemId()}`,
     kind: "role",
@@ -96,19 +109,6 @@ function roleItems(
     text: message.text,
   }));
 }
-
-const AMBIENT_FALLBACK_ROLES: RoleCueMessage[] = [
-  {
-    role_id: "same_age_peer",
-    role_label: "同龄共鸣者",
-    text: "这个话题我也能接上，咱们顺着刚才那点慢慢聊。",
-  },
-  {
-    role_id: "curious_junior",
-    role_label: "晚辈好奇者",
-    text: "我也想听听这里面的细节，您愿意说多少都可以。",
-  },
-];
 
 const ROLE_REVEAL_DELAY_MS = 850;
 const INITIAL_ROLE_MESSAGE_COUNT = 2;
@@ -201,33 +201,34 @@ function isAmbientRoleMessage(
   );
 }
 
-function ambientReplyMessages(
-  scene: AmbientChatScene,
+function ambientReplyItems(
+  sceneId: string,
   reply: AmbientSceneReply,
-): RoleCueMessage[] {
-  const realRoleMessages = reply.roleMessages
-    .filter(isAmbientRoleMessage)
-    .slice(0, 3);
+): AmbientReplyItem[] {
+  const realRoleMessages = reply.roleMessages.filter(isAmbientRoleMessage);
   if (realRoleMessages.length > 0) {
-    return realRoleMessages;
+    return roleItems(sceneId, realRoleMessages);
   }
 
   const text = reply.fallbackText.trim();
   if (!text) return [];
-
-  const speaker =
-    scene.roleMessages.find(isAmbientRoleMessage) ?? AMBIENT_FALLBACK_ROLES[0];
-  return [{ ...speaker, text }];
+  return [{ id: newItemId(), kind: "companion", text }];
 }
 
 export function AmbientChatScenePanel({
+  companionDisplayName,
   onSend,
 }: {
+  companionDisplayName?: string | null;
   onSend: (
     scene: AmbientChatScene,
     text: string,
   ) => Promise<AmbientSceneReply | null>;
 }) {
+  const companionLabel =
+    companionDisplayName && companionDisplayName.trim()
+      ? companionDisplayName.trim()
+      : COMPANION_FALLBACK_NAME_SHORT;
   const {
     draft,
     setDraft,
@@ -314,8 +315,11 @@ export function AmbientChatScenePanel({
 
   const lastReplyText = useMemo(() => {
     return (
-      [...threadItems].reverse().find((item) => item.kind === "role")?.text ??
-      null
+      [...threadItems]
+        .reverse()
+        .find(
+          (item) => item.kind === "role" || item.kind === "companion",
+        )?.text ?? null
     );
   }, [threadItems]);
 
@@ -344,15 +348,13 @@ export function AmbientChatScenePanel({
     });
   }
 
-  async function appendRoleItemsSequentially(
-    sceneId: string,
-    messages: RoleCueMessage[],
-  ) {
-    for (const message of messages) {
-      const [item] = roleItems(sceneId, [message]);
+  async function appendReplyItemsSequentially(items: AmbientReplyItem[]) {
+    for (const item of items) {
       setThreadItems((current) => [...current, item]);
       if (voice.autoSpeak) {
-        void voice.speak(`${message.role_label}：${message.text}`);
+        const speaker =
+          item.kind === "role" ? item.roleLabel : companionLabel;
+        void voice.speak(`${speaker}：${item.text}`);
       }
       await delay(ROLE_REVEAL_DELAY_MS);
     }
@@ -372,8 +374,9 @@ export function AmbientChatScenePanel({
     try {
       const reply = await onSend(scene, text);
       if (!reply) return;
-      const messages = ambientReplyMessages(scene, reply);
-      await appendRoleItemsSequentially(scene.id, messages);
+      await appendReplyItemsSequentially(
+        ambientReplyItems(scene.id, reply),
+      );
     } catch {
       setThreadItems((current) => [
         ...current,
@@ -449,7 +452,7 @@ export function AmbientChatScenePanel({
           ) : (
             <div key={item.id} className="flex flex-col gap-1 sm:max-w-[82%]">
               <div className="text-sm font-semibold text-companion">
-                {item.roleLabel}
+                {item.kind === "role" ? item.roleLabel : companionLabel}
               </div>
               <p className="rounded-2xl rounded-tl-sm border border-black/5 bg-surface px-4 py-3 text-base leading-relaxed text-ink">
                 {item.text}
