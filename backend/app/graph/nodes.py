@@ -17,6 +17,7 @@ from app.core.constants import TraceEntryKind
 from app.graph.state import GraphState
 from app.relationship.cue_generator import (
     CueGenerator,
+    is_relationship_cue_excluded,
     is_relationship_cue_turn,
     role_messages_from_cue,
 )
@@ -90,6 +91,25 @@ _GENERIC_TOPIC_CARD_MARKERS: tuple[str, ...] = (
     "继续",
 )
 
+_TOPIC_CARD_REFUSAL_MARKERS: tuple[str, ...] = (
+    "不想聊",
+    "不太想聊",
+    "不想说",
+    "不太想说",
+    "先不聊",
+    "不聊了",
+    "别聊",
+    "别提",
+    "不要聊",
+    "算了",
+    "换个话题",
+    "换一个话题",
+    "不感兴趣",
+    "没兴趣",
+    "改天再聊",
+    "下次再聊",
+)
+
 
 def _topic_card_seed_text(state: GraphState) -> str:
     if not state.topic_id and not state.topic_label:
@@ -105,7 +125,20 @@ def _can_topic_card_seed_cue(state: GraphState) -> bool:
     text = state.user_input.strip()
     if len(text) > 18:
         return False
+    if _is_topic_card_refusal_turn(state):
+        return False
+    if is_relationship_cue_excluded(text):
+        return False
     return any(marker in text for marker in _GENERIC_TOPIC_CARD_MARKERS)
+
+
+def _is_topic_card_refusal_turn(state: GraphState) -> bool:
+    text = state.user_input.strip()
+    if not _topic_card_seed_text(state):
+        return False
+    if is_relationship_cue_excluded(text):
+        return False
+    return any(marker in text for marker in _TOPIC_CARD_REFUSAL_MARKERS)
 
 
 def _is_topic_card_start_turn(state: GraphState) -> bool:
@@ -116,7 +149,7 @@ def _relationship_cue_input(state: GraphState) -> str:
     if is_relationship_cue_turn(state.user_input):
         return state.user_input
     seed = _topic_card_seed_text(state)
-    if _is_topic_card_start_turn(state):
+    if _is_topic_card_start_turn(state) or _is_topic_card_refusal_turn(state):
         return f"{seed}。{state.user_input}"
     return state.user_input
 
@@ -129,6 +162,8 @@ def _should_route_relationship_cue(state: GraphState) -> bool:
         return False
     if state.study_condition == StudyCondition.c1_direct_question:
         return False
+    if _is_topic_card_refusal_turn(state):
+        return True
     if is_relationship_cue_turn(state.user_input):
         return True
     seed = _topic_card_seed_text(state)
@@ -191,7 +226,12 @@ def _manual_role_ids_for_talk(state: GraphState) -> list[RoleId]:
     return role_ids[:MAX_ROLES_PER_TURN]
 
 
-def _role_style_context_for_profiles(profiles, source: str) -> str:
+def _role_style_context_for_profiles(
+    profiles,
+    source: str,
+    *,
+    topic_card_refusal: bool = False,
+) -> str:
     role_lines = []
     for profile in profiles:
         boundary = "；".join(profile.boundary_rules[:3])
@@ -202,6 +242,21 @@ def _role_style_context_for_profiles(profiles, source: str) -> str:
         )
 
     context = f"{source}，请只使用这些角色的关系视角。\n" + "\n".join(role_lines)
+    if topic_card_refusal:
+        context += (
+            "\n用户已经明确拒绝当前话题。这是边界确认轮次：每个角色只需用自己的语气"
+            "简短确认已经听见并尊重用户的选择。不得继续展开被拒绝的话题，不得追问原因，"
+            "不得要求用户讲故事，不得提出问题，也不要立刻指定另一个话题。"
+        )
+        if len(profiles) > 1:
+            labels = "、".join(profile.label_zh for profile in profiles)
+            context += (
+                f"请严格输出 {len(profiles)} 行，顺序为：{labels}。"
+                "每行必须以完整角色名和中文冒号开头。每位角色分别回应，不要合并成总回复；"
+                "后面的角色可以自然接住前面的意思，但最后一位也不要把话题递回给用户。"
+            )
+        return context
+
     if len(profiles) > 1:
         labels = "、".join(profile.label_zh for profile in profiles)
         context += (
@@ -384,10 +439,21 @@ _INCOMPLETE_ROLE_REPLY_SUFFIXES = (
     "咱们",
 )
 
+_TOPIC_REFUSAL_PRESSURE_MARKERS = (
+    "您愿意",
+    "您说说",
+    "您讲讲",
+    "先从",
+    "最让您",
+    "还记得",
+)
+
 
 def _role_messages_validation(
     messages: list[RoleCueMessage],
     expected_roles: list[RoleId],
+    *,
+    topic_card_refusal: bool = False,
 ) -> tuple[bool, str | None]:
     expected_count = len(
         [
@@ -399,12 +465,28 @@ def _role_messages_validation(
     if expected_count > 0 and len(messages) < expected_count:
         return False, f"expected_{expected_count}_role_lines_got_{len(messages)}"
 
+    if topic_card_refusal:
+        expected = [
+            role_id
+            for role_id in expected_roles[:MAX_ROLES_PER_TURN]
+            if role_id is not RoleId.no_ai_role
+        ]
+        actual = [message.role_id for message in messages]
+        if actual != expected:
+            return False, "topic_refusal_role_order_mismatch"
+
     for message in messages:
         text = message.text.strip()
         if len(text) < 8:
             return False, "role_line_too_short"
         if text.endswith(_INCOMPLETE_ROLE_REPLY_SUFFIXES):
             return False, "role_line_looks_incomplete"
+        if topic_card_refusal and (
+            "？" in text
+            or "?" in text
+            or any(marker in text for marker in _TOPIC_REFUSAL_PRESSURE_MARKERS)
+        ):
+            return False, "topic_refusal_reply_pressures_user"
     return True, None
 
 
@@ -540,17 +622,34 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
     return state
 
 
-def _relationship_cue_context(decision, fallback_cue: str) -> str:
+def _relationship_cue_context(
+    decision,
+    fallback_cue: str,
+    *,
+    topic_card_refusal: bool = False,
+) -> str:
     selected_roles = ", ".join(r.value for r in decision.selected_roles) or "none"
-    return (
+    cueing_style = (
+        "boundary_acknowledgement"
+        if topic_card_refusal
+        else decision.cueing_style.value
+    )
+    context = (
         f"topic: {decision.topic}\n"
         f"selected_relationship_functions: {selected_roles}\n"
-        f"cueing_style: {decision.cueing_style.value}\n"
+        f"cueing_style: {cueing_style}\n"
         f"role_selection_reason: {decision.role_selection_reason}\n"
         f"boundary_notes: {'; '.join(decision.boundary_notes)}\n"
         "offline_template_for_reference:\n"
         f"{fallback_cue}"
     )
+    if topic_card_refusal:
+        context += (
+            "\ninteraction_intent: acknowledge_topic_refusal\n"
+            "用户已拒绝当前话题。保留既有角色分别回应，但必须立即停止旧话题；"
+            "不得追问、不得邀请用户继续讲、不得自动指定新话题。"
+        )
+    return context
 
 
 def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -570,8 +669,15 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         selected_role_ids = [RoleId.same_age_peer, RoleId.curious_junior]
 
     topic_card_start = _is_topic_card_start_turn(state)
+    topic_card_refusal = _is_topic_card_refusal_turn(state)
+    visible_cueing_style = (
+        "boundary_acknowledgement"
+        if topic_card_refusal
+        else None
+    )
+    relationship_input = _relationship_cue_input(state)
     inp = OrchestrationInput(
-        user_input=_relationship_cue_input(state),
+        user_input=relationship_input,
         memory_context=list(state.memory_context or []),
         recent_emotion_or_tone=None,
         user_role_preferences=None,
@@ -584,6 +690,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         decision,
         state.user_input,
         topic_card_opening=topic_card_start,
+        topic_card_refusal=topic_card_refusal,
     )
     state.memory_used = bool(state.memory_context)
     state.role_messages = role_messages_from_cue(
@@ -598,12 +705,21 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     )
     state.relationship_topic = decision.topic
     state.relationship_boundary_notes = list(decision.boundary_notes)
-    state.cueing_style = decision.cueing_style.value
+    if topic_card_refusal:
+        state.relationship_boundary_notes.insert(
+            0,
+            "用户拒绝当前话题：保留既有角色分别确认边界，并停止延续该话题。",
+        )
+    state.cueing_style = visible_cueing_style or decision.cueing_style.value
     state.agents.append(
         TraceStep(
             kind=TraceEntryKind.agent,
             name=deps.relationship_orchestrator.name,
-            summary=decision.trace_visible_summary,
+            summary=(
+                "用户拒绝当前话题；保留既有关系角色分别确认并停止旧话题"
+                if topic_card_refusal
+                else decision.trace_visible_summary
+            ),
             detail={
                 "topic": decision.topic,
                 "study_condition": state.study_condition.value,
@@ -615,19 +731,24 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "topic_id": state.topic_id,
                 "topic_label": state.topic_label,
                 "topic_card_opening": topic_card_start,
+                "topic_card_refusal": topic_card_refusal,
                 "material_type": (
                     state.material_type.value if state.material_type else None
                 ),
                 "primary_role": (
                     decision.primary_role.value if decision.primary_role else None
                 ),
-                "cueing_style": decision.cueing_style.value,
+                "cueing_style": state.cueing_style,
                 "role_selection_reason": decision.role_selection_reason,
-                "boundary_notes": decision.boundary_notes,
+                "boundary_notes": state.relationship_boundary_notes,
                 "role_trace": decision.role_trace,
                 "topic_trace": decision.topic_trace,
                 "memory_trace": decision.memory_trace,
-                "boundary_trace": decision.boundary_trace,
+                "boundary_trace": (
+                    "用户明确拒绝当前话题；角色阵容保持不变，分别确认边界后停止旧话题。"
+                    if topic_card_refusal
+                    else decision.boundary_trace
+                ),
             },
         )
     )
@@ -645,15 +766,24 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     if selected_talk_roles:
         role_style_context = _role_style_context_for_profiles(
             [get_role_profile(role_id) for role_id in selected_talk_roles],
-            "系统本轮为话题引导分配了这些关系角色",
+            (
+                "系统保留这些关系角色来确认用户的当前话题边界"
+                if topic_card_refusal
+                else "系统本轮为话题引导分配了这些关系角色"
+            ),
+            topic_card_refusal=topic_card_refusal,
         )
     result = deps.companion.respond(
-        message=_relationship_cue_input(state),
+        message=state.user_input if topic_card_refusal else relationship_input,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
         conversation_history=state.conversation_history,
-        relationship_cue_context=_relationship_cue_context(decision, fallback_cue),
+        relationship_cue_context=_relationship_cue_context(
+            decision,
+            fallback_cue,
+            topic_card_refusal=topic_card_refusal,
+        ),
         role_style_context=role_style_context,
     )
     state.draft_reply = result.reply_text
@@ -664,6 +794,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     role_reply_accepted, role_reply_rejection_reason = _role_messages_validation(
         real_role_messages,
         selected_talk_roles,
+        topic_card_refusal=topic_card_refusal,
     )
     if role_reply_accepted:
         state.role_messages = real_role_messages
@@ -679,6 +810,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result,
         extra_detail={
             "relationship_cueing": True,
+            "topic_card_refusal": topic_card_refusal,
             "relationship_cue_fallback_template": fallback_cue,
             "manual_role_style": role_selection_mode is RoleSelectionMode.manual,
             "auto_role_style": role_selection_mode is RoleSelectionMode.auto,

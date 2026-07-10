@@ -23,7 +23,7 @@ Hard product boundaries (AGENTS.md, CLAUDE.md §7, §8):
 from __future__ import annotations
 
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, get_role_profile
-from app.relationship.topic_classifier import Topic, classify_topic
+from app.relationship.topic_classifier import SENSITIVE_TOPICS, Topic, classify_topic
 from app.schemas.relationship import (
     CueingStyle,
     RelationshipDecision,
@@ -74,6 +74,19 @@ _RELATIONSHIP_STRAIN_MARKERS: tuple[str, ...] = (
 )
 
 
+_CUE_EXCLUDED_TOPICS: frozenset[Topic] = frozenset(
+    {*SENSITIVE_TOPICS, Topic.loneliness_mood}
+)
+
+
+def is_relationship_cue_excluded(text: str) -> bool:
+    """Return whether the user's own words must not be replaced by a card seed."""
+
+    if any(marker in text for marker in _RELATIONSHIP_STRAIN_MARKERS):
+        return True
+    return classify_topic(text) in _CUE_EXCLUDED_TOPICS
+
+
 def is_relationship_cue_turn(text: str) -> bool:
     """True only for NON-SENSITIVE reminiscence turns that should be cued.
 
@@ -81,7 +94,7 @@ def is_relationship_cue_turn(text: str) -> bool:
     path, so existing routing/tests are preserved.
     """
 
-    if any(marker in text for marker in _RELATIONSHIP_STRAIN_MARKERS):
+    if is_relationship_cue_excluded(text):
         return False
 
     return classify_topic(text) in CUE_ROUTE_TOPICS
@@ -199,6 +212,19 @@ _TOPIC_CARD_OPENING: dict[RoleId, dict[Topic | None, str]] = {
 }
 
 
+# When the elder declines the current card, every active role may acknowledge
+# that choice, but none may keep developing the card or ask for a story.
+_TOPIC_CARD_REFUSAL: dict[RoleId, str] = {
+    RoleId.same_age_peer: "好，这个我们就先不聊了，换个轻松些的也行。",
+    RoleId.curious_junior: "好呀，我不再追问，您想安静一会儿也没关系。",
+    RoleId.middle_age_bridge: "明白，我们把这个话题放下，按您觉得自在的来。",
+    RoleId.elder_mentor: "好，不想说就先不说，您舒服最要紧。",
+    RoleId.theme_companion: "好，这个话题先放下，什么时候想说别的都可以。",
+    RoleId.memory_organizer: "记住了，这一段先停在这里，不再往下整理。",
+    RoleId.boundary_guardian: "您的意思我们听到了，这个边界会被尊重。",
+}
+
+
 def _line_for(
     table: dict[RoleId, dict[Topic | None, str]],
     role: RoleId,
@@ -249,6 +275,7 @@ class CueGenerator:
         user_input: str,
         *,
         topic_card_opening: bool = False,
+        topic_card_refusal: bool = False,
     ) -> str:
         """Render ``decision`` into a short, visible relationship cue.
 
@@ -270,6 +297,15 @@ class CueGenerator:
 
         if RoleId.no_ai_role in roles:
             return "好，我们先不安排 AI 角色。您可以自己慢慢讲；想停也可以。"
+
+        if topic_card_refusal:
+            fallback = "好，这个话题先放下，按您觉得自在的来。"
+            lines = [
+                f"{_label(role)}：{_TOPIC_CARD_REFUSAL.get(role, fallback)}"
+                for role in roles
+                if role is not RoleId.no_ai_role
+            ]
+            return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         if topic_card_opening:
             opening_fallback = "这个话题可以先从从前生活里的一个小场景慢慢展开。"
