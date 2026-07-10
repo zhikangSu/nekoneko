@@ -27,6 +27,7 @@ from enum import Enum
 class Topic(str, Enum):
     """Reminiscence topic buckets (Study-1 topic cards, folded)."""
 
+    study_learning = "study_learning"  # 年轻时学习 / 读书 / 学校
     old_object_photo = "old_object_photo"  # 旧物 / 老照片 / 老电视
     work_collective = "work_collective"  # 工作 / 工厂 / 车间 / 集体 / 大院
     family_education = "family_education"  # 家庭 / 孩子 / 教育 / 儿女 / 孙
@@ -108,6 +109,21 @@ _SENSITIVE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
 # fallback markers below: e.g. "看到老电视想起以前" is about the old TV
 # (old_object_photo), not merely "以前" (general_reminiscence).
 _CONCRETE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
+    Topic.study_learning: (
+        "年轻时学习",
+        "学习经历",
+        "读书上学",
+        "求学",
+        "学校",
+        "课堂",
+        "老师",
+        "同学",
+        "考试",
+        "课本",
+        "书本",
+        "读书",
+        "上学",
+    ),
     Topic.old_object_photo: (
         "老照片",
         "旧照片",
@@ -148,8 +164,6 @@ _CONCRETE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
         "外孙",
         "带孩子",
         "养孩子",
-        "上学",
-        "读书",
     ),
     Topic.culture_arts: (
         "粤剧",

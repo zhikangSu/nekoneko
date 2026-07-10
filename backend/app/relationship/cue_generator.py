@@ -39,6 +39,7 @@ from app.schemas.relationship import (
 # banter (CLAUDE.md §7.3, non-regression guard).
 CUE_ROUTE_TOPICS: frozenset[Topic] = frozenset(
     {
+        Topic.study_learning,
         Topic.old_object_photo,
         Topic.work_collective,
         Topic.family_education,
@@ -98,6 +99,7 @@ def is_relationship_cue_turn(text: str) -> bool:
 # _RESONATE[role][topic] -> line; _RESONATE[role][None] -> default.
 _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.same_age_peer: {
+        Topic.study_learning: "那时候读书上学不容易，课本、教室、同学，一提起来就有那个年代的味道。",
         Topic.old_object_photo: "这样的老物件我们那会儿家家都有，一看见就想起从前的日子。",
         Topic.work_collective: "那会儿在单位、在大院里一块儿忙活的日子，想起来真亲切。",
         Topic.culture_arts: "这些老段子、老曲子我们那代人都听着长大，一听就有味道。",
@@ -106,6 +108,7 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
         None: "您说的这些，我们那会儿也常经历，一提起来就觉得亲切。",
     },
     RoleId.curious_junior: {
+        Topic.study_learning: "您那时候上学路上是什么样的呀，听起来会有很多小故事。",
         Topic.old_object_photo: "这台老电视当年是不是很稀罕呀，您还记得头一回打开它是什么时候吗？",
         Topic.work_collective: "那时候在单位是做什么活儿的呀，听起来挺不容易的。",
         Topic.culture_arts: "您最爱听的是哪一段呀？我挺想听听。",
@@ -114,6 +117,7 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
         None: "这段听起来好有意思，您当时是怎么开始的呀？",
     },
     RoleId.middle_age_bridge: {
+        Topic.study_learning: "读书的经历常常会影响人一辈子，里面有吃苦，也有后来才明白的收获。",
         Topic.old_object_photo: "这些旧物背后都是您经历过的日子，我在想它对后来的人也很有意思。",
         Topic.work_collective: "您这份经历很难得，我在想它对我们后来的人也很有启发。",
         Topic.culture_arts: "这些老文化里藏着很多故事，一代代传下去很珍贵。",
@@ -137,9 +141,11 @@ _INVITE: dict[RoleId, dict[Topic | None, str]] = {
         None: "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。",
     },
     RoleId.curious_junior: {
+        Topic.study_learning: "那时候最让您记得的一位老师、一个同学，或者一段上学路是什么样的呀？",
         None: "当时最让您记得的一件小事是什么呢？不着急，想到哪儿说到哪儿。",
     },
     RoleId.middle_age_bridge: {
+        Topic.study_learning: "那时候读书上学，哪位老师、哪门课，或者哪段上学路最让您记得？",
         Topic.old_object_photo: "您那时候有没有一件一直记到现在的老物件？不着急，慢慢想。",
         Topic.family_education: "您当年带孩子时，哪件小事现在想起来最深？不着急。",
         None: "您想到哪段就说哪段，我慢慢听着。",

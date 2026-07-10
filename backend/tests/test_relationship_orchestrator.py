@@ -65,6 +65,7 @@ def _assert_common_invariants(decision: RelationshipDecision) -> None:
 
 
 def test_classifier_covers_core_topics():
+    assert classify_topic("年轻时学习读书上学") is Topic.study_learning
     assert classify_topic("看到老电视想起以前") is Topic.old_object_photo
     assert classify_topic("我年轻时在工厂车间上班") is Topic.work_collective
     assert classify_topic("聊聊我孙子的教育") is Topic.family_education
@@ -128,6 +129,19 @@ def test_accept_yueju_uses_bridge_peer_and_junior():
 # --------------------------------------------------------------------------- #
 # Per-topic role routing                                                       #
 # --------------------------------------------------------------------------- #
+
+
+def test_study_learning_uses_topic_specific_peer_set():
+    d = _orchestrate("年轻时学习读书上学学校同学")
+    assert d.topic == Topic.study_learning.value
+    assert d.selected_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
+    assert d.primary_role is RoleId.same_age_peer
+    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    _assert_common_invariants(d)
 
 
 def test_family_education_uses_junior_and_bridge():

@@ -156,6 +156,30 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert metadata["cueing_style"] == "agent_agent_then_invite"
 
 
+def test_learning_topic_card_introduces_concrete_learning_scene(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_learning",
+            "message": "聊这个吧",
+            "topic_id": "T01",
+            "topic_label": "年轻时的学习经历",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    text = body["response_text"]
+    assert len(body["role_messages"]) == 3
+    assert any(word in text for word in ("读书", "上学", "学校", "老师", "同学"))
+    assert "想聊什么都行" not in text
+    assert "带孩子" not in text
+    assert "孙辈" not in text
+    assert body["agent_trace"]["research_trace"]["topic"]["classified_topic"] == (
+        "study_learning"
+    )
+
+
 def test_study_condition_c1_disables_relationship_cueing_and_binds_session(client):
     body = client.post(
         "/api/chat",
@@ -502,6 +526,36 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
     assert detail["relationship_cueing"] is True
     assert detail["llm_generation"]["provider"] == "xiaomimimo"
     assert detail["llm_generation"]["used_fallback"] is False
+
+
+def test_topic_card_start_uses_stable_intro_before_real_llm():
+    provider = _SpyRealLLMProvider()
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_intro",
+        user_id="u_topic_card_intro",
+        user_input="聊这个吧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_intro"),
+        memory_context=[],
+        topic_id="T01",
+        topic_label="年轻时的学习经历",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert provider.payloads == []
+    assert [m.role_label for m in state.role_messages] == [
+        "同龄共鸣者",
+        "中年传承者",
+        "晚辈好奇者",
+    ]
+    assert "读书" in state.draft_reply or "上学" in state.draft_reply
+    assert "想聊什么都行" not in state.draft_reply
 
 
 def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():

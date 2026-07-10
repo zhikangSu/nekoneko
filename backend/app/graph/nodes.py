@@ -61,7 +61,7 @@ class GraphDeps:
 
 
 _TOPIC_CARD_CUE_TEXT: dict[str, str] = {
-    "T01": "年轻的时候读书上学",
+    "T01": "年轻时学习读书上学学校老师同学",
     "T02": "年轻时工作上班",
     "T03": "家庭孩子教育",
     "T04": "以前的老朋友老邻居集体生活",
@@ -108,11 +108,15 @@ def _can_topic_card_seed_cue(state: GraphState) -> bool:
     return any(marker in text for marker in _GENERIC_TOPIC_CARD_MARKERS)
 
 
+def _is_topic_card_start_turn(state: GraphState) -> bool:
+    return bool(_topic_card_seed_text(state) and _can_topic_card_seed_cue(state))
+
+
 def _relationship_cue_input(state: GraphState) -> str:
     if is_relationship_cue_turn(state.user_input):
         return state.user_input
     seed = _topic_card_seed_text(state)
-    if seed and _can_topic_card_seed_cue(state):
+    if _is_topic_card_start_turn(state):
         return f"{seed}。{state.user_input}"
     return state.user_input
 
@@ -128,9 +132,7 @@ def _should_route_relationship_cue(state: GraphState) -> bool:
     if is_relationship_cue_turn(state.user_input):
         return True
     seed = _topic_card_seed_text(state)
-    return bool(
-        seed and _can_topic_card_seed_cue(state) and is_relationship_cue_turn(seed)
-    )
+    return bool(_is_topic_card_start_turn(state) and is_relationship_cue_turn(seed))
 
 
 def _append_companion_trace(
@@ -623,7 +625,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             },
         )
     )
-    if deps.companion.llm_provider_name == "fake":
+    if deps.companion.llm_provider_name == "fake" or _is_topic_card_start_turn(state):
         state.draft_reply = fallback_cue
         return state
 
@@ -640,7 +642,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             "系统本轮为话题引导分配了这些关系角色",
         )
     result = deps.companion.respond(
-        message=state.user_input,
+        message=_relationship_cue_input(state),
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,

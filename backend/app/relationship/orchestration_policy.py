@@ -10,7 +10,7 @@ not touch any existing graph/safety/Guardian/Reminder/Retrieval path.
 
 Policy summary (per topic):
 
-* old_object_photo / work_collective / general_reminiscence
+* study_learning / old_object_photo / work_collective / general_reminiscence
   → [same_age_peer, curious_junior, middle_age_bridge], primary same_age_peer,
     cueing agent_agent_then_invite.
 * family_education
@@ -71,6 +71,11 @@ _PEER_DIALOGUE_SET = [
 ]
 
 _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
+    Topic.study_learning: (
+        list(_PEER_DIALOGUE_SET),
+        RoleId.same_age_peer,
+        CueingStyle.agent_agent_then_invite,
+    ),
     Topic.old_object_photo: (
         list(_PEER_DIALOGUE_SET),
         RoleId.same_age_peer,
@@ -109,6 +114,7 @@ _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
 }
 
 _TOPIC_LABEL_ZH: dict[Topic, str] = {
+    Topic.study_learning: "学习/求学经历",
     Topic.old_object_photo: "旧物/老照片",
     Topic.work_collective: "工作/集体生活",
     Topic.family_education: "家庭/孩子教育",
@@ -321,6 +327,7 @@ def decide(
         role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in manual_roles)
         primary_name = _ROLE_LABEL_ZH.get(primary, primary.value)
         should_generate_memory_card = topic in {
+            Topic.study_learning,
             Topic.old_object_photo,
             Topic.work_collective,
             Topic.family_education,
@@ -403,6 +410,7 @@ def decide(
 
     # Memory card only for clear, non-sensitive personal facts/interests.
     should_generate_memory_card = topic in {
+        Topic.study_learning,
         Topic.old_object_photo,
         Topic.work_collective,
         Topic.family_education,
