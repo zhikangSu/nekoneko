@@ -770,12 +770,12 @@ def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
         existing_cards=existing_cards,
     )
 
-    saved_contents: list[str] = []
+    saved_memory_id: str | None = None
     card_id: str | None = None
     if decision.action == MemoryTriageAction.auto_save:
         saved = deps.memory_tool.save_candidate(state.user_id, candidate)
         if saved is not None:
-            saved_contents.append(saved.content)
+            saved_memory_id = saved.id
     elif decision.action in {
         MemoryTriageAction.create_card,
         MemoryTriageAction.create_boundary_card,
@@ -793,9 +793,10 @@ def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 f"{decision.reason}"
             ),
             detail={
-                "candidate": candidate.model_dump(mode="json"),
+                "candidate_type": candidate.candidate_type.value,
                 "decision": decision.model_dump(mode="json"),
-                "saved": saved_contents,
+                "saved": saved_memory_id is not None,
+                "saved_memory_id": saved_memory_id,
                 "memory_card_id": card_id,
             },
         )
