@@ -109,7 +109,10 @@ export function ChatExperience() {
   return (
     <div className="space-y-4">
       <SafetyBanner />
-      <AmbientChatScenePanel onSend={handleAmbientSceneSend} />
+      <AmbientChatScenePanel
+        companionDisplayName={companionDisplayName}
+        onSend={handleAmbientSceneSend}
+      />
       <div className="flex justify-end">
         <button
           type="button"
