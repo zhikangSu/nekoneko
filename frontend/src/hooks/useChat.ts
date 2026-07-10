@@ -9,6 +9,7 @@ import type {
   ChatResponse,
   CompanionMode,
   ElderControlAction,
+  MemoryScope,
   RelationshipRoleId,
   RoleSelectionMode,
   StudyCondition,
@@ -46,6 +47,7 @@ export function useChat() {
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
   const [studySessionId] = useState(() => `study_${newId()}`);
+  const [detachedStudySessionId] = useState(() => `detached_${newId()}`);
   const [selectedRoleIds, setSelectedRoleIds] = useState<RelationshipRoleId[]>([
     "same_age_peer",
     "curious_junior",
@@ -58,6 +60,8 @@ export function useChat() {
     async (
       text: string,
       topic: TopicMaterialContext | null,
+      sessionId: string | null,
+      memoryScope: MemoryScope,
     ): Promise<ChatResponse> => {
       return sendChat({
         user_id: DEFAULT_USER_ID,
@@ -70,11 +74,12 @@ export function useChat() {
         topic_label: topic?.topic_label ?? null,
         material_type: topic?.material_type ?? null,
         study_condition: DEFAULT_STUDY_CONDITION,
-        study_session_id: studySessionId,
+        study_session_id: sessionId,
         elder_control_action: DEFAULT_ELDER_CONTROL_ACTION,
+        memory_scope: memoryScope,
       });
     },
-    [roleSelectionMode, selectedRoleIds, studySessionId],
+    [roleSelectionMode, selectedRoleIds],
   );
 
   const send = useCallback(
@@ -94,7 +99,12 @@ export function useChat() {
       setIsSending(true);
 
       try {
-        const response = await requestChat(text, topic);
+        const response = await requestChat(
+          text,
+          topic,
+          studySessionId,
+          "default",
+        );
         setMessages((prev) => [
           ...prev,
           {
@@ -129,6 +139,7 @@ export function useChat() {
       roleSelectionMode,
       selectedRoleIds,
       requestChat,
+      studySessionId,
     ],
   );
 
@@ -136,16 +147,21 @@ export function useChat() {
     async (
       rawText: string,
       topicOverride?: TopicMaterialContext | null,
+      studySessionIdOverride?: string | null,
     ): Promise<DetachedChatResult | null> => {
       const text = rawText.trim();
       if (!text) return null;
 
-      const topic =
-        topicOverride === undefined ? selectedTopic : topicOverride;
-      const response = await requestChat(text, topic);
+      const topic = topicOverride ?? null;
+      const response = await requestChat(
+        text,
+        topic,
+        studySessionIdOverride ?? detachedStudySessionId,
+        "session_only",
+      );
       return { text, topic, response };
     },
-    [requestChat, selectedTopic],
+    [detachedStudySessionId, requestChat],
   );
 
   const startTopicConversation = useCallback(
@@ -158,7 +174,12 @@ export function useChat() {
       setIsSending(true);
 
       try {
-        const response = await requestChat(TOPIC_CARD_STARTER_TEXT, topic);
+        const response = await requestChat(
+          TOPIC_CARD_STARTER_TEXT,
+          topic,
+          studySessionId,
+          "default",
+        );
         setMessages((prev) => [
           ...prev,
           {
@@ -187,7 +208,7 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, roleSelectionMode, selectedRoleIds, requestChat],
+    [isSending, roleSelectionMode, selectedRoleIds, requestChat, studySessionId],
   );
 
   return {

@@ -42,6 +42,7 @@ class GraphState:
     study_condition: StudyCondition = StudyCondition.c3_relationship_aware
     study_session_id: Optional[str] = None
     elder_control_action: ElderControlAction = ElderControlAction.continue_session
+    memory_scope: str = "default"
     conversation_history: list[ConversationMessage] = field(default_factory=list)
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.

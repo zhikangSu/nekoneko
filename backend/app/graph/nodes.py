@@ -400,6 +400,19 @@ def coordinator_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 
 def memory_read_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    if state.memory_scope == "session_only":
+        state.memory_context = []
+        state.memory_used = False
+        state.tools.append(
+            TraceStep(
+                kind=TraceEntryKind.memory,
+                name=deps.memory_tool.name,
+                summary="当前窗口使用独立上下文，未读取长期记忆",
+                detail={"memory_scope": state.memory_scope},
+            )
+        )
+        return state
+
     # Master privacy switch from the profile/onboarding (#21): when the user has
     # turned memory off, never read it.
     if not state.user_profile.memory_enabled:
@@ -657,6 +670,17 @@ def proactive_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 
 def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
+    if state.memory_scope == "session_only":
+        state.tools.append(
+            TraceStep(
+                kind=TraceEntryKind.memory,
+                name=deps.memory_triage_policy.name,
+                summary="当前窗口使用独立上下文，未写入长期记忆",
+                detail={"memory_scope": state.memory_scope},
+            )
+        )
+        return state
+
     # Respect the profile master switch (#21) in addition to the Memory Center
     # pause (checked below before candidate extraction).
     if not state.user_profile.memory_enabled:

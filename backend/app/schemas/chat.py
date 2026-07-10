@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,6 +16,8 @@ from app.schemas.relationship import (
     StudyCondition,
 )
 from app.schemas.trace import AgentTrace
+
+MemoryScope = Literal["default", "session_only"]
 
 
 class ChatRequest(BaseModel):
@@ -39,6 +41,9 @@ class ChatRequest(BaseModel):
     study_condition: StudyCondition = StudyCondition.c3_relationship_aware
     study_session_id: Optional[str] = Field(default=None, max_length=64)
     elder_control_action: ElderControlAction = ElderControlAction.continue_session
+    # Some UI surfaces, such as the ambient social-cue scene, should keep their
+    # short-term continuity without reading/writing the user's durable memory.
+    memory_scope: MemoryScope = "default"
 
     @field_validator("message")
     @classmethod

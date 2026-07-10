@@ -11,6 +11,7 @@ export type ElderControlAction =
   | "change_topic"
   | "pause_roles"
   | "stop_reminiscence";
+export type MemoryScope = "default" | "session_only";
 export type MaterialType = "topic_card" | "photo" | "object" | "song";
 export type RelationshipRoleId =
   | "same_age_peer"
@@ -34,6 +35,7 @@ export interface ChatRequest {
   study_condition?: StudyCondition;
   study_session_id?: string | null;
   elder_control_action?: ElderControlAction;
+  memory_scope?: MemoryScope;
   voice_enabled?: boolean;
   sensor_preset_id?: string | null;
   companion_display_name?: string | null;

@@ -17,6 +17,12 @@ import {
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
 
+function newClientSessionRoot(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.floor(
+    Math.random() * 1e6,
+  ).toString(36)}`;
+}
+
 // Composes the chat surface: safety banner slot, chat window, and the live Agent
 // Trace panel. The companion name comes from the user profile (#21); the neutral
 // fallback shows until the user names it. Voice (#4) records into chat and reads
@@ -43,6 +49,9 @@ export function ChatExperience() {
   const [showTrace, setShowTrace] = useState(false);
   const [ambientTrace, setAmbientTrace] = useState<AgentTrace | undefined>();
   const [ambientTraceVersion, setAmbientTraceVersion] = useState(0);
+  const [ambientSessionRoot] = useState(() =>
+    newClientSessionRoot("ambient"),
+  );
 
   // Read each newly-arrived companion reply aloud when auto-read is on. Keyed by
   // message id so toggling the switch never re-reads an older reply.
@@ -68,7 +77,11 @@ export function ChatExperience() {
       scene: AmbientChatScene,
       text: string,
     ): Promise<AmbientSceneReply | null> => {
-      const result = await sendDetached(text, scene.topic);
+      const result = await sendDetached(
+        text,
+        scene.topic,
+        `${ambientSessionRoot}_${scene.id}`,
+      );
       if (!result) return null;
       setAmbientTrace(result.response.agent_trace);
       setAmbientTraceVersion((version) => version + 1);
@@ -77,7 +90,7 @@ export function ChatExperience() {
         fallbackText: result.response.response_text,
       };
     },
-    [sendDetached],
+    [ambientSessionRoot, sendDetached],
   );
 
   const handleSelectedTopicChange = useCallback(

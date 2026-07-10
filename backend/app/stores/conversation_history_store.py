@@ -1,8 +1,8 @@
 """In-process short-term conversation history for chat continuity (#82).
 
 This is intentionally not a durable memory store. It keeps only a bounded recent
-window per user so the next LLM call can resolve follow-up turns like "接着刚才"
-without silently saving sensitive content to long-term memory.
+window per user/session so the next LLM call can resolve follow-up turns like
+"接着刚才" without silently saving sensitive content to long-term memory.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ MAX_CONTENT_CHARS = 1200
 
 
 class ConversationHistoryStore:
-    """Demo-scale, per-process short-term chat history keyed by user id."""
+    """Demo-scale, per-process short-term chat history keyed by user/session."""
 
     def __init__(self, max_messages: int = DEFAULT_HISTORY_LIMIT) -> None:
         self._max_messages = max(2, max_messages)
@@ -29,6 +29,7 @@ class ConversationHistoryStore:
     def recent(
         self,
         user_id: str,
+        session_id: str | None = None,
         limit: int = DEFAULT_HISTORY_LIMIT,
     ) -> list[ConversationMessage]:
         """Return the newest bounded window without exposing internal storage."""
@@ -36,26 +37,40 @@ class ConversationHistoryStore:
         safe_limit = max(0, min(limit, self._max_messages))
         if safe_limit == 0:
             return []
+        key = _history_key(user_id, session_id)
         with self._lock:
-            return list(self._messages[user_id])[-safe_limit:]
+            return list(self._messages[key])[-safe_limit:]
 
-    def append_turn(self, user_id: str, user_text: str, assistant_text: str) -> None:
+    def append_turn(
+        self,
+        user_id: str,
+        user_text: str,
+        assistant_text: str,
+        session_id: str | None = None,
+    ) -> None:
         """Append one completed user/assistant turn to short-term history."""
 
         user_text = _trim(user_text)
         assistant_text = _trim(assistant_text)
         if not user_text or not assistant_text:
             return
+        key = _history_key(user_id, session_id)
         with self._lock:
-            bucket = self._messages[user_id]
+            bucket = self._messages[key]
             bucket.append(ConversationMessage(role="user", content=user_text))
             bucket.append(ConversationMessage(role="assistant", content=assistant_text))
 
-    def clear(self, user_id: str) -> None:
+    def clear(self, user_id: str, session_id: str | None = None) -> None:
         """Clear one user's in-process history; mainly useful for tests."""
 
         with self._lock:
-            self._messages.pop(user_id, None)
+            self._messages.pop(_history_key(user_id, session_id), None)
+
+
+def _history_key(user_id: str, session_id: str | None) -> str:
+    if not session_id:
+        return user_id
+    return f"{user_id}::{session_id}"
 
 
 def _trim(value: str) -> str:

@@ -32,6 +32,77 @@ def test_follow_up_turn_uses_short_term_history_without_trace_content(client):
     assert first_text not in str(second["agent_trace"])
 
 
+def test_conversation_history_is_scoped_by_study_session(client):
+    uid = "history_session_scope_demo"
+    upper_session = "ambient_opera_demo"
+    lower_session = "main_topic_demo"
+    first_text = "我刚才在上面的聊天场聊了越剧"
+
+    first = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": first_text,
+            "study_session_id": upper_session,
+        },
+    ).json()
+    assert first["agent_trace"]["conversation_history_count"] == 0
+
+    lower = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "我们继续刚才的话题",
+            "study_session_id": lower_session,
+            "topic_id": "T02",
+            "topic_label": "年轻时的工作经历",
+            "material_type": "topic_card",
+        },
+    ).json()
+    assert lower["agent_trace"]["conversation_history_used"] is False
+    assert lower["agent_trace"]["conversation_history_count"] == 0
+    assert "越剧" not in lower["response_text"]
+
+    upper_followup = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "我们继续刚才的话题",
+            "study_session_id": upper_session,
+        },
+    ).json()
+    assert upper_followup["agent_trace"]["conversation_history_used"] is True
+    assert upper_followup["agent_trace"]["conversation_history_count"] == 2
+
+
+def test_session_only_scope_skips_long_term_memory(client):
+    uid = "history_session_memory_scope_demo"
+    saved = client.post(
+        "/api/chat",
+        json={"user_id": uid, "message": "我喜欢听粤剧"},
+    ).json()
+    assert any(step["detail"].get("saved") for step in saved["agent_trace"]["tools"])
+
+    scoped = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "聊这个吧",
+            "study_session_id": "ambient_work_demo",
+            "memory_scope": "session_only",
+            "topic_id": "T02",
+            "topic_label": "年轻时的工作经历",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert scoped["agent_trace"]["memory_used"] is False
+    assert any(
+        step["detail"].get("memory_scope") == "session_only"
+        for step in scoped["agent_trace"]["tools"]
+    )
+
+
 def test_conversation_history_store_keeps_bounded_recent_window():
     store = ConversationHistoryStore(max_messages=4)
     for index in range(3):

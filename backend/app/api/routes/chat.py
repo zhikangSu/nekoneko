@@ -112,7 +112,10 @@ def chat(
     # Companion name source of truth is the user profile (#21).
     profile = profile_store.get(request.user_id)
     turn_id = _new_turn_id()
-    conversation_history = conversation_history_store.recent(request.user_id)
+    conversation_history = conversation_history_store.recent(
+        request.user_id,
+        request.study_session_id,
+    )
 
     state = GraphState(
         turn_id=turn_id,
@@ -128,6 +131,7 @@ def chat(
         study_condition=request.study_condition,
         study_session_id=request.study_session_id,
         elder_control_action=request.elder_control_action,
+        memory_scope=request.memory_scope,
         conversation_history=conversation_history,
     )
     run_turn(state, build_deps(settings))
@@ -163,6 +167,7 @@ def chat(
         request.user_id,
         request.message,
         state.response_text,
+        request.study_session_id,
     )
 
     return ChatResponse(
