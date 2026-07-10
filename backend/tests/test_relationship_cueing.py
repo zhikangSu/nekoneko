@@ -30,6 +30,10 @@ def _route(body: dict) -> str:
     return body["agent_trace"]["route"]
 
 
+def _triage_action(step: dict) -> str | None:
+    return step["detail"].get("decision", {}).get("action")
+
+
 def _role_lines(text: str) -> list[str]:
     """Lines that start with a visible-role label + '：' (one per role)."""
 
@@ -375,6 +379,93 @@ def test_topic_card_does_not_override_sensitive_user_input(client):
     assert body["agent_trace"]["research_metadata"]["topic_id"] == "T05"
 
 
+def test_topic_card_refusal_keeps_multi_role_cast_and_stops_old_topic(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_refusal",
+            "message": "不想聊这个话题",
+            "topic_id": "T05",
+            "topic_label": "老照片或旧物件",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "middle_age_bridge",
+        "curious_junior",
+    ]
+    assert len({message["text"] for message in body["role_messages"]}) == 3
+    assert all("？" not in message["text"] for message in body["role_messages"])
+    assert all("老照片" not in message["text"] for message in body["role_messages"])
+    assert all("旧物" not in message["text"] for message in body["role_messages"])
+
+    orchestrator = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator["detail"]["topic_card_refusal"] is True
+    assert orchestrator["detail"]["cueing_style"] == "boundary_acknowledgement"
+    assert "角色阵容保持不变" in orchestrator["detail"]["boundary_trace"]
+    assert any(
+        "停止延续" in note
+        for note in body["agent_trace"]["research_trace"]["boundary"][
+            "boundary_notes"
+        ]
+    )
+
+    triage = [
+        step
+        for step in body["agent_trace"]["tools"]
+        if step["name"] == "MemoryTriagePolicy"
+        and _triage_action(step) == "create_boundary_card"
+    ]
+    assert len(triage) == 1
+    assert triage[0]["detail"]["memory_card_id"]
+
+
+def test_topic_card_refusal_preserves_user_selected_role_order(client):
+    requested_roles = ["curious_junior", "elder_mentor"]
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_refusal_manual",
+            "message": "今天不太想说，可以吗",
+            "topic_id": "T01",
+            "topic_label": "年轻时的学习经历",
+            "material_type": "topic_card",
+            "role_selection_mode": "manual",
+            "selected_role_ids": requested_roles,
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert [message["role_id"] for message in body["role_messages"]] == requested_roles
+    assert all("？" not in message["text"] for message in body["role_messages"])
+    metadata = body["agent_trace"]["research_metadata"]
+    assert metadata["selected_roles"] == requested_roles
+    assert metadata["cueing_style"] == "boundary_acknowledgement"
+
+
+def test_topic_card_relationship_strain_is_not_replaced_by_card_seed(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_relationship_strain",
+            "message": "儿子不理我，聊这个吧",
+            "topic_id": "T05",
+            "topic_label": "老照片或旧物件",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+
+
 # ---------------------------------------------------------------------------
 # Scenario 2: culture/arts preference -> cue route AND memory still saved
 # ---------------------------------------------------------------------------
@@ -596,6 +687,81 @@ def test_topic_card_start_uses_stable_intro_before_real_llm():
     assert "听前面这么一说" not in state.draft_reply
     assert "您这份经历" not in state.draft_reply
     assert "最让您记得" not in state.draft_reply
+
+
+def test_topic_card_refusal_uses_real_llm_with_multi_role_boundary_prompt():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = (
+        "同龄共鸣者：好，这个我们就先放下，不勉强您。\n"
+        "中年传承者：明白，照您觉得自在的方式来最合适。\n"
+        "晚辈好奇者：好呀，我也不再追问，安静一会儿也没关系。"
+    )
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_refusal_llm",
+        user_id="u_topic_card_refusal_llm",
+        user_input="先不聊这个吧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_refusal_llm"),
+        memory_context=[],
+        topic_id="T05",
+        topic_label="老照片或旧物件",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert provider.payloads
+    prompt = provider.payloads[0].system_prompt or ""
+    assert "用户已经明确拒绝当前话题" in prompt
+    assert "不得继续展开被拒绝的话题" in prompt
+    assert "不得提出问题" in prompt
+    assert provider.payloads[0].message == "先不聊这个吧"
+    assert [message.role_id for message in state.role_messages] == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
+    assert state.draft_reply == provider.reply_text
+
+
+def test_pressuring_real_llm_topic_refusal_reply_falls_back_to_safe_roles():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = (
+        "同龄共鸣者：好，那您还记得照片里的人吗？\n"
+        "中年传承者：这段经历还是很值得继续说。\n"
+        "晚辈好奇者：您愿意再讲讲吗？"
+    )
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_refusal_fallback",
+        user_id="u_topic_card_refusal_fallback",
+        user_input="不想聊这个话题",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_refusal_fallback"),
+        memory_context=[],
+        topic_id="T05",
+        topic_label="老照片或旧物件",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert state.draft_reply != provider.reply_text
+    assert len(state.role_messages) == 3
+    assert all("？" not in message.text for message in state.role_messages)
+    companion_step = next(step for step in state.agents if step.name == "CompanionAgent")
+    assert companion_step.detail["llm_role_reply_accepted"] is False
+    assert (
+        companion_step.detail["llm_role_reply_rejection_reason"]
+        == "topic_refusal_reply_pressures_user"
+    )
 
 
 def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
