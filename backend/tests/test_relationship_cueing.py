@@ -390,8 +390,9 @@ def test_yueju_routes_to_cue_and_saves_memory(client):
 
     # Preference saved this turn (memory trace) ...
     tools = body["agent_trace"]["tools"]
-    saved_blobs = [t["detail"].get("saved") for t in tools if t["detail"].get("saved")]
-    assert any(any("粤剧" in item for item in blob) for blob in saved_blobs)
+    triage = [t for t in tools if t["name"] == "MemoryTriagePolicy"][-1]
+    assert triage["detail"]["saved"] is True
+    assert triage["detail"]["saved_memory_id"]
 
     # ... and readable back via the memory API.
     stored = client.get(f"/api/memory/{uid}").json()
