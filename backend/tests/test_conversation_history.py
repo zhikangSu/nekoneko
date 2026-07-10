@@ -103,6 +103,24 @@ def test_session_only_scope_skips_long_term_memory(client):
     )
 
 
+def test_ambient_like_session_still_saves_low_sensitivity_preference(client):
+    uid = "history_ambient_memory_default_demo"
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "我喜欢听粤剧",
+            "study_session_id": "ambient_memory_default_demo",
+        },
+    ).json()
+
+    assert body["agent_trace"]["conversation_history_count"] == 0
+    assert any(step["detail"].get("saved") for step in body["agent_trace"]["tools"])
+
+    stored = client.get(f"/api/memory/{uid}").json()
+    assert any("粤剧" in memory["content"] for memory in stored["memories"])
+
+
 def test_conversation_history_store_keeps_bounded_recent_window():
     store = ConversationHistoryStore(max_messages=4)
     for index in range(3):
