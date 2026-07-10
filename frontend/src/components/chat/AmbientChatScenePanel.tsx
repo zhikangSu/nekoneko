@@ -69,6 +69,7 @@ const AMBIENT_FALLBACK_ROLES: RoleCueMessage[] = [
 ];
 
 const ROLE_REVEAL_DELAY_MS = 850;
+const INITIAL_ROLE_MESSAGE_COUNT = 2;
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,6 +120,7 @@ export function AmbientChatScenePanel({
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(() => new Set());
   const threadRef = useRef<HTMLDivElement>(null);
+  const skipNextScrollRef = useRef(false);
   const voice = useVoice({
     onTranscript: (text) => {
       void submitText(text);
@@ -168,11 +170,22 @@ export function AmbientChatScenePanel({
 
   useEffect(() => {
     if (!activeScene) return;
-    setThreadItems(roleItems(activeScene.id, activeScene.roleMessages));
+    skipNextScrollRef.current = true;
+    setThreadItems(
+      roleItems(
+        activeScene.id,
+        activeScene.roleMessages.slice(0, INITIAL_ROLE_MESSAGE_COUNT),
+      ),
+    );
   }, [activeScene]);
 
   useEffect(() => {
     const el = threadRef.current;
+    if (skipNextScrollRef.current) {
+      skipNextScrollRef.current = false;
+      if (el) el.scrollTo({ top: 0 });
+      return;
+    }
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [threadItems, isSceneSending]);
 
@@ -291,7 +304,7 @@ export function AmbientChatScenePanel({
 
       <div
         ref={threadRef}
-        className="max-h-[28rem] space-y-3 overflow-y-auto bg-[#f1f8f4] px-5 py-4"
+        className="max-h-40 space-y-3 overflow-y-auto bg-[#f1f8f4] px-5 py-4 sm:max-h-56 lg:max-h-[28rem]"
       >
         {threadItems.map((item) =>
           item.kind === "user" ? (
