@@ -536,6 +536,41 @@ def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
     assert state.role_messages[0].text.startswith("这些粤剧唱段里")
 
 
+def test_malformed_real_relationship_cue_falls_back_to_complete_template():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = "同龄共鸣者：粤剧啊，我们"
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_cue_llm_malformed",
+        user_id="u_cue_llm_malformed",
+        user_input="我喜欢听粤剧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_cue_llm_malformed"),
+        memory_context=[],
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert state.draft_reply != provider.reply_text
+    assert [m.role_label for m in state.role_messages] == [
+        "同龄共鸣者",
+        "中年传承者",
+        "晚辈好奇者",
+    ]
+    assert all(
+        not message.text.endswith(("我们", "就", "，"))
+        for message in state.role_messages
+    )
+    companion_steps = [a for a in state.agents if a.name == "CompanionAgent"]
+    detail = companion_steps[0].detail
+    assert detail["llm_role_reply_accepted"] is False
+    assert detail["llm_role_reply_rejection_reason"] == "expected_3_role_lines_got_1"
+
+
 def test_companion_chat_multi_role_reply_becomes_separate_role_messages():
     provider = _SpyRealLLMProvider()
     provider.reply_text = (

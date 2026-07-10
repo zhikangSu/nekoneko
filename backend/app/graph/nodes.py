@@ -25,6 +25,7 @@ from app.schemas.memory_candidate import MemoryTriageAction
 from app.schemas.relationship import (
     ElderControlAction,
     OrchestrationInput,
+    RoleCueMessage,
     RoleId,
     RoleSelectionMode,
     StudyCondition,
@@ -361,6 +362,50 @@ def _role_ids_for_structured_reply(role_style_trace: dict | None) -> list[RoleId
     return role_ids
 
 
+_INCOMPLETE_ROLE_REPLY_SUFFIXES = (
+    "，",
+    "、",
+    "；",
+    "：",
+    "就",
+    "把",
+    "被",
+    "在",
+    "和",
+    "跟",
+    "让",
+    "会",
+    "要",
+    "想",
+    "听着",
+    "我们",
+    "咱们",
+)
+
+
+def _role_messages_validation(
+    messages: list[RoleCueMessage],
+    expected_roles: list[RoleId],
+) -> tuple[bool, str | None]:
+    expected_count = len(
+        [
+            role_id
+            for role_id in expected_roles[:MAX_ROLES_PER_TURN]
+            if role_id is not RoleId.no_ai_role
+        ]
+    )
+    if expected_count > 0 and len(messages) < expected_count:
+        return False, f"expected_{expected_count}_role_lines_got_{len(messages)}"
+
+    for message in messages:
+        text = message.text.strip()
+        if len(text) < 8:
+            return False, "role_line_too_short"
+        if text.endswith(_INCOMPLETE_ROLE_REPLY_SUFFIXES):
+            return False, "role_line_looks_incomplete"
+    return True, None
+
+
 def input_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.input_guard.run(state.user_input)
     state.risk = result.classification
@@ -608,7 +653,11 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result.reply_text,
         decision.selected_roles,
     )
-    if real_role_messages:
+    role_reply_accepted, role_reply_rejection_reason = _role_messages_validation(
+        real_role_messages,
+        selected_talk_roles,
+    )
+    if role_reply_accepted:
         state.role_messages = real_role_messages
     else:
         state.draft_reply = fallback_cue
@@ -630,6 +679,8 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             "role_labels": [
                 get_role_profile(role_id).label_zh for role_id in selected_talk_roles
             ],
+            "llm_role_reply_accepted": role_reply_accepted,
+            "llm_role_reply_rejection_reason": role_reply_rejection_reason,
         },
     )
     return state
