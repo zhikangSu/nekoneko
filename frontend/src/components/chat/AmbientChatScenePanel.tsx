@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 
 import { getMemory } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
@@ -10,6 +20,7 @@ import {
 } from "@/lib/proactiveTopics";
 import { useVoice, type VoiceControls } from "@/hooks/useVoice";
 import type { RelationshipRoleId, RoleCueMessage } from "@/types/chat";
+import type { AgentTrace } from "@/types/trace";
 import { ReplayButton } from "./ReplayButton";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 
@@ -18,7 +29,7 @@ export interface AmbientSceneReply {
   fallbackText: string;
 }
 
-type AmbientThreadItem =
+export type AmbientThreadItem =
   | {
       id: string;
       kind: "role";
@@ -35,6 +46,37 @@ type AmbientThreadItem =
       kind: "error";
       text: string;
     };
+
+interface AmbientChatStateContextValue {
+  draft: string;
+  setDraft: Dispatch<SetStateAction<string>>;
+  isSceneSending: boolean;
+  setIsSceneSending: Dispatch<SetStateAction<boolean>>;
+  threadItems: AmbientThreadItem[];
+  setThreadItems: Dispatch<SetStateAction<AmbientThreadItem[]>>;
+  threadSceneId: string | null;
+  setThreadSceneId: Dispatch<SetStateAction<string | null>>;
+  scenes: AmbientChatScene[];
+  setScenes: Dispatch<SetStateAction<AmbientChatScene[]>>;
+  activeSceneId: string | null;
+  setActiveSceneId: Dispatch<SetStateAction<string | null>>;
+  seenSceneIds: Set<string>;
+  setSeenSceneIds: Dispatch<SetStateAction<Set<string>>>;
+  ambientTrace: AgentTrace | undefined;
+  setAmbientTrace: Dispatch<SetStateAction<AgentTrace | undefined>>;
+  ambientTraceVersion: number;
+  setAmbientTraceVersion: Dispatch<SetStateAction<number>>;
+  ambientSessionRoot: string;
+}
+
+const AmbientChatStateContext =
+  createContext<AmbientChatStateContextValue | null>(null);
+
+function newClientSessionRoot(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.floor(
+    Math.random() * 1e6,
+  ).toString(36)}`;
+}
 
 function newItemId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -75,6 +117,79 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function useAmbientChatState(): AmbientChatStateContextValue {
+  const value = useContext(AmbientChatStateContext);
+  if (!value) {
+    throw new Error(
+      "useAmbientChatState must be used within an AmbientChatStateProvider",
+    );
+  }
+  return value;
+}
+
+export function AmbientChatStateProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [draft, setDraft] = useState("");
+  const [isSceneSending, setIsSceneSending] = useState(false);
+  const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
+  const [threadSceneId, setThreadSceneId] = useState<string | null>(null);
+  const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [ambientTrace, setAmbientTrace] = useState<AgentTrace | undefined>();
+  const [ambientTraceVersion, setAmbientTraceVersion] = useState(0);
+  const [ambientSessionRoot] = useState(() =>
+    newClientSessionRoot("ambient"),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    getMemory(DEFAULT_USER_ID)
+      .then((view) => {
+        if (!cancelled) setScenes(buildAmbientChatScenes(view.memories));
+      })
+      .catch(() => {
+        if (!cancelled) setScenes(buildAmbientChatScenes([]));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <AmbientChatStateContext.Provider
+      value={{
+        draft,
+        setDraft,
+        isSceneSending,
+        setIsSceneSending,
+        threadItems,
+        setThreadItems,
+        threadSceneId,
+        setThreadSceneId,
+        scenes,
+        setScenes,
+        activeSceneId,
+        setActiveSceneId,
+        seenSceneIds,
+        setSeenSceneIds,
+        ambientTrace,
+        setAmbientTrace,
+        ambientTraceVersion,
+        setAmbientTraceVersion,
+        ambientSessionRoot,
+      }}
+    >
+      {children}
+    </AmbientChatStateContext.Provider>
+  );
+}
+
 function isAmbientRoleMessage(
   message: RoleCueMessage,
 ): message is RoleCueMessage & { role_id: RelationshipRoleId } {
@@ -113,12 +228,21 @@ export function AmbientChatScenePanel({
     text: string,
   ) => Promise<AmbientSceneReply | null>;
 }) {
-  const [draft, setDraft] = useState("");
-  const [isSceneSending, setIsSceneSending] = useState(false);
-  const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
-  const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
-  const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
-  const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(() => new Set());
+  const {
+    draft,
+    setDraft,
+    isSceneSending,
+    setIsSceneSending,
+    threadItems,
+    setThreadItems,
+    threadSceneId,
+    setThreadSceneId,
+    scenes,
+    activeSceneId,
+    setActiveSceneId,
+    seenSceneIds,
+    setSeenSceneIds,
+  } = useAmbientChatState();
   const threadRef = useRef<HTMLDivElement>(null);
   const skipNextScrollRef = useRef(false);
   const voice = useVoice({
@@ -126,20 +250,6 @@ export function AmbientChatScenePanel({
       void submitText(text);
     },
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    getMemory(DEFAULT_USER_ID)
-      .then((view) => {
-        if (!cancelled) setScenes(buildAmbientChatScenes(view.memories));
-      })
-      .catch(() => {
-        if (!cancelled) setScenes(buildAmbientChatScenes([]));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (scenes.length === 0) {
@@ -160,7 +270,12 @@ export function AmbientChatScenePanel({
         return next;
       });
     }
-  }, [activeSceneId, scenes]);
+  }, [
+    activeSceneId,
+    scenes,
+    setActiveSceneId,
+    setSeenSceneIds,
+  ]);
 
   const activeScene = useMemo(() => {
     if (scenes.length === 0) return null;
@@ -170,6 +285,7 @@ export function AmbientChatScenePanel({
 
   useEffect(() => {
     if (!activeScene) return;
+    if (threadSceneId === activeScene.id && threadItems.length > 0) return;
     skipNextScrollRef.current = true;
     setThreadItems(
       roleItems(
@@ -177,7 +293,14 @@ export function AmbientChatScenePanel({
         activeScene.roleMessages.slice(0, INITIAL_ROLE_MESSAGE_COUNT),
       ),
     );
-  }, [activeScene]);
+    setThreadSceneId(activeScene.id);
+  }, [
+    activeScene,
+    setThreadItems,
+    setThreadSceneId,
+    threadItems.length,
+    threadSceneId,
+  ]);
 
   useEffect(() => {
     const el = threadRef.current;

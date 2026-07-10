@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { AmbientChatStateProvider } from "@/components/chat/AmbientChatScenePanel";
+import { ChatStateProvider } from "@/components/chat/ChatStateProvider";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProfileProvider } from "@/components/profile/ProfileProvider";
 import "@/styles/globals.css";
@@ -19,7 +21,11 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body>
         <ProfileProvider>
-          <AppShell>{children}</AppShell>
+          <ChatStateProvider>
+            <AmbientChatStateProvider>
+              <AppShell>{children}</AppShell>
+            </AmbientChatStateProvider>
+          </ChatStateProvider>
         </ProfileProvider>
       </body>
     </html>

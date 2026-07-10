@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useChat } from "@/hooks/useChat";
 import { useVoice } from "@/hooks/useVoice";
 import type { AgentTrace } from "@/types/trace";
 import type { TopicMaterialContext } from "@/types/chat";
@@ -13,15 +12,11 @@ import type { AmbientChatScene } from "@/lib/proactiveTopics";
 import {
   AmbientChatScenePanel,
   type AmbientSceneReply,
+  useAmbientChatState,
 } from "./AmbientChatScenePanel";
+import { useChatState } from "./ChatStateProvider";
 import { ChatWindow } from "./ChatWindow";
 import { SafetyBanner } from "./SafetyBanner";
-
-function newClientSessionRoot(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}_${Math.floor(
-    Math.random() * 1e6,
-  ).toString(36)}`;
-}
 
 // Composes the chat surface: safety banner slot, chat window, and the live Agent
 // Trace panel. The companion name comes from the user profile (#21); the neutral
@@ -41,17 +36,19 @@ export function ChatExperience() {
     send,
     sendDetached,
     startTopicConversation,
-  } = useChat();
+  } = useChatState();
+  const {
+    ambientTrace,
+    setAmbientTrace,
+    ambientTraceVersion,
+    setAmbientTraceVersion,
+    ambientSessionRoot,
+  } = useAmbientChatState();
   const voice = useVoice({ onTranscript: send });
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
   // routing for graders/developers), not something an elderly end user needs —
   // so it can be collapsed, which also gives the chat the full width.
   const [showTrace, setShowTrace] = useState(false);
-  const [ambientTrace, setAmbientTrace] = useState<AgentTrace | undefined>();
-  const [ambientTraceVersion, setAmbientTraceVersion] = useState(0);
-  const [ambientSessionRoot] = useState(() =>
-    newClientSessionRoot("ambient"),
-  );
 
   // Read each newly-arrived companion reply aloud when auto-read is on. Keyed by
   // message id so toggling the switch never re-reads an older reply.
@@ -90,7 +87,12 @@ export function ChatExperience() {
         fallbackText: result.response.response_text,
       };
     },
-    [ambientSessionRoot, sendDetached],
+    [
+      ambientSessionRoot,
+      sendDetached,
+      setAmbientTrace,
+      setAmbientTraceVersion,
+    ],
   );
 
   const handleSelectedTopicChange = useCallback(

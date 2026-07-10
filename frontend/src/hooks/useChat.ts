@@ -157,7 +157,10 @@ export function useChat() {
         text,
         topic,
         studySessionIdOverride ?? detachedStudySessionId,
-        "session_only",
+        // Detached ambient chat keeps its own study_session_id so short-term
+        // history does not merge into the main chat, but it still uses durable
+        // memory so clear preferences like "我喜欢粤剧" appear in Memory Center.
+        "default",
       );
       return { text, topic, response };
     },
