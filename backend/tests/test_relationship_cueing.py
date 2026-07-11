@@ -611,9 +611,12 @@ class _SpyRealLLMProvider(LLMProvider):
     def __init__(self) -> None:
         self.payloads: list[CompanionReplyInput] = []
         self.reply_text = "这些粤剧老段子听起来很有味道。您最喜欢的是哪一段呀？"
+        self.reply_texts: list[str] = []
 
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
         self.payloads.append(payload)
+        if self.reply_texts:
+            return self.reply_texts.pop(0)
         return self.reply_text
 
     @property
@@ -787,13 +790,14 @@ def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
 
     relationship_cueing_node(state, deps)
 
-    assert state.draft_reply == provider.reply_text
+    assert state.draft_reply != provider.reply_text
     assert [m.role_label for m in state.role_messages] == [
-        "中年传承者",
         "同龄共鸣者",
+        "中年传承者",
         "晚辈好奇者",
     ]
-    assert state.role_messages[0].text.startswith("这些粤剧唱段里")
+    assert state.role_messages[0].text.startswith("我们那时候听戏")
+    assert state.role_messages[1].text.startswith("这些粤剧唱段里")
 
 
 def test_malformed_real_relationship_cue_falls_back_to_complete_template():
@@ -869,3 +873,157 @@ def test_companion_chat_multi_role_reply_becomes_separate_role_messages():
         "中年传承者",
     ]
     assert state.role_messages[0].text.startswith("聊工作啊")
+
+
+def test_companion_chat_retries_when_manual_role_is_missing():
+    provider = _SpyRealLLMProvider()
+    provider.reply_texts = [
+        (
+            "同龄共鸣者：机器一响起来，说话确实得靠默契。\n"
+            "晚辈好奇者：听着就能想见当时车间里的热闹。"
+        ),
+        (
+            "同龄共鸣者：机器一响起来，说话确实得靠默契。\n"
+            "晚辈好奇者：听前面这么一说，我也能想见当时车间里的热闹。\n"
+            "中年传承者：这些在忙碌里磨出来的配合，也是很珍贵的经验。"
+        ),
+    ]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    selected_roles = [
+        RoleId.same_age_peer,
+        RoleId.curious_junior,
+        RoleId.middle_age_bridge,
+    ]
+    state = GraphState(
+        turn_id="t_companion_retry_missing_role",
+        user_id="u_companion_retry_missing_role",
+        user_input="我们那时候说话常靠打手势",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_retry_missing_role"),
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=selected_roles,
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert "上一版回复没有满足" in provider.payloads[1].system_prompt
+    assert [message.role_id for message in state.role_messages] == selected_roles
+    companion_step = next(step for step in state.agents if step.name == "CompanionAgent")
+    assert companion_step.detail["llm_role_reply_retry_used"] is True
+    assert companion_step.detail["llm_role_reply_retry_accepted"] is True
+    assert companion_step.detail["llm_role_reply_fallback_used"] is False
+    assert (
+        companion_step.detail["llm_role_reply_initial_rejection_reason"]
+        == "expected_3_role_lines_got_2"
+    )
+
+
+def test_companion_chat_reorders_roles_and_normalizes_unpleasant_plural():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = (
+        "中年传承者：您们在车间磨出来的配合，是很珍贵的经验。\n"
+        "同龄共鸣者：机器一响起来，我们那会儿也常靠手势交流。\n"
+        "晚辈好奇者：听前面这么一说，我也能想见当时忙碌的样子。"
+    )
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    selected_roles = [
+        RoleId.same_age_peer,
+        RoleId.curious_junior,
+        RoleId.middle_age_bridge,
+    ]
+    state = GraphState(
+        turn_id="t_companion_role_order",
+        user_id="u_companion_role_order",
+        user_input="我们那时候说话常靠打手势",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_role_order"),
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=selected_roles,
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 1
+    assert [message.role_id for message in state.role_messages] == selected_roles
+    assert "您们" not in state.draft_reply
+    assert "大家在车间" in state.draft_reply
+    assert state.draft_reply.splitlines()[0].startswith("同龄共鸣者：")
+    assert state.draft_reply.splitlines()[1].startswith("晚辈好奇者：")
+    assert state.draft_reply.splitlines()[2].startswith("中年传承者：")
+    companion_step = next(step for step in state.agents if step.name == "CompanionAgent")
+    assert companion_step.detail["llm_role_reply_retry_used"] is False
+    assert companion_step.detail["llm_role_reply_normalized_terms"] == ["您们"]
+
+
+def test_companion_chat_single_manual_role_keeps_visible_identity():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = "长辈引导者：慢慢来，想到哪儿说到哪儿，您舒服最要紧。"
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_single_role",
+        user_id="u_companion_single_role",
+        user_input="我想慢慢聊聊以前的事",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_single_role"),
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=[RoleId.elder_mentor],
+    )
+
+    companion_node(state, deps)
+
+    assert "严格只输出 1 行" in provider.payloads[0].system_prompt
+    assert [message.role_id for message in state.role_messages] == [
+        RoleId.elder_mentor
+    ]
+    assert state.role_messages[0].role_label == "长辈引导者"
+    assert "陪伴 AI" not in state.draft_reply
+
+
+def test_companion_chat_uses_complete_role_fallback_after_failed_retry():
+    provider = _SpyRealLLMProvider()
+    incomplete_reply = (
+        "同龄共鸣者：机器一响起来，说话确实得靠默契。\n"
+        "晚辈好奇者：听着就能想见当时车间里的热闹。"
+    )
+    provider.reply_texts = [incomplete_reply, incomplete_reply]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    selected_roles = [
+        RoleId.same_age_peer,
+        RoleId.curious_junior,
+        RoleId.middle_age_bridge,
+    ]
+    state = GraphState(
+        turn_id="t_companion_role_fallback",
+        user_id="u_companion_role_fallback",
+        user_input="我们那时候说话常靠打手势",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_role_fallback"),
+        role_selection_mode=RoleSelectionMode.manual,
+        selected_role_ids=selected_roles,
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert [message.role_id for message in state.role_messages] == selected_roles
+    assert len(state.role_messages) == 3
+    companion_step = next(step for step in state.agents if step.name == "CompanionAgent")
+    assert companion_step.detail["llm_role_reply_retry_accepted"] is False
+    assert companion_step.detail["llm_role_reply_fallback_used"] is True
