@@ -257,7 +257,14 @@ def _role_style_context_for_profiles(
             )
         return context
 
-    if len(profiles) > 1:
+    if len(profiles) == 1:
+        label = profiles[0].label_zh
+        context += (
+            f"\n输出格式要求：本轮只有一个可见关系角色。请严格只输出 1 行，"
+            f"并以完整角色名“{label}：”开头。不要退回“陪伴 AI”或其他角色名，"
+            "不要解释角色选择。"
+        )
+    elif len(profiles) > 1:
         labels = "、".join(profile.label_zh for profile in profiles)
         context += (
             "\n输出格式要求：本轮有多个可见关系角色，必须让每个角色分别说一句。"
@@ -269,6 +276,7 @@ def _role_style_context_for_profiles(
             "不要写总括句、主持人话术或角色选择解释。"
             "角色之间接话不要使用“您们”这类生硬称呼，可用“刚才说的”或“听前面这么一说”。"
         )
+    context += "\n回复正文中不要使用“您们”这个称呼。"
     return context
 
 
@@ -398,6 +406,24 @@ def _companion_role_style_context(
     state: GraphState,
     deps: GraphDeps,
 ) -> tuple[str | None, dict | None]:
+    if (
+        state.study_condition is StudyCondition.c1_direct_question
+        or state.elder_control_action
+        in {ElderControlAction.pause_roles, ElderControlAction.stop_reminiscence}
+    ):
+        return None, None
+    if is_relationship_cue_excluded(state.user_input):
+        if state.role_selection_mode is RoleSelectionMode.manual:
+            return None, None
+        _, trace = _auto_role_style_context(state, deps)
+        if trace:
+            trace = {
+                **trace,
+                "auto_role_style": False,
+                "selected_roles": [],
+                "role_labels": [],
+            }
+        return None, trace
     if state.role_selection_mode is RoleSelectionMode.manual:
         return _manual_role_style_context(state)
     return _auto_role_style_context(state, deps)
@@ -448,6 +474,114 @@ _TOPIC_REFUSAL_PRESSURE_MARKERS = (
     "还记得",
 )
 
+_ROLE_REPLY_TEXT_REPLACEMENTS = (
+    ("您们", "大家"),
+)
+
+
+def _visible_role_ids(expected_roles: list[RoleId]) -> list[RoleId]:
+    return [
+        role_id
+        for role_id in expected_roles[:MAX_ROLES_PER_TURN]
+        if role_id is not RoleId.no_ai_role
+    ]
+
+
+def _normalize_role_reply_text(text: str) -> tuple[str, list[str]]:
+    normalized = text
+    replaced_terms: list[str] = []
+    for source, replacement in _ROLE_REPLY_TEXT_REPLACEMENTS:
+        if source not in normalized:
+            continue
+        normalized = normalized.replace(source, replacement)
+        replaced_terms.append(source)
+    return normalized, replaced_terms
+
+
+def _order_role_messages(
+    messages: list[RoleCueMessage],
+    expected_roles: list[RoleId],
+) -> list[RoleCueMessage]:
+    expected = _visible_role_ids(expected_roles)
+    by_role: dict[RoleId, list[RoleCueMessage]] = {role_id: [] for role_id in expected}
+    for message in messages:
+        if message.role_id in by_role:
+            by_role[message.role_id].append(message)
+
+    if len(messages) != len(expected) or any(
+        len(by_role[role_id]) != 1 for role_id in expected
+    ):
+        return messages
+    return [by_role[role_id][0] for role_id in expected]
+
+
+def _render_role_messages(messages: list[RoleCueMessage]) -> str:
+    return "\n".join(
+        f"{message.role_label}：{message.text.strip()}" for message in messages
+    )
+
+
+def _prepare_role_reply(
+    reply_text: str,
+    expected_roles: list[RoleId],
+    *,
+    topic_card_refusal: bool = False,
+) -> tuple[str, list[RoleCueMessage], bool, str | None, list[str]]:
+    normalized_text, replaced_terms = _normalize_role_reply_text(reply_text)
+    messages = role_messages_from_cue(normalized_text, expected_roles)
+    messages = _order_role_messages(messages, expected_roles)
+    accepted, rejection_reason = _role_messages_validation(
+        messages,
+        expected_roles,
+        topic_card_refusal=topic_card_refusal,
+    )
+    if accepted:
+        normalized_text = _render_role_messages(messages)
+    return normalized_text, messages, accepted, rejection_reason, replaced_terms
+
+
+def _role_reply_repair_context(
+    role_style_context: str | None,
+    expected_roles: list[RoleId],
+    rejection_reason: str | None,
+) -> str:
+    labels = "、".join(
+        get_role_profile(role_id).label_zh for role_id in _visible_role_ids(expected_roles)
+    )
+    return (
+        f"{role_style_context or ''}\n"
+        "上一版回复没有满足可见角色输出格式，必须重新生成完整回复。"
+        f"失败原因：{rejection_reason or '格式不完整'}。"
+        f"严格按这个顺序输出：{labels}。每个角色恰好一行，不得遗漏、重复、换序或合并；"
+        "每行都以完整角色名和中文冒号开头。不要使用“您们”，不要输出任何额外说明。"
+    )
+
+
+def _fallback_role_reply(
+    state: GraphState,
+    deps: GraphDeps,
+    expected_roles: list[RoleId],
+) -> tuple[str, list[RoleCueMessage]]:
+    decision = deps.relationship_orchestrator.orchestrate(
+        OrchestrationInput(
+            user_input=state.user_input,
+            memory_context=list(state.memory_context or []),
+            role_selection_mode=RoleSelectionMode.manual,
+            selected_role_ids=_visible_role_ids(expected_roles),
+            risk_flags={
+                "risk_level": state.risk.level.value,
+                "category": state.risk.category,
+                "matched_terms": state.risk.matched_terms,
+            },
+        )
+    )
+    fallback_text = deps.cue_generator.generate(decision, state.user_input)
+    prepared_text, messages, _, _, _ = _prepare_role_reply(
+        fallback_text,
+        expected_roles,
+    )
+    return prepared_text, messages
+
 
 def _role_messages_validation(
     messages: list[RoleCueMessage],
@@ -455,25 +589,16 @@ def _role_messages_validation(
     *,
     topic_card_refusal: bool = False,
 ) -> tuple[bool, str | None]:
-    expected_count = len(
-        [
-            role_id
-            for role_id in expected_roles[:MAX_ROLES_PER_TURN]
-            if role_id is not RoleId.no_ai_role
-        ]
-    )
+    expected = _visible_role_ids(expected_roles)
+    expected_count = len(expected)
     if expected_count > 0 and len(messages) < expected_count:
         return False, f"expected_{expected_count}_role_lines_got_{len(messages)}"
 
-    if topic_card_refusal:
-        expected = [
-            role_id
-            for role_id in expected_roles[:MAX_ROLES_PER_TURN]
-            if role_id is not RoleId.no_ai_role
-        ]
-        actual = [message.role_id for message in messages]
-        if actual != expected:
+    actual = [message.role_id for message in messages]
+    if actual != expected:
+        if topic_card_refusal:
             return False, "topic_refusal_role_order_mismatch"
+        return False, "role_order_or_membership_mismatch"
 
     for message in messages:
         text = message.text.strip()
@@ -611,14 +736,76 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         role_style_context=role_style_context,
         conversation_history=state.conversation_history,
     )
-    state.draft_reply = result.reply_text
     structured_role_ids = _role_ids_for_structured_reply(role_style_trace)
-    if len(structured_role_ids) > 1:
-        state.role_messages = role_messages_from_cue(
-            result.reply_text,
-            structured_role_ids,
-        )
-    _append_companion_trace(state, deps, result, extra_detail=role_style_trace)
+    role_reply_detail: dict = {}
+    if structured_role_ids and deps.companion.llm_provider_name != "fake":
+        (
+            prepared_text,
+            prepared_messages,
+            role_reply_accepted,
+            rejection_reason,
+            normalized_terms,
+        ) = _prepare_role_reply(result.reply_text, structured_role_ids)
+        initial_rejection_reason = rejection_reason
+        retry_used = False
+        retry_accepted = False
+
+        if not role_reply_accepted and deps.companion.llm_provider_name != "fake":
+            retry_used = True
+            result = deps.companion.respond(
+                message=state.user_input,
+                mode=state.mode,
+                companion_display_name=state.user_profile.companion_display_name,
+                memory_context=state.memory_context,
+                retrieval_context=state.retrieval_context,
+                role_style_context=_role_reply_repair_context(
+                    role_style_context,
+                    structured_role_ids,
+                    rejection_reason,
+                ),
+                conversation_history=state.conversation_history,
+            )
+            (
+                prepared_text,
+                prepared_messages,
+                role_reply_accepted,
+                rejection_reason,
+                retry_normalized_terms,
+            ) = _prepare_role_reply(result.reply_text, structured_role_ids)
+            normalized_terms.extend(retry_normalized_terms)
+            retry_accepted = role_reply_accepted
+
+        fallback_used = not role_reply_accepted
+        if fallback_used:
+            prepared_text, prepared_messages = _fallback_role_reply(
+                state,
+                deps,
+                structured_role_ids,
+            )
+
+        state.draft_reply = prepared_text
+        state.role_messages = prepared_messages
+        role_reply_detail = {
+            "llm_role_reply_accepted": role_reply_accepted,
+            "llm_role_reply_initial_rejection_reason": initial_rejection_reason,
+            "llm_role_reply_final_rejection_reason": rejection_reason,
+            "llm_role_reply_retry_used": retry_used,
+            "llm_role_reply_retry_accepted": retry_accepted,
+            "llm_role_reply_fallback_used": fallback_used,
+            "llm_role_reply_normalized_terms": sorted(set(normalized_terms)),
+        }
+    else:
+        state.draft_reply = result.reply_text
+
+    if role_style_trace is None:
+        role_style_trace = {}
+    role_style_trace.update(role_reply_detail)
+    _append_companion_trace(
+        state,
+        deps,
+        result,
+        extra_detail=role_style_trace or None,
+    )
     return state
 
 
@@ -786,17 +973,19 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         ),
         role_style_context=role_style_context,
     )
-    state.draft_reply = result.reply_text
-    real_role_messages = role_messages_from_cue(
-        result.reply_text,
-        decision.selected_roles,
-    )
-    role_reply_accepted, role_reply_rejection_reason = _role_messages_validation(
+    (
+        prepared_reply_text,
         real_role_messages,
+        role_reply_accepted,
+        role_reply_rejection_reason,
+        normalized_terms,
+    ) = _prepare_role_reply(
+        result.reply_text,
         selected_talk_roles,
         topic_card_refusal=topic_card_refusal,
     )
     if role_reply_accepted:
+        state.draft_reply = prepared_reply_text
         state.role_messages = real_role_messages
     else:
         state.draft_reply = fallback_cue
@@ -821,6 +1010,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             ],
             "llm_role_reply_accepted": role_reply_accepted,
             "llm_role_reply_rejection_reason": role_reply_rejection_reason,
+            "llm_role_reply_normalized_terms": normalized_terms,
         },
     )
     return state
