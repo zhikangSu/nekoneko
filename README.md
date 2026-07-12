@@ -76,34 +76,12 @@ Companion** and the code stores the user's choice in `companion_display_name`.
 
 ---
 
-## Documentation map
+## Documentation
 
-Read the canonical documents in this order. Start with `00` for orientation.
-
-| Doc | Purpose |
-|---|---|
-| [docs/00_overview](docs/00_overview_elderly_companion_ai.md) | One-page index, positioning, reading order. |
-| [docs/01_prd](docs/01_prd_elderly_multi_agent_companion_ai.md) | Product requirements, MVP, priorities, evaluation. |
-| [docs/02_technical_roadmap](docs/02_technical_roadmap_elderly_multi_agent_companion_ai.md) | Architecture, agent/tool split, API, roadmap, demo script. |
-| [docs/03_fxy_integration_review](docs/03_fxy_integration_review.md) | Record of absorbing / downgrading / rejecting a teammate draft. |
-| [docs/04_engagement_agent_optimization_review](docs/04_engagement_agent_optimization_review.md) | Role-first, well-being-first, real-agent optimization record. |
-| [docs/05_reference_project_structure](docs/05_reference_project_structure.md) | Repo layout reference for initialization and development. |
-| [docs/06_collaboration_workflow](docs/06_collaboration_workflow.md) | AI-first, mainline-first collaboration and PR workflow. |
-
-Working docs produced for the demo:
-
-| Doc | Purpose |
-|---|---|
-| [docs/demo_script.md](docs/demo_script.md) | The 6 final-demo scenarios, step by step (with the Agent Trace for each). |
-| [docs/demo_video_checklist.md](docs/demo_video_checklist.md) | Shot-by-shot checklist for recording the demo video. |
-| [docs/poster_outline.md](docs/poster_outline.md) | Final research poster outline. |
-| [docs/final_report_skeleton.md](docs/final_report_skeleton.md) | Fillable final-report structure. |
-| [docs/safety_policy.md](docs/safety_policy.md) | What the system must never do, and the high-risk safety path. |
-| [docs/evaluation_plan.md](docs/evaluation_plan.md) | Relationship-aware evaluation plan: three-mechanism RQs, C1/C2/C3 conditions, and the content/experience/behavior/boundary measures. |
-
-Contributor instructions for AI coding agents: [AGENTS.md](AGENTS.md) (global
-product/safety/architecture rules) and [CLAUDE.md](CLAUDE.md) (Claude Code
-workflow). Design-decision records live in [docs/adr/](docs/adr/).
+This repository is a demo-focused snapshot: it contains everything needed to run
+and evaluate the prototype. The full product, research, and process documentation
+set (PRD, technical roadmap, evaluation plan, study materials, contributor
+guides) is maintained in the team's development repository.
 
 ---
 
@@ -135,17 +113,12 @@ is a **tool** or **service**. The Agent Trace must keep this distinction visible
 
 ```text
 .
-├── docs/        Canonical product/technical docs (00–06) + working docs
 ├── backend/     FastAPI + Pydantic v2 backend (agents, tools, services, API)
 ├── frontend/    Next.js + TypeScript + Tailwind web UI
-├── data/        Local demo data: SQLite, markdown memory, traces, audio cache
-├── scripts/     Seed / reset / export / demo-runner scripts
-├── AGENTS.md    Global rules for AI coding agents
-└── CLAUDE.md    Claude Code workflow expectations
+├── data/        Local demo data: seed memory cards, traces, audio cache
+├── scripts/     Dev runner scripts
+└── Makefile     make setup / make dev / make test
 ```
-
-See [docs/05_reference_project_structure.md](docs/05_reference_project_structure.md)
-for the full intended structure.
 
 ---
 
@@ -222,8 +195,7 @@ degrades to text. The endpoint rate-limits bursts, so don't click rapidly.
 
 ## Demo route
 
-The current demo backbone follows six scenarios (full script in
-[docs/demo_script.md](docs/demo_script.md)). These exercise the **supporting
+The current demo backbone follows six scenarios. These exercise the **supporting
 capabilities and safety path** on the technical foundation; the relationship-aware
 reminiscence flow (dynamic role orchestration + agent–agent social cueing) is the
 **next-stage** prototype layer that builds on top of them.
@@ -246,16 +218,15 @@ reminiscence flow (dynamic role orchestration + agent–agent social cueing) is 
 The system must never provide medical diagnosis, medication dosage changes,
 treatment recommendations, claims that mock sensor data proves illness, real
 emergency dispatch, or fabricated family/hospital/caregiver information. High-risk
-input is routed to the safety path. See [docs/safety_policy.md](docs/safety_policy.md)
-and [AGENTS.md](AGENTS.md) §4, §9, §12.
+input is routed to the safety path: deterministic input/output rule guards run on
+every turn, a SafetyCriticAgent reviews flagged turns, and high-risk cases fall
+back to fixed safety templates that recommend contacting a doctor, family, or
+emergency services (in demo mode the UI states that no real call is placed).
 
 ---
 
 ## Contributing
 
-This repo is optimized for AI-first development with asynchronous review. One
-main completer advances P0 vertical slices; a reviewer checks PR behavior and
-safety in daily batches. Read
-[docs/06_collaboration_workflow.md](docs/06_collaboration_workflow.md) before
-opening a PR, and use [.github/pull_request_template.md](.github/pull_request_template.md).
-Keep `DEMO_MODE=true` runnable and never hardcode a fixed companion name.
+Active development happens in the team's development repository; this snapshot
+tracks its main branch. For any change, keep `DEMO_MODE=true` runnable and never
+hardcode a fixed companion name.
