@@ -1,0 +1,26 @@
+[
+  {
+    "card_id": "mc_ac4b52fa",
+    "user_id": "demo_user",
+    "candidate_type": "boundary_preference",
+    "summary": "不想再聊了",
+    "why_save": "记录一条边界偏好，以后避免主动提起这个话题。",
+    "sensitivity": "medium",
+    "default_action": "confirm_before_save",
+    "source_turn_id": "t_44efe579",
+    "status": "pending",
+    "created_at": "2026-07-10T13:32:57.320942+00:00"
+  },
+  {
+    "card_id": "mc_a49d71f0",
+    "user_id": "demo_user",
+    "candidate_type": "boundary_preference",
+    "summary": "不想再聊这个话题",
+    "why_save": "记录一条边界偏好，以后避免主动提起这个话题。",
+    "sensitivity": "medium",
+    "default_action": "confirm_before_save",
+    "source_turn_id": "t_5f74811b",
+    "status": "pending",
+    "created_at": "2026-07-10T14:08:57.688419+00:00"
+  }
+]
