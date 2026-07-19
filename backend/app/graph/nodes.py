@@ -17,6 +17,7 @@ from app.core.constants import TraceEntryKind
 from app.graph.state import GraphState
 from app.relationship.cue_generator import (
     CueGenerator,
+    is_greeting_turn,
     is_relationship_cue_excluded,
     is_relationship_cue_turn,
     role_messages_from_cue,
@@ -478,6 +479,23 @@ _ROLE_REPLY_TEXT_REPLACEMENTS = (
     ("您们", "大家"),
 )
 
+_GREETING_ACKNOWLEDGEMENT_MARKERS = (
+    "你好",
+    "您好",
+    "问好",
+    "大家好",
+    "早上好",
+    "上午好",
+    "下午好",
+    "晚上好",
+    "嗨",
+    "哈喽",
+    "hello",
+    "在呢",
+    "听见您",
+    "很高兴见到",
+)
+
 
 def _visible_role_ids(expected_roles: list[RoleId]) -> list[RoleId]:
     return [
@@ -526,6 +544,7 @@ def _prepare_role_reply(
     expected_roles: list[RoleId],
     *,
     topic_card_refusal: bool = False,
+    require_greeting_acknowledgement: bool = False,
 ) -> tuple[str, list[RoleCueMessage], bool, str | None, list[str]]:
     normalized_text, replaced_terms = _normalize_role_reply_text(reply_text)
     messages = role_messages_from_cue(normalized_text, expected_roles)
@@ -534,6 +553,7 @@ def _prepare_role_reply(
         messages,
         expected_roles,
         topic_card_refusal=topic_card_refusal,
+        require_greeting_acknowledgement=require_greeting_acknowledgement,
     )
     if accepted:
         normalized_text = _render_role_messages(messages)
@@ -548,13 +568,16 @@ def _role_reply_repair_context(
     labels = "、".join(
         get_role_profile(role_id).label_zh for role_id in _visible_role_ids(expected_roles)
     )
-    return (
+    context = (
         f"{role_style_context or ''}\n"
         "上一版回复没有满足可见角色输出格式，必须重新生成完整回复。"
         f"失败原因：{rejection_reason or '格式不完整'}。"
         f"严格按这个顺序输出：{labels}。每个角色恰好一行，不得遗漏、重复、换序或合并；"
         "每行都以完整角色名和中文冒号开头。不要使用“您们”，不要输出任何额外说明。"
     )
+    if rejection_reason == "topic_card_greeting_not_acknowledged":
+        context += "第一位角色必须先自然回应用户的问候，再轻轻引入系统提供的话题。"
+    return context
 
 
 def _fallback_role_reply(
@@ -588,6 +611,7 @@ def _role_messages_validation(
     expected_roles: list[RoleId],
     *,
     topic_card_refusal: bool = False,
+    require_greeting_acknowledgement: bool = False,
 ) -> tuple[bool, str | None]:
     expected = _visible_role_ids(expected_roles)
     expected_count = len(expected)
@@ -612,6 +636,12 @@ def _role_messages_validation(
             or any(marker in text for marker in _TOPIC_REFUSAL_PRESSURE_MARKERS)
         ):
             return False, "topic_refusal_reply_pressures_user"
+    if require_greeting_acknowledgement:
+        combined_text = "\n".join(message.text for message in messages).lower()
+        if not any(
+            marker in combined_text for marker in _GREETING_ACKNOWLEDGEMENT_MARKERS
+        ):
+            return False, "topic_card_greeting_not_acknowledged"
     return True, None
 
 
@@ -813,6 +843,7 @@ def _relationship_cue_context(
     decision,
     fallback_cue: str,
     *,
+    topic_card_opening: bool = False,
     topic_card_refusal: bool = False,
 ) -> str:
     selected_roles = ", ".join(r.value for r in decision.selected_roles) or "none"
@@ -830,6 +861,14 @@ def _relationship_cue_context(
         "offline_template_for_reference:\n"
         f"{fallback_cue}"
     )
+    if topic_card_opening:
+        context += (
+            "\ninteraction_intent: acknowledge_user_then_open_topic\n"
+            "这是话题卡开场。上面的 topic 是系统提供的背景，不是用户刚刚亲口说出的内容。"
+            "必须先自然回应本轮真实用户消息；如果用户在打招呼，第一位角色要先回问候，"
+            "本轮以回应问候为主，最多由最后一位角色轻轻确认是否要进入这个话题，"
+            "不要让三个角色立即各自展开 topic。不得假装用户已经讲过相关经历。"
+        )
     if topic_card_refusal:
         context += (
             "\ninteraction_intent: acknowledge_topic_refusal\n"
@@ -845,8 +884,9 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     Runs only for NON-SENSITIVE reminiscence turns (the Coordinator gate already
     excludes grief/health/privacy/loneliness). Reads memory context, asks the
     deterministic RelationshipOrchestratorAgent which visible roles speak, then
-    renders the cue with CueGenerator. Memory read/write is preserved around this
-    node so preferences (e.g. 粤剧) still get saved.
+    builds a deterministic CueGenerator fallback, then lets CompanionAgent render
+    the cue when a real provider is configured. Memory read/write is preserved
+    around this node so preferences (e.g. 粤剧) still get saved.
     """
 
     role_selection_mode = state.role_selection_mode
@@ -857,6 +897,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
     topic_card_start = _is_topic_card_start_turn(state)
     topic_card_refusal = _is_topic_card_refusal_turn(state)
+    topic_card_greeting = topic_card_start and is_greeting_turn(state.user_input)
     visible_cueing_style = (
         "boundary_acknowledgement"
         if topic_card_refusal
@@ -918,6 +959,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "topic_id": state.topic_id,
                 "topic_label": state.topic_label,
                 "topic_card_opening": topic_card_start,
+                "topic_card_greeting": topic_card_greeting,
                 "topic_card_refusal": topic_card_refusal,
                 "material_type": (
                     state.material_type.value if state.material_type else None
@@ -939,7 +981,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             },
         )
     )
-    if deps.companion.llm_provider_name == "fake" or topic_card_start:
+    if deps.companion.llm_provider_name == "fake":
         state.draft_reply = fallback_cue
         return state
 
@@ -960,17 +1002,20 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             ),
             topic_card_refusal=topic_card_refusal,
         )
+    companion_message = state.user_input
+    relationship_cue_context = _relationship_cue_context(
+        decision,
+        fallback_cue,
+        topic_card_opening=topic_card_start,
+        topic_card_refusal=topic_card_refusal,
+    )
     result = deps.companion.respond(
-        message=state.user_input if topic_card_refusal else relationship_input,
+        message=companion_message,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
         conversation_history=state.conversation_history,
-        relationship_cue_context=_relationship_cue_context(
-            decision,
-            fallback_cue,
-            topic_card_refusal=topic_card_refusal,
-        ),
+        relationship_cue_context=relationship_cue_context,
         role_style_context=role_style_context,
     )
     (
@@ -983,7 +1028,43 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result.reply_text,
         selected_talk_roles,
         topic_card_refusal=topic_card_refusal,
+        require_greeting_acknowledgement=topic_card_greeting,
     )
+    initial_rejection_reason = role_reply_rejection_reason
+    retry_used = False
+    retry_accepted = False
+
+    if not role_reply_accepted and selected_talk_roles:
+        retry_used = True
+        result = deps.companion.respond(
+            message=companion_message,
+            mode=state.mode,
+            companion_display_name=state.user_profile.companion_display_name,
+            memory_context=state.memory_context,
+            conversation_history=state.conversation_history,
+            relationship_cue_context=relationship_cue_context,
+            role_style_context=_role_reply_repair_context(
+                role_style_context,
+                selected_talk_roles,
+                role_reply_rejection_reason,
+            ),
+        )
+        (
+            prepared_reply_text,
+            real_role_messages,
+            role_reply_accepted,
+            role_reply_rejection_reason,
+            retry_normalized_terms,
+        ) = _prepare_role_reply(
+            result.reply_text,
+            selected_talk_roles,
+            topic_card_refusal=topic_card_refusal,
+            require_greeting_acknowledgement=topic_card_greeting,
+        )
+        normalized_terms.extend(retry_normalized_terms)
+        retry_accepted = role_reply_accepted
+
+    fallback_used = not role_reply_accepted
     if role_reply_accepted:
         state.draft_reply = prepared_reply_text
         state.role_messages = real_role_messages
@@ -999,6 +1080,8 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result,
         extra_detail={
             "relationship_cueing": True,
+            "companion_input_source": "raw_user_input",
+            "topic_card_greeting": topic_card_greeting,
             "topic_card_refusal": topic_card_refusal,
             "relationship_cue_fallback_template": fallback_cue,
             "manual_role_style": role_selection_mode is RoleSelectionMode.manual,
@@ -1009,8 +1092,13 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 get_role_profile(role_id).label_zh for role_id in selected_talk_roles
             ],
             "llm_role_reply_accepted": role_reply_accepted,
+            "llm_role_reply_initial_rejection_reason": initial_rejection_reason,
+            "llm_role_reply_final_rejection_reason": role_reply_rejection_reason,
+            "llm_role_reply_retry_used": retry_used,
+            "llm_role_reply_retry_accepted": retry_accepted,
+            "llm_role_reply_fallback_used": fallback_used,
             "llm_role_reply_rejection_reason": role_reply_rejection_reason,
-            "llm_role_reply_normalized_terms": normalized_terms,
+            "llm_role_reply_normalized_terms": sorted(set(normalized_terms)),
         },
     )
     return state
