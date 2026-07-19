@@ -64,15 +64,12 @@ The companion has **no built-in fixed name**. The user names it during
 onboarding; before naming, the UI shows the neutral label **陪伴 AI / AI
 Companion** and the code stores the user's choice in `companion_display_name`.
 
-> **Scope honesty.** The code in this repo is a **technical foundation / demo
-> backbone**, not the finished research. The relationship-aware layer (dynamic role
-> orchestration, agent–agent social cueing, and the relationship-role interaction
-> rules) is the **next stage**, added as a relationship-aware prototype / Wizard-of-Oz
-> / semi-automatic layer. No elderly user study has been run yet. **Real LLM and real
-> retrieval are provider-interface / future work — not implemented**; `DEMO_MODE`
-> defaults to fake/mock/offline providers with no API key. Real ASR/TTS is optional
-> and available. Long-term memory, trust, and control are **supporting / boundary /
-> evaluation dimensions**, not a standalone contribution.
+> **Scope honesty.** The code in this repo is a **course-level software demo / HCI
+> research prototype**, not a finished clinical or care product. No elderly user
+> study has been run yet. `DEMO_MODE` defaults to fake/mock/offline providers with
+> no API key; optional xiaomimimo LLM/ASR/TTS and Open-Meteo weather providers are
+> available behind interfaces. Long-term memory, trust, and control are
+> **supporting / boundary / evaluation dimensions**, not a standalone contribution.
 
 ---
 
@@ -82,6 +79,9 @@ This repository is a demo-focused snapshot: it contains everything needed to run
 and evaluate the prototype. The full product, research, and process documentation
 set (PRD, technical roadmap, evaluation plan, study materials, contributor
 guides) is maintained in the team's development repository.
+
+For a complete feature checklist and step-by-step acceptance scenarios, see the
+[QAQ Feature Experience and Test Guide](FEATURE_TEST_GUIDE.md)（中文）.
 
 ---
 
@@ -117,6 +117,7 @@ is a **tool** or **service**. The Agent Trace must keep this distinction visible
 ├── frontend/    Next.js + TypeScript + Tailwind web UI
 ├── data/        Local demo data: seed memory cards, traces, audio cache
 ├── scripts/     Dev runner scripts
+├── FEATURE_TEST_GUIDE.md  Chinese feature and acceptance-test guide
 └── Makefile     make setup / make dev / make test
 ```
 
@@ -175,30 +176,34 @@ trace appear. Set `NEXT_PUBLIC_API_BASE_URL` in `.env` if the backend is not on
 
 Each backend / frontend folder also has its own README with exact commands.
 
-### Real voice (optional)
+### Real LLM and voice (optional)
 
-The demo defaults to mock voice. To use the real **xiaomimimo** ASR/TTS (the key
-lives only in the gitignored `.env`), set in the repo-root `.env`:
+The demo defaults to fake replies and mock voice. To use real **xiaomimimo**
+companion replies, ASR, and TTS (the key lives only in the gitignored `.env`),
+set in the repo-root `.env`:
 
 ```bash
 DEMO_MODE=false
+LLM_PROVIDER=xiaomimimo
 ASR_PROVIDER=xiaomimimo
 TTS_PROVIDER=xiaomimimo
-# keep LLM_PROVIDER=fake and RETRIEVAL_PROVIDER=mock — a real LLM / retrieval
-# provider is not implemented yet (companion replies stay template-based).
+RETRIEVAL_PROVIDER=mock
+OPENAI_API_KEY=your_key_here
+LLM_MODEL=mimo-v2.5
 ```
 
-Restart the backend, then record in the browser. On any ASR/TTS failure the chat
-degrades to text. The endpoint rate-limits bursts, so don't click rapidly.
+Restart the backend, then record in the browser. Provider failures fall back to
+safe fake/mock behavior. Keep `RETRIEVAL_PROVIDER=mock` for the acceptance guide's
+`mock_weather` expectation, or set it to `open_meteo` for real weather retrieval.
+The endpoint rate-limits bursts, so don't click rapidly.
 
 ---
 
 ## Demo route
 
-The current demo backbone follows six scenarios. These exercise the **supporting
-capabilities and safety path** on the technical foundation; the relationship-aware
-reminiscence flow (dynamic role orchestration + agent–agent social cueing) is the
-**next-stage** prototype layer that builds on top of them.
+The current prototype supports the following core scenarios. The full 12-feature
+acceptance matrix and exact test prompts are in
+[FEATURE_TEST_GUIDE.md](FEATURE_TEST_GUIDE.md).
 
 1. **Companionship** — emotional disclosure gets emotional grounding first.
 2. **Reminder** — set a medication/hydration/schedule reminder (no dosage advice).
@@ -210,6 +215,10 @@ reminiscence flow (dynamic role orchestration + agent–agent social cueing) is 
    retrieval; emotional turns do not.
 6. **Safety boundary** — a medication-dosage / high-risk health question is
    refused with a safe alternative, never diagnosed.
+7. **Relationship-aware reminiscence** — 2–3 relationship roles provide a short
+   social cue before inviting the elder into a memory topic.
+8. **Trace, caregiver summary, and evaluation export** — inspect routing and
+   privacy-preserving metadata without exposing complete transcripts.
 
 ---
 
