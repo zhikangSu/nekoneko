@@ -173,8 +173,9 @@ def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
     ).json()
 
     assert _route(body) == "relationship_cueing"
-    assert body["role_messages"][0]["text"].startswith(
-        "您好呀，我们也向您问好。"
+    assert body["role_messages"][0]["text"] == "您好呀，我们都在，见到您很高兴。"
+    assert all(
+        "粤剧" not in message["text"] for message in body["role_messages"]
     )
     orchestrator = next(
         step
@@ -751,9 +752,9 @@ def test_topic_card_start_uses_real_llm_when_configured():
 def test_topic_card_greeting_retries_when_real_llm_ignores_user():
     provider = _SpyRealLLMProvider()
     repaired_reply = (
-        "同龄共鸣者：您好呀，我们也向您问好；刚才正想起以前听粤剧的热闹。\n"
-        "中年传承者：接着这份热闹说，老戏老歌也留着一代人的生活味道。\n"
-        "晚辈好奇者：听前面这么一说，我也好奇您最喜欢哪一段？"
+        "同龄共鸣者：您好呀，我们都在，见到您很高兴。\n"
+        "中年传承者：您好，咱们不着急，先按您舒服的节奏来。\n"
+        "晚辈好奇者：您好呀，您想先聊这张话题卡，还是随意说两句都可以。"
     )
     provider.reply_texts = [
         (

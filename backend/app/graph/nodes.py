@@ -866,7 +866,8 @@ def _relationship_cue_context(
             "\ninteraction_intent: acknowledge_user_then_open_topic\n"
             "这是话题卡开场。上面的 topic 是系统提供的背景，不是用户刚刚亲口说出的内容。"
             "必须先自然回应本轮真实用户消息；如果用户在打招呼，第一位角色要先回问候，"
-            "然后角色之间再轻轻过渡到系统提供的话题。不得假装用户已经讲过相关经历。"
+            "本轮以回应问候为主，最多由最后一位角色轻轻确认是否要进入这个话题，"
+            "不要让三个角色立即各自展开 topic。不得假装用户已经讲过相关经历。"
         )
     if topic_card_refusal:
         context += (

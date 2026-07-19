@@ -234,6 +234,17 @@ _TOPIC_CARD_OPENING: dict[RoleId, dict[Topic | None, str]] = {
 }
 
 
+_TOPIC_CARD_GREETING: dict[RoleId, str] = {
+    RoleId.same_age_peer: "您好呀，我们都在，见到您很高兴。",
+    RoleId.curious_junior: "您好呀，您想先聊这张话题卡，还是先随意说两句都可以。",
+    RoleId.middle_age_bridge: "您好，咱们不着急，先按您舒服的节奏来。",
+    RoleId.elder_mentor: "您好，慢慢来，您想怎么开头都可以。",
+    RoleId.theme_companion: "您好呀，这个话题什么时候想聊都可以。",
+    RoleId.memory_organizer: "您好，先聊当前想说的，不急着整理。",
+    RoleId.boundary_guardian: "您好，您想聊或暂时不聊都可以。",
+}
+
+
 # When the elder declines the current card, every active role may acknowledge
 # that choice, but none may keep developing the card or ask for a story.
 _TOPIC_CARD_REFUSAL: dict[RoleId, str] = {
@@ -330,15 +341,21 @@ class CueGenerator:
             return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         if topic_card_opening:
+            if is_greeting_turn(user_input):
+                greeting_fallback = "您好呀，我们都在，您想说什么都可以。"
+                lines = [
+                    f"{_label(role)}：{_TOPIC_CARD_GREETING.get(role, greeting_fallback)}"
+                    for role in roles
+                    if role is not RoleId.no_ai_role
+                ]
+                return "\n".join(lines[:MAX_ROLES_PER_TURN])
+
             opening_fallback = "这个话题可以先从从前生活里的一个小场景慢慢展开。"
             lines = [
                 f"{_label(role)}：{_line_for(_TOPIC_CARD_OPENING, role, topic, opening_fallback)}"
                 for role in roles
                 if role is not RoleId.no_ai_role
             ]
-            if lines and is_greeting_turn(user_input):
-                label, line = lines[0].split("：", maxsplit=1)
-                lines[0] = f"{label}：您好呀，我们也向您问好。{line}"
             return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         if decision.cueing_style is CueingStyle.no_cue or not roles:
