@@ -845,8 +845,9 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     Runs only for NON-SENSITIVE reminiscence turns (the Coordinator gate already
     excludes grief/health/privacy/loneliness). Reads memory context, asks the
     deterministic RelationshipOrchestratorAgent which visible roles speak, then
-    renders the cue with CueGenerator. Memory read/write is preserved around this
-    node so preferences (e.g. 粤剧) still get saved.
+    builds a deterministic CueGenerator fallback, then lets CompanionAgent render
+    the cue when a real provider is configured. Memory read/write is preserved
+    around this node so preferences (e.g. 粤剧) still get saved.
     """
 
     role_selection_mode = state.role_selection_mode
@@ -939,7 +940,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             },
         )
     )
-    if deps.companion.llm_provider_name == "fake" or topic_card_start:
+    if deps.companion.llm_provider_name == "fake":
         state.draft_reply = fallback_cue
         return state
 
@@ -960,17 +961,19 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
             ),
             topic_card_refusal=topic_card_refusal,
         )
+    companion_message = state.user_input if topic_card_refusal else relationship_input
+    relationship_cue_context = _relationship_cue_context(
+        decision,
+        fallback_cue,
+        topic_card_refusal=topic_card_refusal,
+    )
     result = deps.companion.respond(
-        message=state.user_input if topic_card_refusal else relationship_input,
+        message=companion_message,
         mode=state.mode,
         companion_display_name=state.user_profile.companion_display_name,
         memory_context=state.memory_context,
         conversation_history=state.conversation_history,
-        relationship_cue_context=_relationship_cue_context(
-            decision,
-            fallback_cue,
-            topic_card_refusal=topic_card_refusal,
-        ),
+        relationship_cue_context=relationship_cue_context,
         role_style_context=role_style_context,
     )
     (
@@ -984,6 +987,40 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         selected_talk_roles,
         topic_card_refusal=topic_card_refusal,
     )
+    initial_rejection_reason = role_reply_rejection_reason
+    retry_used = False
+    retry_accepted = False
+
+    if not role_reply_accepted and selected_talk_roles:
+        retry_used = True
+        result = deps.companion.respond(
+            message=companion_message,
+            mode=state.mode,
+            companion_display_name=state.user_profile.companion_display_name,
+            memory_context=state.memory_context,
+            conversation_history=state.conversation_history,
+            relationship_cue_context=relationship_cue_context,
+            role_style_context=_role_reply_repair_context(
+                role_style_context,
+                selected_talk_roles,
+                role_reply_rejection_reason,
+            ),
+        )
+        (
+            prepared_reply_text,
+            real_role_messages,
+            role_reply_accepted,
+            role_reply_rejection_reason,
+            retry_normalized_terms,
+        ) = _prepare_role_reply(
+            result.reply_text,
+            selected_talk_roles,
+            topic_card_refusal=topic_card_refusal,
+        )
+        normalized_terms.extend(retry_normalized_terms)
+        retry_accepted = role_reply_accepted
+
+    fallback_used = not role_reply_accepted
     if role_reply_accepted:
         state.draft_reply = prepared_reply_text
         state.role_messages = real_role_messages
@@ -1009,8 +1046,13 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 get_role_profile(role_id).label_zh for role_id in selected_talk_roles
             ],
             "llm_role_reply_accepted": role_reply_accepted,
+            "llm_role_reply_initial_rejection_reason": initial_rejection_reason,
+            "llm_role_reply_final_rejection_reason": role_reply_rejection_reason,
+            "llm_role_reply_retry_used": retry_used,
+            "llm_role_reply_retry_accepted": retry_accepted,
+            "llm_role_reply_fallback_used": fallback_used,
             "llm_role_reply_rejection_reason": role_reply_rejection_reason,
-            "llm_role_reply_normalized_terms": normalized_terms,
+            "llm_role_reply_normalized_terms": sorted(set(normalized_terms)),
         },
     )
     return state
