@@ -79,6 +79,28 @@ _CUE_EXCLUDED_TOPICS: frozenset[Topic] = frozenset(
 )
 
 
+_GREETING_TURN_MARKERS: tuple[str, ...] = (
+    "你们好",
+    "大家好",
+    "你好",
+    "您好",
+    "早上好",
+    "上午好",
+    "下午好",
+    "晚上好",
+    "嗨",
+    "哈喽",
+    "hello",
+)
+
+
+def is_greeting_turn(text: str) -> bool:
+    """Return whether the user's actual turn includes a direct greeting."""
+
+    normalized = text.strip().lower()
+    return any(marker in normalized for marker in _GREETING_TURN_MARKERS)
+
+
 def is_relationship_cue_excluded(text: str) -> bool:
     """Return whether the user's own words must not be replaced by a card seed."""
 
@@ -314,6 +336,9 @@ class CueGenerator:
                 for role in roles
                 if role is not RoleId.no_ai_role
             ]
+            if lines and is_greeting_turn(user_input):
+                label, line = lines[0].split("：", maxsplit=1)
+                lines[0] = f"{label}：您好呀，我们也向您问好。{line}"
             return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         if decision.cueing_style is CueingStyle.no_cue or not roles:

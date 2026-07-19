@@ -160,6 +160,34 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert metadata["cueing_style"] == "agent_agent_then_invite"
 
 
+def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "cue_topic_card_greeting_fake",
+            "message": "你们好啊",
+            "topic_id": "T06",
+            "topic_label": "老电影、戏曲、歌曲、地方文化",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "relationship_cueing"
+    assert body["role_messages"][0]["text"].startswith(
+        "您好呀，我们也向您问好。"
+    )
+    orchestrator = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator["detail"]["topic_card_greeting"] is True
+    assert all(
+        step["name"] != "CompanionAgent"
+        for step in body["agent_trace"]["agents"]
+    )
+
+
 def test_learning_topic_card_introduces_concrete_learning_scene(client):
     body = client.post(
         "/api/chat",
@@ -692,8 +720,11 @@ def test_topic_card_start_uses_real_llm_when_configured():
     relationship_cueing_node(state, deps)
 
     assert len(provider.payloads) == 1
-    assert provider.payloads[0].message.startswith("年轻时学习读书上学")
+    assert provider.payloads[0].message == "聊这个吧"
     assert "offline_template_for_reference" in (
+        provider.payloads[0].system_prompt or ""
+    )
+    assert "上面的 topic 是系统提供的背景" in (
         provider.payloads[0].system_prompt or ""
     )
     assert [m.role_label for m in state.role_messages] == [
@@ -713,6 +744,63 @@ def test_topic_card_start_uses_real_llm_when_configured():
     )
     assert companion_step.detail["llm_role_reply_accepted"] is True
     assert companion_step.detail["llm_role_reply_fallback_used"] is False
+    assert companion_step.detail["companion_input_source"] == "raw_user_input"
+    assert companion_step.detail["topic_card_greeting"] is False
+
+
+def test_topic_card_greeting_retries_when_real_llm_ignores_user():
+    provider = _SpyRealLLMProvider()
+    repaired_reply = (
+        "同龄共鸣者：您好呀，我们也向您问好；刚才正想起以前听粤剧的热闹。\n"
+        "中年传承者：接着这份热闹说，老戏老歌也留着一代人的生活味道。\n"
+        "晚辈好奇者：听前面这么一说，我也好奇您最喜欢哪一段？"
+    )
+    provider.reply_texts = [
+        (
+            "同龄共鸣者：粤剧一响起来，街头巷尾都像回到从前了。\n"
+            "中年传承者：这些老戏老曲一代代传下来，确实有自己的味道。\n"
+            "晚辈好奇者：我挺好奇的，您平时最喜欢听哪出戏呀？"
+        ),
+        repaired_reply,
+    ]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_greeting_llm",
+        user_id="u_topic_card_greeting_llm",
+        user_input="你们好啊",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_greeting_llm"),
+        memory_context=[],
+        topic_id="T06",
+        topic_label="老电影、戏曲、歌曲、地方文化",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert all(payload.message == "你们好啊" for payload in provider.payloads)
+    assert "上面的 topic 是系统提供的背景" in (
+        provider.payloads[0].system_prompt or ""
+    )
+    assert "第一位角色必须先自然回应用户的问候" in (
+        provider.payloads[1].system_prompt or ""
+    )
+    assert state.draft_reply == repaired_reply
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["companion_input_source"] == "raw_user_input"
+    assert detail["topic_card_greeting"] is True
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "topic_card_greeting_not_acknowledged"
+    )
+    assert detail["llm_role_reply_retry_used"] is True
+    assert detail["llm_role_reply_retry_accepted"] is True
+    assert detail["llm_role_reply_fallback_used"] is False
 
 
 def test_topic_card_refusal_uses_real_llm_with_multi_role_boundary_prompt():
