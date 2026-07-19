@@ -128,6 +128,25 @@ class CueingStyle(str, Enum):
     no_cue = "no_cue"
 
 
+class InteractionIntent(str, Enum):
+    """What the current utterance is doing, separate from its content topic."""
+
+    presence_activity = "presence_activity"
+    presence_identity = "presence_identity"
+    presence_hearing = "presence_hearing"
+    topic_turn = "topic_turn"
+    general_turn = "general_turn"
+
+
+class RoleSelectionSource(str, Enum):
+    """Why the current visible relationship-role set was selected."""
+
+    policy = "policy"
+    user_manual = "user_manual"
+    visible_context = "visible_context"
+    user_preference = "user_preference"
+
+
 class OrchestrationInput(BaseModel):
     """Everything the deterministic policy needs to schedule roles for a turn."""
 
@@ -137,6 +156,9 @@ class OrchestrationInput(BaseModel):
     user_role_preferences: dict | None = None
     role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
     selected_role_ids: list[RoleId] = Field(default_factory=list)
+    # Roles already visible in the current UI scene. They preserve conversational
+    # continuity but are not treated as a manual user choice.
+    context_role_ids: list[RoleId] = Field(default_factory=list, max_length=3)
     risk_flags: dict | None = None
 
 
@@ -150,8 +172,10 @@ class RelationshipDecision(BaseModel):
     """
 
     topic: str
+    interaction_intent: InteractionIntent
     selected_roles: list[RoleId]
     primary_role: RoleId | None
+    role_selection_source: RoleSelectionSource = RoleSelectionSource.policy
     cueing_style: CueingStyle
     role_selection_reason: str
     boundary_notes: list[str] = Field(default_factory=list)

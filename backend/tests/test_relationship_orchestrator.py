@@ -20,9 +20,11 @@ from app.relationship.topic_classifier import (
 )
 from app.schemas.relationship import (
     CueingStyle,
+    InteractionIntent,
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionSource,
     RoleSelectionMode,
 )
 
@@ -35,8 +37,12 @@ def _orchestrate(text: str, **kwargs) -> RelationshipDecision:
 
 
 def _assert_common_invariants(decision: RelationshipDecision) -> None:
-    # selected_roles length within [1, 3]
-    assert 1 <= len(decision.selected_roles) <= MAX_ROLES_PER_TURN
+    # The classifier may abstain (Topic.other), in which case the normal named
+    # companion answers without forcing a visible reminiscence role.
+    assert 0 <= len(decision.selected_roles) <= MAX_ROLES_PER_TURN
+    if not decision.selected_roles:
+        assert decision.topic == Topic.other.value
+        assert decision.primary_role is None
     # never exceeds 3
     assert len(decision.selected_roles) <= 3
     # all selected are valid registry roles
@@ -179,6 +185,35 @@ def test_loneliness_mood_is_gentle_single_prelude():
     assert RoleId.elder_mentor in d.selected_roles
     assert d.primary_role is RoleId.elder_mentor
     assert d.cueing_style == CueingStyle.single_role_prelude
+    _assert_common_invariants(d)
+
+
+def test_other_abstains_without_forcing_reminiscence_roles():
+    d = _orchestrate("今天天气怎么样")
+    assert d.topic == Topic.other.value
+    assert d.interaction_intent is InteractionIntent.general_turn
+    assert d.selected_roles == []
+    assert d.primary_role is None
+    assert d.role_selection_source is RoleSelectionSource.policy
+    assert d.cueing_style is CueingStyle.direct
+    assert "不强行" in d.role_selection_reason
+    assert d.should_generate_memory_card is False
+    _assert_common_invariants(d)
+
+
+def test_presence_question_keeps_visible_scene_roles_as_context():
+    context_roles = [RoleId.middle_age_bridge, RoleId.same_age_peer]
+    d = _orchestrate(
+        "你们在干什么",
+        context_role_ids=context_roles,
+    )
+    assert d.topic == Topic.other.value
+    assert d.interaction_intent is InteractionIntent.presence_activity
+    assert d.selected_roles == context_roles
+    assert d.primary_role is RoleId.middle_age_bridge
+    assert d.role_selection_source is RoleSelectionSource.visible_context
+    assert d.cueing_style is CueingStyle.direct
+    assert "保持对话连续" in d.role_selection_reason
     _assert_common_invariants(d)
 
 

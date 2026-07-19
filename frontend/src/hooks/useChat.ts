@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ChatResponse,
   CompanionMode,
+  ConversationSeedMessage,
   ElderControlAction,
   MemoryScope,
   RelationshipRoleId,
@@ -62,6 +63,8 @@ export function useChat() {
       topic: TopicMaterialContext | null,
       sessionId: string | null,
       memoryScope: MemoryScope,
+      conversationSeed: ConversationSeedMessage[] = [],
+      contextRoleIds: RelationshipRoleId[] = [],
     ): Promise<ChatResponse> => {
       return sendChat({
         user_id: DEFAULT_USER_ID,
@@ -77,6 +80,8 @@ export function useChat() {
         study_session_id: sessionId,
         elder_control_action: DEFAULT_ELDER_CONTROL_ACTION,
         memory_scope: memoryScope,
+        conversation_seed: conversationSeed,
+        context_role_ids: contextRoleIds,
       });
     },
     [roleSelectionMode, selectedRoleIds],
@@ -148,6 +153,8 @@ export function useChat() {
       rawText: string,
       topicOverride?: TopicMaterialContext | null,
       studySessionIdOverride?: string | null,
+      conversationSeed: ConversationSeedMessage[] = [],
+      contextRoleIds: RelationshipRoleId[] = [],
     ): Promise<DetachedChatResult | null> => {
       const text = rawText.trim();
       if (!text) return null;
@@ -161,6 +168,8 @@ export function useChat() {
         // history does not merge into the main chat, but it still uses durable
         // memory so clear preferences like "我喜欢粤剧" appear in Memory Center.
         "default",
+        conversationSeed,
+        contextRoleIds,
       );
       return { text, topic, response };
     },

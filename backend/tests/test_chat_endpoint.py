@@ -83,12 +83,12 @@ def test_manual_role_selection_guides_companion_chat_trace(client):
     assert "陪伴 AI" not in companion_step["summary"]
 
 
-def test_auto_role_selection_guides_companion_chat_trace(client):
+def test_auto_role_selection_trace_respects_loneliness_cue_exclusion(client):
     response = client.post(
         "/api/chat",
         json={
             "user_id": "auto_role_chat",
-            "message": "我今天心情有点复杂，想找人聊聊",
+            "message": "我今天一个人在家，心情有点复杂，想找人聊聊",
             "role_selection_mode": "auto",
         },
     )
@@ -115,10 +115,10 @@ def test_auto_role_selection_guides_companion_chat_trace(client):
         for step in body["agent_trace"]["agents"]
         if step["name"] == "CompanionAgent"
     )
-    assert companion_step["detail"]["auto_role_style"] is True
-    assert companion_step["detail"]["role_labels"]
-    assert "系统分配关系角色" in companion_step["summary"]
-    assert "陪伴 AI" not in companion_step["summary"]
+    assert companion_step["detail"]["auto_role_style"] is False
+    assert companion_step["detail"]["selected_roles"] == []
+    assert companion_step["detail"]["role_labels"] == []
+    assert "系统分配关系角色" not in companion_step["summary"]
 
 
 def test_manual_no_ai_role_does_not_auto_allocate_companion_chat(client):

@@ -117,6 +117,18 @@ function TraceView({ trace }: { trace: AgentTrace }) {
             ? ` (${trace.conversation_history_count})`
             : ""}
         </span>
+        <span
+          className={`rounded-md px-2 py-0.5 ${
+            trace.conversation_seed_used
+              ? "bg-companion-soft text-companion"
+              : "bg-black/5 text-muted"
+          }`}
+        >
+          AmbientSeed: {trace.conversation_seed_used ? "on" : "off"}
+          {trace.conversation_seed_count
+            ? ` (${trace.conversation_seed_count})`
+            : ""}
+        </span>
       </div>
 
       <ResearchTrace trace={trace.research_trace} />
@@ -135,6 +147,7 @@ function ResearchTrace({ trace }: { trace?: ResearchTraceMetadata }) {
   if (!trace) return null;
   const sections: { title: string; values: Record<string, unknown> }[] = [
     { title: "Control", values: trace.control },
+    { title: "Interaction", values: trace.interaction ?? {} },
     { title: "Topic", values: trace.topic },
     { title: "Role", values: trace.role },
     { title: "Boundary", values: trace.boundary },

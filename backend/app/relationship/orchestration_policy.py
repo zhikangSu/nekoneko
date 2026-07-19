@@ -40,11 +40,13 @@ Overrides applied on top of the base plan:
 from __future__ import annotations
 
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN
+from app.relationship.turn_intent import classify_interaction_intent
 from app.schemas.relationship import (
     CueingStyle,
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionSource,
     RoleSelectionMode,
     RoleProfile,
 )
@@ -106,11 +108,6 @@ _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
         RoleId.elder_mentor,
         CueingStyle.single_role_prelude,
     ),
-    Topic.other: (
-        [RoleId.same_age_peer, RoleId.curious_junior],
-        RoleId.same_age_peer,
-        CueingStyle.single_role_prelude,
-    ),
 }
 
 _TOPIC_LABEL_ZH: dict[Topic, str] = {
@@ -124,7 +121,7 @@ _TOPIC_LABEL_ZH: dict[Topic, str] = {
     Topic.privacy_family_conflict: "隐私/家庭矛盾",
     Topic.loneliness_mood: "孤单情绪",
     Topic.general_reminiscence: "一般回忆",
-    Topic.other: "其他/未识别",
+    Topic.other: "当前句未命中回忆主题",
 }
 
 _ROLE_LABEL_ZH: dict[RoleId, str] = {
@@ -240,6 +237,7 @@ def decide(
 
     registry_ids = {p.role_id for p in roles}
     topic_label = _TOPIC_LABEL_ZH.get(topic, topic.value)
+    interaction_intent = classify_interaction_intent(inp.user_input, topic)
     prefs = inp.user_role_preferences
     memory_context = inp.memory_context or []
 
@@ -280,8 +278,10 @@ def decide(
 
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
             selected_roles=selected,
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.policy,
             cueing_style=cueing,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
@@ -305,8 +305,10 @@ def decide(
             summary = f"{topic_label} → 用户自选无 AI（{CueingStyle.no_cue.value}）"
             return RelationshipDecision(
                 topic=topic.value,
+                interaction_intent=interaction_intent,
                 selected_roles=manual_roles,
                 primary_role=RoleId.no_ai_role,
+                role_selection_source=RoleSelectionSource.user_manual,
                 cueing_style=CueingStyle.no_cue,
                 role_selection_reason=reason,
                 boundary_notes=boundary_notes,
@@ -345,8 +347,10 @@ def decide(
         summary = f"{topic_label} → 用户自选 {role_names}（{cueing.value}）"
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
             selected_roles=manual_roles,
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.user_manual,
             cueing_style=cueing,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
@@ -370,8 +374,10 @@ def decide(
         summary = f"{topic_label} → 用户偏好无 AI（{CueingStyle.no_cue.value}）"
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
             selected_roles=selected,
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.user_preference,
             cueing_style=CueingStyle.no_cue,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
@@ -383,10 +389,76 @@ def decide(
             boundary_trace=boundary_trace,
         )
 
-    # ----- Non-sensitive base plan -------------------------------------------
-    base_roles, primary, cueing = _BASE_PLANS.get(
-        topic, _BASE_PLANS[Topic.other]
+    # ----- Visible scene continuity ------------------------------------------
+    # The UI can tell us which relationship roles are already on screen. Keep
+    # those participants stable instead of silently replacing them because the
+    # latest short utterance happens to classify as Topic.other.
+    context_roles = _cap_and_sanitize(
+        [r for r in inp.context_role_ids if r is not RoleId.no_ai_role],
+        registry_ids,
     )
+    if context_roles:
+        primary = context_roles[0]
+        role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in context_roles)
+        reason = (
+            f"当前场景已显示 {role_names}，本轮继续使用这些角色以保持对话连续；"
+            "这不是用户手动选角，也不因当前句未命中回忆主题而换人。"
+        )
+        boundary_notes.append("沿用当前可见角色；仍不扮演任何真实熟人或家人。")
+        return RelationshipDecision(
+            topic=topic.value,
+            interaction_intent=interaction_intent,
+            selected_roles=context_roles,
+            primary_role=primary,
+            role_selection_source=RoleSelectionSource.visible_context,
+            cueing_style=CueingStyle.direct,
+            role_selection_reason=reason,
+            boundary_notes=boundary_notes,
+            should_generate_memory_card=topic in {
+                Topic.study_learning,
+                Topic.old_object_photo,
+                Topic.work_collective,
+                Topic.family_education,
+                Topic.culture_arts,
+                Topic.general_reminiscence,
+            },
+            trace_visible_summary=(
+                f"{topic_label} → 延续当前可见角色 {role_names}（direct）"
+            ),
+            role_trace=f"延续当前屏幕上的 {role_names}，未按当前短句重新换角。",
+            topic_trace=(
+                f"当前句话题分类：{topic_label}；场景话题仍由 topic_id/topic_label 单独记录。"
+            ),
+            memory_trace=_memory_trace(memory_context),
+            boundary_trace="非敏感话题，保持角色连续；仍保留不扮演真实熟人的边界。",
+        )
+
+    # Topic.other is an abstention from the reminiscence-topic classifier, not
+    # a catch-all reminiscence topic. Let the normal CompanionAgent answer the
+    # current utterance without forcing visible roles or a memory prompt.
+    if topic is Topic.other:
+        return RelationshipDecision(
+            topic=topic.value,
+            interaction_intent=interaction_intent,
+            selected_roles=[],
+            primary_role=None,
+            role_selection_source=RoleSelectionSource.policy,
+            cueing_style=CueingStyle.direct,
+            role_selection_reason=(
+                "当前句未命中研究预设的回忆主题；保持普通陪伴回复，"
+                "不强行分配同龄/晚辈角色，也不启动回忆追问。"
+            ),
+            boundary_notes=["未识别到回忆主题时不强行引导用户讲往事。"],
+            should_generate_memory_card=False,
+            trace_visible_summary="当前句未命中回忆主题 → 普通直接回应（不强制关系角色）",
+            role_trace="未强制分配可见关系角色，由用户命名的 CompanionAgent 直接回应。",
+            topic_trace="当前句未命中研究预设的回忆主题；other 仅表示分类器 abstain。",
+            memory_trace=_memory_trace(memory_context),
+            boundary_trace="未启动回忆引导，不把普通直问改写成往事访谈。",
+        )
+
+    # ----- Non-sensitive base plan -------------------------------------------
+    base_roles, primary, cueing = _BASE_PLANS[topic]
     base_roles = list(base_roles)
 
     # Preference: dislikes continuous follow-up → drop the curious junior.
@@ -440,8 +512,10 @@ def decide(
 
     return RelationshipDecision(
         topic=topic.value,
+        interaction_intent=interaction_intent,
         selected_roles=selected,
         primary_role=primary,
+        role_selection_source=RoleSelectionSource.policy,
         cueing_style=cueing,
         role_selection_reason=reason,
         boundary_notes=boundary_notes,

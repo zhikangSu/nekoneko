@@ -17,6 +17,7 @@ from app.graph.state import GraphState
 from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, list_role_profiles
 from app.schemas.profile import UserProfile
+from app.schemas.conversation import ConversationMessage
 from app.schemas.relationship import OrchestrationInput, RoleId, RoleSelectionMode
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
@@ -1100,6 +1101,176 @@ def test_companion_chat_retries_when_manual_role_is_missing():
         companion_step.detail["llm_role_reply_initial_rejection_reason"]
         == "expected_3_role_lines_got_2"
     )
+
+
+def test_companion_direct_presence_question_retries_irrelevant_role_reply():
+    provider = _SpyRealLLMProvider()
+    repaired_reply = (
+        "同龄共鸣者：我们刚才在聊这张话题卡，也在这里等着听您说话。\n"
+        "晚辈好奇者：我也在这里陪您聊天，您想问什么都可以直接问。"
+    )
+    provider.reply_texts = [
+        (
+            "同龄共鸣者：您说的这些，我们那会儿也常经历，一提起来就觉得亲切。\n"
+            "晚辈好奇者：当时最让您记得的一件小事是什么呢？"
+        ),
+        repaired_reply,
+    ]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_retry",
+        user_id="u_companion_presence_retry",
+        user_input="你们在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_retry"),
+        context_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+        conversation_history=[
+            ConversationMessage(
+                role="assistant",
+                content="同龄共鸣者：刚才我们在聊粤剧和地方文化。",
+            )
+        ],
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert provider.payloads[0].message == "你们在干什么"
+    assert provider.payloads[0].conversation_history == state.conversation_history
+    assert "必须先按字面直接回答当前问题" in provider.payloads[0].system_prompt
+    assert "不得转成回忆引导" in provider.payloads[1].system_prompt
+    assert state.draft_reply == repaired_reply
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["direct_presence_question"] is True
+    assert detail["direct_presence_question_kind"] == "activity"
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "direct_presence_question_not_answered"
+    )
+    assert detail["llm_role_reply_retry_accepted"] is True
+    assert detail["llm_role_reply_fallback_used"] is False
+
+
+def test_companion_direct_presence_question_uses_relevant_fallback():
+    provider = _SpyRealLLMProvider()
+    irrelevant_reply = (
+        "同龄共鸣者：您说的这些，我们那会儿也常经历，一提起来就觉得亲切。\n"
+        "晚辈好奇者：当时最让您记得的一件小事是什么呢？"
+    )
+    provider.reply_texts = [irrelevant_reply, irrelevant_reply]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_fallback",
+        user_id="u_companion_presence_fallback",
+        user_input="你们在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_fallback"),
+        context_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+    )
+
+    companion_node(state, deps)
+
+    assert "在这里陪您聊天" in state.draft_reply
+    assert "最让您记得" not in state.draft_reply
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_role_reply_retry_accepted"] is False
+    assert detail["llm_role_reply_fallback_used"] is True
+
+
+def test_companion_direct_presence_question_without_scene_uses_freeform_fallback():
+    provider = _SpyRealLLMProvider()
+    irrelevant_reply = "您最想聊哪一段往事呢？"
+    provider.reply_texts = [irrelevant_reply, irrelevant_reply]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_freeform",
+        user_id="u_companion_presence_freeform",
+        user_input="你在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_freeform"),
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert state.role_messages == []
+    assert "正在这里陪您聊天" in state.draft_reply
+    assert "往事" not in state.draft_reply
+    orchestrator_detail = next(
+        step.detail
+        for step in state.agents
+        if step.name == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator_detail["interaction_intent"] == "presence_activity"
+    assert orchestrator_detail["selected_roles"] == []
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_direct_reply_retry_used"] is True
+    assert detail["llm_direct_reply_retry_accepted"] is False
+    assert detail["llm_direct_reply_fallback_used"] is True
+
+
+def test_ambient_presence_turn_separates_topic_intent_and_visible_role_context(client):
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": "ambient_presence_axes",
+            "message": "你们在干什么",
+            "study_session_id": "ambient_presence_axes_session",
+            "topic_id": "T06",
+            "topic_label": "老电影、戏曲、歌曲、地方文化",
+            "material_type": "topic_card",
+            "conversation_seed": [
+                {
+                    "role": "assistant",
+                    "content": "中年传承者：我们刚才在聊粤剧和地方文化。",
+                }
+            ],
+            "context_role_ids": ["middle_age_bridge", "same_age_peer"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    trace = body["agent_trace"]
+    assert trace["conversation_seed_used"] is True
+    assert trace["research_trace"]["topic"]["classified_topic"] == "other"
+    assert trace["research_trace"]["topic"]["topic_id"] == "T06"
+    assert trace["research_trace"]["interaction"] == {
+        "intent": "presence_activity",
+        "role_selection_source": "visible_context",
+        "context_role_ids": ["middle_age_bridge", "same_age_peer"],
+    }
+    assert trace["research_trace"]["role"]["selected_roles"] == [
+        "middle_age_bridge",
+        "same_age_peer",
+    ]
+    orchestrator_detail = next(
+        step["detail"]
+        for step in trace["agents"]
+        if step["name"] == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator_detail["interaction_intent"] == "presence_activity"
+    assert orchestrator_detail["role_selection_source"] == "visible_context"
+    assert "不因当前句未命中回忆主题而换人" in orchestrator_detail[
+        "role_selection_reason"
+    ]
 
 
 def test_companion_chat_reorders_roles_and_normalizes_unpleasant_plural():

@@ -60,6 +60,29 @@ class ConversationHistoryStore:
             bucket.append(ConversationMessage(role="user", content=user_text))
             bucket.append(ConversationMessage(role="assistant", content=assistant_text))
 
+    def seed_if_empty(
+        self,
+        user_id: str,
+        messages: list[ConversationMessage],
+        session_id: str | None = None,
+    ) -> int:
+        """Seed visible UI context once without replacing existing history."""
+
+        if not messages:
+            return 0
+        key = _history_key(user_id, session_id)
+        with self._lock:
+            bucket = self._messages[key]
+            if bucket:
+                return 0
+            for message in messages[: self._max_messages]:
+                content = _trim(message.content)
+                if content:
+                    bucket.append(
+                        ConversationMessage(role=message.role, content=content)
+                    )
+            return len(bucket)
+
     def clear(self, user_id: str, session_id: str | None = None) -> None:
         """Clear one user's in-process history; mainly useful for tests."""
 

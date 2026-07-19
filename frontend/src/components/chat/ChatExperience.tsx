@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useVoice } from "@/hooks/useVoice";
 import type { AgentTrace } from "@/types/trace";
-import type { TopicMaterialContext } from "@/types/chat";
+import type {
+  RelationshipRoleId,
+  TopicMaterialContext,
+} from "@/types/chat";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
@@ -78,6 +81,13 @@ export function ChatExperience() {
         text,
         scene.topic,
         `${ambientSessionRoot}_${scene.id}`,
+        scene.roleMessages.slice(0, 2).map((message) => ({
+          role: "assistant" as const,
+          content: `${message.role_label}：${message.text}`,
+        })),
+        scene.roleMessages.slice(0, 2).map((message) => message.role_id).filter(
+          (roleId): roleId is RelationshipRoleId => roleId !== null,
+        ),
       );
       if (!result) return null;
       setAmbientTrace(result.response.agent_trace);

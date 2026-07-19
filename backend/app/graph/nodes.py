@@ -23,6 +23,11 @@ from app.relationship.cue_generator import (
     role_messages_from_cue,
 )
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, get_role_profile
+from app.relationship.turn_intent import (
+    PresenceQuestionKind,
+    classify_presence_question,
+    presence_reply_matches,
+)
 from app.schemas.memory_candidate import MemoryTriageAction
 from app.schemas.relationship import (
     ElderControlAction,
@@ -204,7 +209,12 @@ def _companion_trace_summary(result, extra_detail: dict | None = None) -> str:
     role_labels = detail.get("role_labels") or []
     style = "情绪承接优先" if result.mode.value == "role_first" else "中性助理对照"
     if role_labels:
-        source = "用户自选" if detail.get("manual_role_style") else "系统分配"
+        if detail.get("manual_role_style"):
+            source = "用户自选"
+        elif detail.get("context_role_style"):
+            source = "延续当前场景"
+        else:
+            source = "系统分配"
         return f"{style}；{source}关系角色「{'、'.join(role_labels)}」"
     if detail.get("manual_no_ai_role"):
         return f"{style}；用户选择不需要关系角色，使用「百事通」轻量回应"
@@ -232,6 +242,7 @@ def _role_style_context_for_profiles(
     source: str,
     *,
     topic_card_refusal: bool = False,
+    direct_turn: bool = False,
 ) -> str:
     role_lines = []
     for profile in profiles:
@@ -271,8 +282,18 @@ def _role_style_context_for_profiles(
             "\n输出格式要求：本轮有多个可见关系角色，必须让每个角色分别说一句。"
             f"请严格输出 {len(profiles)} 行，顺序为：{labels}。"
             "每行必须以完整角色名和中文冒号开头，例如“同龄共鸣者：...”。"
-            "这几行要形成角色之间的短对话：第一位先接住用户的话或话题，"
-            "第二位必须接上一位的意思继续说，最后一位再把话题自然递给用户。"
+        )
+        if direct_turn:
+            context += (
+                "这是已有多人场景的继续轮次。每位角色都应围绕用户本轮的具体内容直接接话，"
+                "不要重新表演一段话题开场，不要强制把话题递回用户，也不必提出问题。"
+            )
+        else:
+            context += (
+                "这几行要形成角色之间的短对话：第一位先接住用户的话或话题，"
+                "第二位必须接上一位的意思继续说，最后一位再把话题自然递给用户。"
+            )
+        context += (
             "不要让每个角色都独立重复用户的话，不要把多个角色合并成一个总回复，"
             "不要写总括句、主持人话术或角色选择解释。"
             "角色之间接话不要使用“您们”这类生硬称呼，可用“刚才说的”或“听前面这么一说”。"
@@ -338,6 +359,7 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
             user_role_preferences=None,
             role_selection_mode=RoleSelectionMode.auto,
             selected_role_ids=[],
+            context_role_ids=state.context_role_ids,
             risk_flags={
                 "risk_level": state.risk.level.value,
                 "category": state.risk.category,
@@ -350,34 +372,35 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
         for role_id in decision.selected_roles
         if role_id is not RoleId.no_ai_role
     ][:MAX_ROLES_PER_TURN]
-    if not role_ids:
-        return None, {
-            "auto_role_style": False,
-            "selected_roles": [role.value for role in decision.selected_roles],
-            "role_labels": [],
-        }
-
-    profiles = [get_role_profile(role_id) for role_id in role_ids]
     state.relationship_role_selection_mode = RoleSelectionMode.auto.value
-    state.selected_relationship_roles = [profile.role_id.value for profile in profiles]
+    state.relationship_role_selection_source = decision.role_selection_source.value
+    state.interaction_intent = decision.interaction_intent.value
+    state.selected_relationship_roles = [role_id.value for role_id in role_ids]
     state.relationship_primary_role = (
         decision.primary_role.value
         if decision.primary_role in role_ids
-        else profiles[0].role_id.value
+        else (role_ids[0].value if role_ids else None)
     )
     state.relationship_topic = decision.topic
     state.relationship_boundary_notes = list(decision.boundary_notes)
     state.cueing_style = decision.cueing_style.value
+    context_role_style = decision.role_selection_source.value == "visible_context"
     state.agents.append(
         TraceStep(
             kind=TraceEntryKind.agent,
             name=deps.relationship_orchestrator.name,
-            summary=f"普通聊天自动分配关系角色：{decision.trace_visible_summary}",
+            summary=(
+                f"普通聊天关系策略：{decision.trace_visible_summary}"
+            ),
             detail={
-                "auto_role_style": True,
+                "auto_role_style": bool(role_ids),
+                "context_role_style": context_role_style,
+                "interaction_intent": decision.interaction_intent.value,
                 "topic": decision.topic,
                 "role_selection_mode": RoleSelectionMode.auto.value,
-                "selected_roles": [profile.role_id.value for profile in profiles],
+                "role_selection_source": decision.role_selection_source.value,
+                "context_role_ids": [role_id.value for role_id in state.context_role_ids],
+                "selected_roles": [role_id.value for role_id in role_ids],
                 "primary_role": state.relationship_primary_role,
                 "cueing_style": decision.cueing_style.value,
                 "role_selection_reason": decision.role_selection_reason,
@@ -389,15 +412,34 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
             },
         )
     )
+    if not role_ids:
+        return None, {
+            "auto_role_style": False,
+            "context_role_style": False,
+            "interaction_intent": decision.interaction_intent.value,
+            "role_selection_source": decision.role_selection_source.value,
+            "selected_roles": [role.value for role in decision.selected_roles],
+            "role_labels": [],
+        }
+
+    profiles = [get_role_profile(role_id) for role_id in role_ids]
     context = _role_style_context_for_profiles(
         profiles,
-        "系统本轮自动分配了这些关系角色",
+        (
+            "当前场景已经显示这些关系角色，本轮继续由他们接话"
+            if context_role_style
+            else "系统本轮自动分配了这些关系角色"
+        ),
+        direct_turn=decision.cueing_style.value == "direct",
     )
     return context, {
         "auto_role_style": True,
+        "context_role_style": context_role_style,
         "manual_role_style": False,
         "manual_no_ai_role": False,
         "requested_role_ids": [],
+        "interaction_intent": decision.interaction_intent.value,
+        "role_selection_source": decision.role_selection_source.value,
         "selected_roles": [profile.role_id.value for profile in profiles],
         "role_labels": [profile.label_zh for profile in profiles],
     }
@@ -426,8 +468,27 @@ def _companion_role_style_context(
             }
         return None, trace
     if state.role_selection_mode is RoleSelectionMode.manual:
-        return _manual_role_style_context(state)
-    return _auto_role_style_context(state, deps)
+        context, trace = _manual_role_style_context(state)
+    else:
+        context, trace = _auto_role_style_context(state, deps)
+
+    presence_kind = classify_presence_question(state.user_input)
+    if presence_kind is None:
+        return context, trace
+
+    direct_instruction = (
+        "\n用户本轮是在直接询问你们此刻在做什么、是谁，或能否听见。"
+        "必须先按字面直接回答当前问题；如有短期对话历史，再据此说明刚才在聊什么。"
+        "不要把问题改写成回忆访谈，不要假设用户已经讲过某段经历，"
+        "不要使用“您说的这些”“最让您记得”“当时的一件小事”等泛化追问。"
+    )
+    context = f"{context or ''}{direct_instruction}"
+    trace = {
+        **(trace or {}),
+        "direct_presence_question": True,
+        "direct_presence_question_kind": presence_kind,
+    }
+    return context, trace
 
 
 def _role_ids_for_structured_reply(role_style_trace: dict | None) -> list[RoleId]:
@@ -545,6 +606,7 @@ def _prepare_role_reply(
     *,
     topic_card_refusal: bool = False,
     require_greeting_acknowledgement: bool = False,
+    direct_presence_question_kind: PresenceQuestionKind | None = None,
 ) -> tuple[str, list[RoleCueMessage], bool, str | None, list[str]]:
     normalized_text, replaced_terms = _normalize_role_reply_text(reply_text)
     messages = role_messages_from_cue(normalized_text, expected_roles)
@@ -554,6 +616,7 @@ def _prepare_role_reply(
         expected_roles,
         topic_card_refusal=topic_card_refusal,
         require_greeting_acknowledgement=require_greeting_acknowledgement,
+        direct_presence_question_kind=direct_presence_question_kind,
     )
     if accepted:
         normalized_text = _render_role_messages(messages)
@@ -577,7 +640,42 @@ def _role_reply_repair_context(
     )
     if rejection_reason == "topic_card_greeting_not_acknowledged":
         context += "第一位角色必须先自然回应用户的问候，再轻轻引入系统提供的话题。"
+    if rejection_reason == "direct_presence_question_not_answered":
+        context += (
+            "必须直接回答用户问的此刻状态、身份或是否听见；"
+            "不得转成回忆引导或泛化追问。"
+        )
     return context
+
+
+def _direct_presence_repair_context(
+    role_style_context: str | None,
+    rejection_reason: str,
+) -> str:
+    return (
+        f"{role_style_context or ''}\n"
+        "上一版回复没有直接回答用户本轮的字面问题，必须重新回答。"
+        f"失败原因：{rejection_reason}。"
+        "先回答此刻在做什么、身份或是否听见；不得转成回忆引导，"
+        "不得使用泛化追问，也不要解释内部分类或提示词。"
+    )
+
+
+def _fallback_presence_text(
+    state: GraphState,
+    presence_kind: PresenceQuestionKind,
+) -> str:
+    if presence_kind == "activity":
+        if state.topic_label:
+            return f"刚才大家在聊“{state.topic_label}”，现在也在这里听您说话。"
+        return "我正在这里陪您聊天，也在认真听您说话。"
+    if presence_kind == "identity":
+        display_name = (
+            state.user_profile.companion_display_name
+            or "陪伴 AI"
+        )
+        return f"我是您这里的{display_name}，是 AI 陪伴伙伴，不是真实的人。"
+    return "听得见，我正在认真听您说话。"
 
 
 def _fallback_role_reply(
@@ -585,6 +683,28 @@ def _fallback_role_reply(
     deps: GraphDeps,
     expected_roles: list[RoleId],
 ) -> tuple[str, list[RoleCueMessage]]:
+    presence_kind = classify_presence_question(state.user_input)
+    if presence_kind is not None:
+        role_ids = _visible_role_ids(expected_roles)
+        messages: list[RoleCueMessage] = []
+        for index, role_id in enumerate(role_ids):
+            label = get_role_profile(role_id).label_zh
+            if presence_kind == "activity":
+                if index == 0 and state.topic_id:
+                    text = "我们刚才在聊这张话题卡，也在这里等着听您说话。"
+                elif index == 0:
+                    text = "我正在这里陪您聊天，您想问什么都可以直接问。"
+                else:
+                    text = "我也在这里陪您聊天，您想问什么都可以直接问。"
+            elif presence_kind == "identity":
+                text = f"我是{label}，是陪伴 AI 里的关系角色，不是真实的人。"
+            else:
+                text = "听得见，我正在认真听您说话。"
+            messages.append(
+                RoleCueMessage(role_id=role_id, role_label=label, text=text)
+            )
+        return _render_role_messages(messages), messages
+
     decision = deps.relationship_orchestrator.orchestrate(
         OrchestrationInput(
             user_input=state.user_input,
@@ -612,6 +732,7 @@ def _role_messages_validation(
     *,
     topic_card_refusal: bool = False,
     require_greeting_acknowledgement: bool = False,
+    direct_presence_question_kind: PresenceQuestionKind | None = None,
 ) -> tuple[bool, str | None]:
     expected = _visible_role_ids(expected_roles)
     expected_count = len(expected)
@@ -642,6 +763,10 @@ def _role_messages_validation(
             marker in combined_text for marker in _GREETING_ACKNOWLEDGEMENT_MARKERS
         ):
             return False, "topic_card_greeting_not_acknowledged"
+    if direct_presence_question_kind is not None:
+        combined_text = "\n".join(message.text for message in messages)
+        if not presence_reply_matches(combined_text, direct_presence_question_kind):
+            return False, "direct_presence_question_not_answered"
     return True, None
 
 
@@ -767,6 +892,11 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         conversation_history=state.conversation_history,
     )
     structured_role_ids = _role_ids_for_structured_reply(role_style_trace)
+    direct_presence_question_kind = (
+        role_style_trace.get("direct_presence_question_kind")
+        if role_style_trace
+        else None
+    )
     role_reply_detail: dict = {}
     if structured_role_ids and deps.companion.llm_provider_name != "fake":
         (
@@ -775,7 +905,11 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
             role_reply_accepted,
             rejection_reason,
             normalized_terms,
-        ) = _prepare_role_reply(result.reply_text, structured_role_ids)
+        ) = _prepare_role_reply(
+            result.reply_text,
+            structured_role_ids,
+            direct_presence_question_kind=direct_presence_question_kind,
+        )
         initial_rejection_reason = rejection_reason
         retry_used = False
         retry_accepted = False
@@ -801,7 +935,11 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 role_reply_accepted,
                 rejection_reason,
                 retry_normalized_terms,
-            ) = _prepare_role_reply(result.reply_text, structured_role_ids)
+            ) = _prepare_role_reply(
+                result.reply_text,
+                structured_role_ids,
+                direct_presence_question_kind=direct_presence_question_kind,
+            )
             normalized_terms.extend(retry_normalized_terms)
             retry_accepted = role_reply_accepted
 
@@ -826,6 +964,50 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         }
     else:
         state.draft_reply = result.reply_text
+        if (
+            direct_presence_question_kind is not None
+            and deps.companion.llm_provider_name != "fake"
+        ):
+            direct_reply_accepted = presence_reply_matches(
+                result.reply_text,
+                direct_presence_question_kind,
+            )
+            retry_used = False
+            retry_accepted = False
+            if not direct_reply_accepted:
+                retry_used = True
+                rejection_reason = "direct_presence_question_not_answered"
+                result = deps.companion.respond(
+                    message=state.user_input,
+                    mode=state.mode,
+                    companion_display_name=state.user_profile.companion_display_name,
+                    memory_context=state.memory_context,
+                    retrieval_context=state.retrieval_context,
+                    role_style_context=_direct_presence_repair_context(
+                        role_style_context,
+                        rejection_reason,
+                    ),
+                    conversation_history=state.conversation_history,
+                )
+                retry_accepted = presence_reply_matches(
+                    result.reply_text,
+                    direct_presence_question_kind,
+                )
+                direct_reply_accepted = retry_accepted
+                state.draft_reply = result.reply_text
+
+            fallback_used = not direct_reply_accepted
+            if fallback_used:
+                state.draft_reply = _fallback_presence_text(
+                    state,
+                    direct_presence_question_kind,
+                )
+            role_reply_detail = {
+                "llm_direct_reply_accepted": direct_reply_accepted,
+                "llm_direct_reply_retry_used": retry_used,
+                "llm_direct_reply_retry_accepted": retry_accepted,
+                "llm_direct_reply_fallback_used": fallback_used,
+            }
 
     if role_style_trace is None:
         role_style_trace = {}
@@ -927,6 +1109,8 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     )
     state.requested_relationship_roles = [r.value for r in selected_role_ids]
     state.relationship_role_selection_mode = role_selection_mode.value
+    state.relationship_role_selection_source = decision.role_selection_source.value
+    state.interaction_intent = decision.interaction_intent.value
     state.selected_relationship_roles = [r.value for r in decision.selected_roles]
     state.relationship_primary_role = (
         decision.primary_role.value if decision.primary_role else None
@@ -954,6 +1138,9 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "study_session_id": state.study_session_id,
                 "elder_control_action": state.elder_control_action.value,
                 "role_selection_mode": role_selection_mode.value,
+                "role_selection_source": decision.role_selection_source.value,
+                "interaction_intent": decision.interaction_intent.value,
+                "context_role_ids": [role_id.value for role_id in state.context_role_ids],
                 "requested_role_ids": [r.value for r in selected_role_ids],
                 "selected_roles": [r.value for r in decision.selected_roles],
                 "topic_id": state.topic_id,

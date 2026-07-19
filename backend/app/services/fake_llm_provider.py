@@ -9,6 +9,7 @@ system — real risk routing arrives with InputRuleGuard / SafetyCriticAgent (#8
 from __future__ import annotations
 
 from app.core.constants import CompanionMode
+from app.relationship.turn_intent import classify_presence_question
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
 # role_first: emotional grounding first, then a gentle, optional follow-up.
@@ -40,6 +41,14 @@ class FakeLLMProvider(LLMProvider):
     name = "fake"
 
     def generate_companion_reply(self, payload: CompanionReplyInput) -> str:
+        presence_kind = classify_presence_question(payload.message)
+        if presence_kind == "activity":
+            return "我们刚才在聊天，也在这里等您说话。您想问什么都可以直接问。"
+        if presence_kind == "identity":
+            return "我是您命名的 AI 陪伴伙伴，不是真实的人；现在正在这里陪您聊天。"
+        if presence_kind == "hearing":
+            return "听得见，我正在认真听您说话。"
+
         # Retrieval turn: surface the external fact warmly (a real LLM would
         # rewrite it; the fake provider wraps it in a gentle template).
         if payload.retrieval_context:

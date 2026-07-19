@@ -30,11 +30,18 @@ export interface AgentTrace {
   safety_critic_used: boolean;
   conversation_history_used: boolean;
   conversation_history_count: number;
+  conversation_seed_used: boolean;
+  conversation_seed_count: number;
   research_metadata: Record<string, unknown>;
   research_trace?: ResearchTraceMetadata;
 }
 
 export interface ResearchTraceMetadata {
+  interaction?: {
+    intent: string | null;
+    role_selection_source: string | null;
+    context_role_ids: string[];
+  };
   role: {
     selected_roles: string[];
     primary_role: string | null;

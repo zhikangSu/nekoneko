@@ -68,6 +68,11 @@ def _boundary_state(state: GraphState) -> str:
 def _research_trace(state: GraphState) -> ResearchTraceMetadata:
     return ResearchTraceMetadata.model_validate(
         {
+            "interaction": {
+                "intent": state.interaction_intent,
+                "role_selection_source": state.relationship_role_selection_source,
+                "context_role_ids": [role_id.value for role_id in state.context_role_ids],
+            },
             "role": {
                 "selected_roles": state.selected_relationship_roles,
                 "primary_role": state.relationship_primary_role,
@@ -112,6 +117,11 @@ def chat(
     # Companion name source of truth is the user profile (#21).
     profile = profile_store.get(request.user_id)
     turn_id = _new_turn_id()
+    conversation_seed_count = conversation_history_store.seed_if_empty(
+        request.user_id,
+        request.conversation_seed,
+        request.study_session_id,
+    )
     conversation_history = conversation_history_store.recent(
         request.user_id,
         request.study_session_id,
@@ -133,6 +143,9 @@ def chat(
         elder_control_action=request.elder_control_action,
         memory_scope=request.memory_scope,
         conversation_history=conversation_history,
+        context_role_ids=request.context_role_ids,
+        conversation_seed_used=conversation_seed_count > 0,
+        conversation_seed_count=conversation_seed_count,
     )
     run_turn(state, build_deps(settings))
 
@@ -150,6 +163,8 @@ def chat(
         safety_critic_used=state.safety_critic_used,
         conversation_history_used=state.conversation_history_used,
         conversation_history_count=len(state.conversation_history),
+        conversation_seed_used=state.conversation_seed_used,
+        conversation_seed_count=state.conversation_seed_count,
         research_metadata=_research_metadata(state),
         research_trace=_research_trace(state),
     )

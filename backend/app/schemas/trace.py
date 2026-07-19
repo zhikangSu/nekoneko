@@ -44,6 +44,12 @@ class ResearchBoundaryTrace(BaseModel):
     boundary_notes: list[str] = Field(default_factory=list)
 
 
+class ResearchInteractionTrace(BaseModel):
+    intent: Optional[str] = None
+    role_selection_source: Optional[str] = None
+    context_role_ids: list[str] = Field(default_factory=list)
+
+
 class ResearchControlTrace(BaseModel):
     study_condition: Optional[str] = None
     study_session_id: Optional[str] = None
@@ -51,6 +57,9 @@ class ResearchControlTrace(BaseModel):
 
 
 class ResearchTraceMetadata(BaseModel):
+    interaction: ResearchInteractionTrace = Field(
+        default_factory=ResearchInteractionTrace
+    )
     role: ResearchRoleTrace = Field(default_factory=ResearchRoleTrace)
     topic: ResearchTopicTrace = Field(default_factory=ResearchTopicTrace)
     boundary: ResearchBoundaryTrace = Field(default_factory=ResearchBoundaryTrace)
@@ -71,6 +80,8 @@ class AgentTrace(BaseModel):
     safety_critic_used: bool = False
     conversation_history_used: bool = False
     conversation_history_count: int = 0
+    conversation_seed_used: bool = False
+    conversation_seed_count: int = 0
     # Compact research/demo metadata for relationship-aware turns. Keep this
     # privacy-preserving: IDs/enums/role choices, not full sensitive content.
     research_metadata: dict[str, Any] = Field(default_factory=dict)

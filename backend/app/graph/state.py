@@ -44,6 +44,7 @@ class GraphState:
     elder_control_action: ElderControlAction = ElderControlAction.continue_session
     memory_scope: str = "default"
     conversation_history: list[ConversationMessage] = field(default_factory=list)
+    context_role_ids: list[RoleId] = field(default_factory=list)
 
     # Populated by #22 / #10 / #13 later; present now so routing is stable.
     state_event: Optional[dict[str, Any]] = None
@@ -62,10 +63,14 @@ class GraphState:
     retrieval_used: bool = False
     safety_critic_used: bool = False
     conversation_history_used: bool = False
+    conversation_seed_used: bool = False
+    conversation_seed_count: int = 0
     role_messages: list[RoleCueMessage] = field(default_factory=list)
     selected_relationship_roles: list[str] = field(default_factory=list)
     requested_relationship_roles: list[str] = field(default_factory=list)
     relationship_role_selection_mode: Optional[str] = None
+    relationship_role_selection_source: Optional[str] = None
+    interaction_intent: Optional[str] = None
     relationship_primary_role: Optional[str] = None
     relationship_topic: Optional[str] = None
     relationship_boundary_notes: list[str] = field(default_factory=list)
