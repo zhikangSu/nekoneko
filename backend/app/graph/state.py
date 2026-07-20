@@ -66,7 +66,9 @@ class GraphState:
     conversation_seed_used: bool = False
     conversation_seed_count: int = 0
     role_messages: list[RoleCueMessage] = field(default_factory=list)
+    candidate_relationship_roles: list[str] = field(default_factory=list)
     selected_relationship_roles: list[str] = field(default_factory=list)
+    silent_relationship_roles: list[str] = field(default_factory=list)
     requested_relationship_roles: list[str] = field(default_factory=list)
     relationship_role_selection_mode: Optional[str] = None
     relationship_role_selection_source: Optional[str] = None
@@ -75,6 +77,8 @@ class GraphState:
     relationship_topic: Optional[str] = None
     relationship_boundary_notes: list[str] = field(default_factory=list)
     cueing_style: Optional[str] = None
+    relationship_allow_follow_up: bool = False
+    relationship_follow_up_reason: Optional[str] = None
 
     # Trace accumulation, kept separated by kind
     agents: list[TraceStep] = field(default_factory=list)

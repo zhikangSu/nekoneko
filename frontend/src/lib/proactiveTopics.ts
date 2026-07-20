@@ -81,7 +81,7 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
       {
         role_id: "middle_age_bridge",
         role_label: "中年传承者",
-        text: "说到最近大家聊的地方文化，我一下想到粤剧和老戏，老腔老调里常有一个年代的味道。",
+        text: "说到最近大家聊的地方文化，很容易联想到粤剧和老戏，老腔老调里常有一个年代的味道。",
       },
       {
         role_id: "same_age_peer",
@@ -136,7 +136,7 @@ const AMBIENT_SCENES: AmbientChatScene[] = [
       {
         role_id: "same_age_peer",
         role_label: "同龄共鸣者",
-        text: "我也觉得，旧物件一拿起来，很多细节会自己慢慢回来。",
+        text: "旧物件一拿起来，很多生活细节往往会慢慢回来。",
       },
       {
         role_id: "curious_junior",

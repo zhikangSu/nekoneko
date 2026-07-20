@@ -43,11 +43,15 @@ export interface ResearchTraceMetadata {
     context_role_ids: string[];
   };
   role: {
+    candidate_roles?: string[];
     selected_roles: string[];
+    silent_roles?: string[];
     primary_role: string | null;
     role_selection_mode: string | null;
     requested_role_ids: string[];
     cueing_style: string | null;
+    allow_follow_up?: boolean;
+    follow_up_reason?: string | null;
   };
   topic: {
     topic_id: string | null;

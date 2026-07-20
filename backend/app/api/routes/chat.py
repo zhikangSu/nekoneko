@@ -74,7 +74,9 @@ def _research_trace(state: GraphState) -> ResearchTraceMetadata:
                 "context_role_ids": [role_id.value for role_id in state.context_role_ids],
             },
             "role": {
+                "candidate_roles": state.candidate_relationship_roles,
                 "selected_roles": state.selected_relationship_roles,
+                "silent_roles": state.silent_relationship_roles,
                 "primary_role": state.relationship_primary_role,
                 "role_selection_mode": (
                     state.relationship_role_selection_mode
@@ -82,6 +84,8 @@ def _research_trace(state: GraphState) -> ResearchTraceMetadata:
                 ),
                 "requested_role_ids": state.requested_relationship_roles,
                 "cueing_style": state.cueing_style,
+                "allow_follow_up": state.relationship_allow_follow_up,
+                "follow_up_reason": state.relationship_follow_up_reason,
             },
             "topic": {
                 "topic_id": state.topic_id,

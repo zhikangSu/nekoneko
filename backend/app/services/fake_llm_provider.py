@@ -12,18 +12,18 @@ from app.core.constants import CompanionMode
 from app.relationship.turn_intent import classify_presence_question
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
-# role_first: emotional grounding first, then a gentle, optional follow-up.
+# role_first: emotional grounding without mechanically appending a question.
 _ROLE_FIRST_REPLIES = (
-    "我在的。听您说这些，我想先陪您待一会儿。如果您愿意，可以慢慢和我多说说，现在心里是什么感觉？",
-    "嗯，我听到了，谢谢您愿意告诉我。我们不着急，您想先从哪一件说起呢？",
-    "我在听着。您愿意和我聊这些，我很珍惜。如果方便，您愿意再多讲一点吗？",
+    "我在的。先按您刚才说的来，不着急往下问。",
+    "嗯，我听到了。您想继续时再慢慢说，想换个话题也可以。",
+    "我在听着。先把您刚才的意思接住，不催您继续。",
 )
 
 # neutral_assistant: still warm and kind, a little more direct.
 _NEUTRAL_REPLIES = (
-    "好的，我明白了。这件事我先记在心里，您还想补充些什么吗？",
-    "我听到了。我们一起看看可以怎么做，您希望我先帮您做哪一步？",
-    "知道了，谢谢您告诉我。您方便的话，可以再说说具体想怎么安排吗？",
+    "好的，我明白了。先按您刚才说的处理。",
+    "我听到了。我们可以按最直接的一步慢慢来。",
+    "知道了，谢谢您告诉我。我先不额外追问。",
 )
 
 _FOLLOW_UP_MARKERS = (

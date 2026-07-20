@@ -217,7 +217,10 @@ def _companion_trace_summary(result, extra_detail: dict | None = None) -> str:
             source = "系统分配"
         return f"{style}；{source}关系角色「{'、'.join(role_labels)}」"
     if detail.get("manual_no_ai_role"):
-        return f"{style}；用户选择不需要关系角色，使用「百事通」轻量回应"
+        return (
+            f"{style}；用户选择不使用关系角色，"
+            "由用户命名的 CompanionAgent 轻量回应"
+        )
     return result.trace_summary()
 
 
@@ -311,13 +314,21 @@ def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | No
     state.relationship_role_selection_mode = RoleSelectionMode.manual.value
 
     if RoleId.no_ai_role in state.selected_role_ids:
-        state.selected_relationship_roles = [RoleId.no_ai_role.value]
-        state.relationship_primary_role = RoleId.no_ai_role.value
+        state.candidate_relationship_roles = []
+        state.selected_relationship_roles = []
+        state.silent_relationship_roles = []
+        state.relationship_primary_role = None
+        state.relationship_allow_follow_up = False
+        state.relationship_follow_up_reason = (
+            "用户选择不使用关系角色，不追加研究式追问。"
+        )
         return None, {
             "manual_role_style": False,
             "manual_no_ai_role": True,
             "requested_role_ids": requested_role_ids,
-            "selected_roles": [RoleId.no_ai_role.value],
+            "candidate_roles": [],
+            "selected_roles": [],
+            "silent_roles": [],
             "role_labels": [],
         }
 
@@ -332,8 +343,16 @@ def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | No
         }
 
     profiles = [get_role_profile(role_id) for role_id in role_ids]
+    state.candidate_relationship_roles = [
+        profile.role_id.value for profile in profiles
+    ]
     state.selected_relationship_roles = [profile.role_id.value for profile in profiles]
+    state.silent_relationship_roles = []
     state.relationship_primary_role = profiles[0].role_id.value
+    state.relationship_allow_follow_up = True
+    state.relationship_follow_up_reason = (
+        "用户显式选择关系角色，允许至多一个低压力邀请。"
+    )
     context = _role_style_context_for_profiles(
         profiles,
         "用户本轮手动选择了这些关系角色",
@@ -342,7 +361,9 @@ def _manual_role_style_context(state: GraphState) -> tuple[str | None, dict | No
         "manual_role_style": True,
         "manual_no_ai_role": False,
         "requested_role_ids": requested_role_ids,
+        "candidate_roles": [profile.role_id.value for profile in profiles],
         "selected_roles": [profile.role_id.value for profile in profiles],
+        "silent_roles": [],
         "role_labels": [profile.label_zh for profile in profiles],
     }
 
@@ -375,7 +396,13 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
     state.relationship_role_selection_mode = RoleSelectionMode.auto.value
     state.relationship_role_selection_source = decision.role_selection_source.value
     state.interaction_intent = decision.interaction_intent.value
+    state.candidate_relationship_roles = [
+        role_id.value for role_id in decision.candidate_roles
+    ]
     state.selected_relationship_roles = [role_id.value for role_id in role_ids]
+    state.silent_relationship_roles = [
+        role_id.value for role_id in decision.silent_roles
+    ]
     state.relationship_primary_role = (
         decision.primary_role.value
         if decision.primary_role in role_ids
@@ -384,6 +411,8 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
     state.relationship_topic = decision.topic
     state.relationship_boundary_notes = list(decision.boundary_notes)
     state.cueing_style = decision.cueing_style.value
+    state.relationship_allow_follow_up = decision.allow_follow_up
+    state.relationship_follow_up_reason = decision.follow_up_reason
     context_role_style = decision.role_selection_source.value == "visible_context"
     state.agents.append(
         TraceStep(
@@ -400,9 +429,17 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
                 "role_selection_mode": RoleSelectionMode.auto.value,
                 "role_selection_source": decision.role_selection_source.value,
                 "context_role_ids": [role_id.value for role_id in state.context_role_ids],
+                "candidate_roles": [
+                    role_id.value for role_id in decision.candidate_roles
+                ],
                 "selected_roles": [role_id.value for role_id in role_ids],
+                "silent_roles": [
+                    role_id.value for role_id in decision.silent_roles
+                ],
                 "primary_role": state.relationship_primary_role,
                 "cueing_style": decision.cueing_style.value,
+                "allow_follow_up": decision.allow_follow_up,
+                "follow_up_reason": decision.follow_up_reason,
                 "role_selection_reason": decision.role_selection_reason,
                 "boundary_notes": decision.boundary_notes,
                 "role_trace": decision.role_trace,
@@ -418,7 +455,9 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
             "context_role_style": False,
             "interaction_intent": decision.interaction_intent.value,
             "role_selection_source": decision.role_selection_source.value,
+            "candidate_roles": [role.value for role in decision.candidate_roles],
             "selected_roles": [role.value for role in decision.selected_roles],
+            "silent_roles": [role.value for role in decision.silent_roles],
             "role_labels": [],
         }
 
@@ -440,7 +479,9 @@ def _auto_role_style_context(state: GraphState, deps: GraphDeps) -> tuple[str | 
         "requested_role_ids": [],
         "interaction_intent": decision.interaction_intent.value,
         "role_selection_source": decision.role_selection_source.value,
+        "candidate_roles": [role.value for role in decision.candidate_roles],
         "selected_roles": [profile.role_id.value for profile in profiles],
+        "silent_roles": [role.value for role in decision.silent_roles],
         "role_labels": [profile.label_zh for profile in profiles],
     }
 
@@ -534,6 +575,18 @@ _TOPIC_REFUSAL_PRESSURE_MARKERS = (
     "先从",
     "最让您",
     "还记得",
+)
+
+_FABRICATED_LIVED_EXPERIENCE_MARKERS = (
+    "我们那会儿",
+    "我们那时候",
+    "我们那代人",
+    "我那会儿",
+    "我小时候",
+    "我年轻时",
+    "我也经历过",
+    "我家以前",
+    "听着长大",
 )
 
 _ROLE_REPLY_TEXT_REPLACEMENTS = (
@@ -644,6 +697,11 @@ def _role_reply_repair_context(
         context += (
             "必须直接回答用户问的此刻状态、身份或是否听见；"
             "不得转成回忆引导或泛化追问。"
+        )
+    if rejection_reason == "fabricated_lived_experience":
+        context += (
+            "不得声称自己有年龄、年代身份或亲身生活经历；"
+            "删除“我们那会儿”“我们那代人”等虚构亲历表达，改为基于用户原话和时代背景回应。"
         )
     return context
 
@@ -767,6 +825,12 @@ def _role_messages_validation(
         combined_text = "\n".join(message.text for message in messages)
         if not presence_reply_matches(combined_text, direct_presence_question_kind):
             return False, "direct_presence_question_not_answered"
+    combined_text = "\n".join(message.text for message in messages)
+    if any(
+        marker in combined_text
+        for marker in _FABRICATED_LIVED_EXPERIENCE_MARKERS
+    ):
+        return False, "fabricated_lived_experience"
     return True, None
 
 
@@ -1028,7 +1092,11 @@ def _relationship_cue_context(
     topic_card_opening: bool = False,
     topic_card_refusal: bool = False,
 ) -> str:
+    candidate_roles = (
+        ", ".join(r.value for r in decision.candidate_roles) or "none"
+    )
     selected_roles = ", ".join(r.value for r in decision.selected_roles) or "none"
+    silent_roles = ", ".join(r.value for r in decision.silent_roles) or "none"
     cueing_style = (
         "boundary_acknowledgement"
         if topic_card_refusal
@@ -1036,8 +1104,12 @@ def _relationship_cue_context(
     )
     context = (
         f"topic: {decision.topic}\n"
+        f"candidate_relationship_functions: {candidate_roles}\n"
         f"selected_relationship_functions: {selected_roles}\n"
+        f"silent_relationship_functions: {silent_roles}\n"
         f"cueing_style: {cueing_style}\n"
+        f"allow_follow_up: {decision.allow_follow_up}\n"
+        f"follow_up_reason: {decision.follow_up_reason}\n"
         f"role_selection_reason: {decision.role_selection_reason}\n"
         f"boundary_notes: {'; '.join(decision.boundary_notes)}\n"
         "offline_template_for_reference:\n"
@@ -1048,13 +1120,13 @@ def _relationship_cue_context(
             "\ninteraction_intent: acknowledge_user_then_open_topic\n"
             "这是话题卡开场。上面的 topic 是系统提供的背景，不是用户刚刚亲口说出的内容。"
             "必须先自然回应本轮真实用户消息；如果用户在打招呼，第一位角色要先回问候，"
-            "本轮以回应问候为主，最多由最后一位角色轻轻确认是否要进入这个话题，"
-            "不要让三个角色立即各自展开 topic。不得假装用户已经讲过相关经历。"
+            "本轮以回应问候为主；只有 allow_follow_up=true 时才可轻轻确认是否进入话题，"
+            "不要让多个角色立即各自展开 topic。不得假装用户已经讲过相关经历。"
         )
     if topic_card_refusal:
         context += (
             "\ninteraction_intent: acknowledge_topic_refusal\n"
-            "用户已拒绝当前话题。保留既有角色分别回应，但必须立即停止旧话题；"
+            "用户已拒绝当前话题。只需由本轮实际发言角色确认，必须立即停止旧话题；"
             "不得追问、不得邀请用户继续讲、不得自动指定新话题。"
         )
     return context
@@ -1111,24 +1183,36 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
     state.relationship_role_selection_mode = role_selection_mode.value
     state.relationship_role_selection_source = decision.role_selection_source.value
     state.interaction_intent = decision.interaction_intent.value
-    state.selected_relationship_roles = [r.value for r in decision.selected_roles]
+    state.candidate_relationship_roles = [
+        r.value for r in decision.candidate_roles if r is not RoleId.no_ai_role
+    ]
+    state.selected_relationship_roles = [
+        r.value for r in decision.selected_roles if r is not RoleId.no_ai_role
+    ]
+    state.silent_relationship_roles = [
+        r.value for r in decision.silent_roles if r is not RoleId.no_ai_role
+    ]
     state.relationship_primary_role = (
-        decision.primary_role.value if decision.primary_role else None
+        decision.primary_role.value
+        if decision.primary_role and decision.primary_role is not RoleId.no_ai_role
+        else None
     )
     state.relationship_topic = decision.topic
     state.relationship_boundary_notes = list(decision.boundary_notes)
     if topic_card_refusal:
         state.relationship_boundary_notes.insert(
             0,
-            "用户拒绝当前话题：保留既有角色分别确认边界，并停止延续该话题。",
+            "用户拒绝当前话题：仅由本轮实际发言角色确认边界，并停止延续该话题。",
         )
     state.cueing_style = visible_cueing_style or decision.cueing_style.value
+    state.relationship_allow_follow_up = decision.allow_follow_up
+    state.relationship_follow_up_reason = decision.follow_up_reason
     state.agents.append(
         TraceStep(
             kind=TraceEntryKind.agent,
             name=deps.relationship_orchestrator.name,
             summary=(
-                "用户拒绝当前话题；保留既有关系角色分别确认并停止旧话题"
+                "用户拒绝当前话题；由实际发言角色确认并停止旧话题"
                 if topic_card_refusal
                 else decision.trace_visible_summary
             ),
@@ -1142,7 +1226,15 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "interaction_intent": decision.interaction_intent.value,
                 "context_role_ids": [role_id.value for role_id in state.context_role_ids],
                 "requested_role_ids": [r.value for r in selected_role_ids],
-                "selected_roles": [r.value for r in decision.selected_roles],
+                "candidate_roles": [
+                    r.value for r in decision.candidate_roles if r is not RoleId.no_ai_role
+                ],
+                "selected_roles": [
+                    r.value for r in decision.selected_roles if r is not RoleId.no_ai_role
+                ],
+                "silent_roles": [
+                    r.value for r in decision.silent_roles if r is not RoleId.no_ai_role
+                ],
                 "topic_id": state.topic_id,
                 "topic_label": state.topic_label,
                 "topic_card_opening": topic_card_start,
@@ -1155,13 +1247,15 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
                     decision.primary_role.value if decision.primary_role else None
                 ),
                 "cueing_style": state.cueing_style,
+                "allow_follow_up": decision.allow_follow_up,
+                "follow_up_reason": decision.follow_up_reason,
                 "role_selection_reason": decision.role_selection_reason,
                 "boundary_notes": state.relationship_boundary_notes,
                 "role_trace": decision.role_trace,
                 "topic_trace": decision.topic_trace,
                 "memory_trace": decision.memory_trace,
                 "boundary_trace": (
-                    "用户明确拒绝当前话题；角色阵容保持不变，分别确认边界后停止旧话题。"
+                    "用户明确拒绝当前话题；仅由实际发言角色确认边界后停止旧话题。"
                     if topic_card_refusal
                     else decision.boundary_trace
                 ),

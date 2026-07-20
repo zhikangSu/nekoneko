@@ -25,11 +25,15 @@ class TraceStep(BaseModel):
 
 
 class ResearchRoleTrace(BaseModel):
+    candidate_roles: list[str] = Field(default_factory=list)
     selected_roles: list[str] = Field(default_factory=list)
+    silent_roles: list[str] = Field(default_factory=list)
     primary_role: Optional[str] = None
     role_selection_mode: Optional[str] = None
     requested_role_ids: list[str] = Field(default_factory=list)
     cueing_style: Optional[str] = None
+    allow_follow_up: bool = False
+    follow_up_reason: Optional[str] = None
 
 
 class ResearchTopicTrace(BaseModel):

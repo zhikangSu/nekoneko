@@ -56,6 +56,8 @@ def test_fake_reply_is_deterministic_and_mode_aware():
     )
     assert role == role_again  # deterministic
     assert role and neutral
+    assert "？" not in role and "?" not in role
+    assert "？" not in neutral and "?" not in neutral
 
 
 def test_fake_provider_generation_info_is_trace_safe():

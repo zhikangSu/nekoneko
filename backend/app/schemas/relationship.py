@@ -119,7 +119,7 @@ class CueingStyle(str, Enum):
       each other, then turn to invite the elder in. Never used on sensitive
       topics (it can feel performative around grief/health/conflict).
     * ``no_cue`` — no staged persona banter at all (sensitive topics, or the
-      elder wants no AI role / just wants to talk).
+      user wants the named CompanionAgent without research-role labels).
     """
 
     direct = "direct"
@@ -173,12 +173,19 @@ class RelationshipDecision(BaseModel):
 
     topic: str
     interaction_intent: InteractionIntent
+    # Roles considered by policy before choosing the smallest useful speaker
+    # set. ``selected_roles`` are the roles that actually speak this turn;
+    # ``silent_roles`` remain visible/auditable but do not produce a bubble.
+    candidate_roles: list[RoleId] = Field(default_factory=list)
     selected_roles: list[RoleId]
+    silent_roles: list[RoleId] = Field(default_factory=list)
     primary_role: RoleId | None
     role_selection_source: RoleSelectionSource = RoleSelectionSource.policy
     cueing_style: CueingStyle
     role_selection_reason: str
     boundary_notes: list[str] = Field(default_factory=list)
+    allow_follow_up: bool = False
+    follow_up_reason: str = "本轮不需要追问。"
     should_generate_memory_card: bool = False
     trace_visible_summary: str
     role_trace: str

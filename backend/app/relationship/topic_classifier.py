@@ -33,9 +33,9 @@ class Topic(str, Enum):
     family_education = "family_education"  # 家庭 / 孩子 / 教育 / 儿女 / 孙
     culture_arts = "culture_arts"  # 戏曲 / 粤剧 / 老电影 / 老歌 / 地方文化
     deceased_grief = "deceased_grief"  # 老伴走了 / 去世 / 故人
-    health_care = "health_care"  # 身体 / 生病 / 住院 / 吃药 / 健康
+    health_care = "health_care"  # 身体不适 / 生病 / 住院 / 吃药
     privacy_family_conflict = "privacy_family_conflict"  # 家里闹 / 矛盾 / 隐私
-    loneliness_mood = "loneliness_mood"  # 孤单 / 一个人 / 没意思
+    loneliness_mood = "loneliness_mood"  # 孤单 / 没人陪 / 没意思
     general_reminiscence = "general_reminiscence"  # 想起以前 / 回忆
     other = "other"
 
@@ -59,11 +59,20 @@ _SENSITIVE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
         "老伴走了",
         "老伴去世",
         "老伴不在了",
-        "老伴",  # spouse in a reminiscence turn is treated as grief-sensitive
-        "走了",  # euphemism for passing
+        "想老伴",
+        "想起老伴",
+        "思念老伴",
+        "怀念老伴",
+        "离开的老伴",
+        "走了的老伴",
+        "去世的老伴",
+        "亲人走了",
+        "亲人去世",
+        "家人走了",
+        "家人去世",
         "去世",
         "过世",
-        "离开",  # 离开了 / 离开的 / 离开我们
+        "离世",
         "不在了",
         "故人",
         "先走一步",
@@ -73,16 +82,17 @@ _SENSITIVE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
     ),
     Topic.health_care: (
         "身体不好",
-        "身体",
+        "身体不舒服",
+        "身体难受",
+        "身体状况不好",
+        "健康问题",
+        "担心健康",
         "生病",
         "住院",
         "吃药",
         "药量",
         "剂量",
-        "健康",
         "看病",
-        "医院",
-        "医生",
         "血压",
         "血糖",
         "心脏",
@@ -183,12 +193,14 @@ _CONCRETE_KEYWORDS: dict[Topic, tuple[str, ...]] = {
 
 
 # Generic fallback markers. Only consulted when no concrete topic matched, so a
-# bare "以前" or "一个人" does not override a specific old-object/work/culture cue.
+# a generic reminiscence marker does not override a specific topic cue.
 _FALLBACK_KEYWORDS: dict[Topic, tuple[str, ...]] = {
     Topic.loneliness_mood: (
         "孤单",
         "孤独",
-        "一个人",
+        "没人陪",
+        "没人说话",
+        "想找人聊聊",
         "没意思",
         "没劲",
         "闷得慌",
@@ -230,9 +242,11 @@ def _best_match(text: str, table: dict[Topic, tuple[str, ...]]) -> tuple[Topic |
 def classify_topic(text: str) -> Topic:
     """Classify an utterance into a :class:`Topic` (keyword-first, deterministic).
 
-    Sensitive topics are checked first and take priority: if the text mentions
-    grief / health / privacy-conflict at all, that wins even when a longer
-    non-sensitive keyword co-occurs.
+    Sensitive topics are checked first and take priority, but only after a
+    semantically meaningful phrase matches. Ambiguous bare words such as
+    ``老伴`` / ``离开`` / ``身体`` / ``一个人`` are intentionally not enough:
+    treating them as sensitive on their own makes ordinary daily statements
+    jump into grief, medical, or loneliness handling.
     """
 
     if not text or not text.strip():

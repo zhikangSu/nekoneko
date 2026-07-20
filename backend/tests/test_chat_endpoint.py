@@ -136,15 +136,17 @@ def test_manual_no_ai_role_does_not_auto_allocate_companion_chat(client):
     role_trace = body["agent_trace"]["research_trace"]["role"]
     assert role_trace["role_selection_mode"] == "manual"
     assert role_trace["requested_role_ids"] == ["no_ai_role"]
-    assert role_trace["selected_roles"] == ["no_ai_role"]
-    assert role_trace["primary_role"] == "no_ai_role"
+    assert role_trace["candidate_roles"] == []
+    assert role_trace["selected_roles"] == []
+    assert role_trace["silent_roles"] == []
+    assert role_trace["primary_role"] is None
     companion_step = next(
         step
         for step in body["agent_trace"]["agents"]
         if step["name"] == "CompanionAgent"
     )
-    assert "百事通" in companion_step["summary"]
-    assert "陪伴 AI" not in companion_step["summary"]
+    assert "用户命名的 CompanionAgent" in companion_step["summary"]
+    assert "百事通" not in companion_step["summary"]
     assert "RelationshipOrchestratorAgent" not in [
         step["name"] for step in body["agent_trace"]["agents"]
     ]

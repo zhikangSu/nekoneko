@@ -19,7 +19,7 @@ const MANUAL_ROLE_OPTIONS: { value: RelationshipRoleId; label: string }[] = [
   { value: "curious_junior", label: "晚辈" },
   { value: "middle_age_bridge", label: "中年" },
   { value: "elder_mentor", label: "长辈" },
-  { value: "no_ai_role", label: "不需要" },
+  { value: "no_ai_role", label: "不使用角色" },
 ];
 
 export function ChatWindow({
