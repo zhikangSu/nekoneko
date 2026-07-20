@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { sendChat } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { useTraceState } from "@/components/traces/TraceStateProvider";
 import type {
   ChatMessage,
   ChatResponse,
@@ -44,6 +45,7 @@ function visibleCompanionText(response: ChatResponse): string {
 }
 
 export function useChat() {
+  const { publishTrace } = useTraceState();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
@@ -110,6 +112,7 @@ export function useChat() {
           studySessionId,
           "default",
         );
+        publishTrace(response.agent_trace, "main");
         setMessages((prev) => [
           ...prev,
           {
@@ -145,6 +148,7 @@ export function useChat() {
       selectedRoleIds,
       requestChat,
       studySessionId,
+      publishTrace,
     ],
   );
 
@@ -192,6 +196,7 @@ export function useChat() {
           studySessionId,
           "default",
         );
+        publishTrace(response.agent_trace, "main");
         setMessages((prev) => [
           ...prev,
           {
@@ -220,7 +225,14 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, roleSelectionMode, selectedRoleIds, requestChat, studySessionId],
+    [
+      isSending,
+      roleSelectionMode,
+      selectedRoleIds,
+      requestChat,
+      studySessionId,
+      publishTrace,
+    ],
   );
 
   return {

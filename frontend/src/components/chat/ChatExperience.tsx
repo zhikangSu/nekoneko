@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useVoice } from "@/hooks/useVoice";
-import type { AgentTrace } from "@/types/trace";
 import type {
   RelationshipRoleId,
   TopicMaterialContext,
 } from "@/types/chat";
 import { AgentTracePanel } from "@/components/traces/AgentTracePanel";
+import { useTraceState } from "@/components/traces/TraceStateProvider";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import type { AmbientChatScene } from "@/lib/proactiveTopics";
@@ -41,12 +41,9 @@ export function ChatExperience() {
     startTopicConversation,
   } = useChatState();
   const {
-    ambientTrace,
-    setAmbientTrace,
-    ambientTraceVersion,
-    setAmbientTraceVersion,
     ambientSessionRoot,
   } = useAmbientChatState();
+  const { latestTraceEntry, publishTrace, traceVersion } = useTraceState();
   const voice = useVoice({ onTranscript: send });
   // The Agent Trace is a demo/explainability panel (it shows the per-turn
   // routing for graders/developers), not something an elderly end user needs —
@@ -67,11 +64,6 @@ export function ChatExperience() {
     if (voiceRef.current.autoSpeak) voiceRef.current.speak(latest.text);
   }, [messages]);
 
-  const latestMainTrace: AgentTrace | undefined = [...messages]
-    .reverse()
-    .find((message) => message.trace)?.trace;
-  const latestTrace = latestMainTrace ?? ambientTrace;
-
   const handleAmbientSceneSend = useCallback(
     async (
       scene: AmbientChatScene,
@@ -90,8 +82,7 @@ export function ChatExperience() {
         ),
       );
       if (!result) return null;
-      setAmbientTrace(result.response.agent_trace);
-      setAmbientTraceVersion((version) => version + 1);
+      publishTrace(result.response.agent_trace, "ambient");
       return {
         roleMessages: result.response.role_messages ?? [],
         fallbackText: result.response.response_text,
@@ -99,9 +90,8 @@ export function ChatExperience() {
     },
     [
       ambientSessionRoot,
+      publishTrace,
       sendDetached,
-      setAmbientTrace,
-      setAmbientTraceVersion,
     ],
   );
 
@@ -153,9 +143,10 @@ export function ChatExperience() {
         />
         {showTrace ? (
           <AgentTracePanel
-            latestTrace={latestTrace}
+            latestTrace={latestTraceEntry?.trace}
+            latestTraceSource={latestTraceEntry?.source}
             userId={DEFAULT_USER_ID}
-            refreshKey={messages.length + ambientTraceVersion}
+            refreshKey={traceVersion}
           />
         ) : null}
       </div>

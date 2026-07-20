@@ -11,15 +11,23 @@ import type {
 } from "@/types/trace";
 import { AgentToolBadge } from "./AgentToolBadge";
 import { TraceHistory } from "./TraceHistory";
+import type { TraceSource } from "./TraceStateProvider";
+
+const TRACE_SOURCE_LABELS: Record<TraceSource, string> = {
+  main: "主聊天",
+  ambient: "话题场",
+};
 
 // Renders the latest turn's trace and a clickable history list (#9). Selecting a
 // past turn loads its full trace; "返回最新一轮" goes back to the live one.
 export function AgentTracePanel({
   latestTrace,
+  latestTraceSource,
   userId,
   refreshKey,
 }: {
   latestTrace?: AgentTrace;
+  latestTraceSource?: TraceSource;
   userId: string;
   refreshKey: number;
 }) {
@@ -53,7 +61,14 @@ export function AgentTracePanel({
   return (
     <aside className="rounded-2xl bg-surface border border-black/5 p-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-ink">Agent Trace</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-ink">Agent Trace</h2>
+          {!viewingHistory && latestTrace && latestTraceSource ? (
+            <span className="rounded-md bg-companion-soft px-2 py-0.5 text-base text-companion">
+              {TRACE_SOURCE_LABELS[latestTraceSource]}
+            </span>
+          ) : null}
+        </div>
         {viewingHistory ? (
           <button
             type="button"
