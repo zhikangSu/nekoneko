@@ -40,6 +40,17 @@ class MemoryCreate(BaseModel):
             raise ValueError("content must not be blank")
         return stripped
 
+    @field_validator("category")
+    @classmethod
+    def _reminders_belong_in_reminder_store(
+        cls, value: MemoryCategory
+    ) -> MemoryCategory:
+        if value == MemoryCategory.reminder_or_setting:
+            raise ValueError(
+                "reminders are managed by ReminderStore, not long-term memory"
+            )
+        return value
+
 
 class MemorySettings(BaseModel):
     extraction_paused: bool = False

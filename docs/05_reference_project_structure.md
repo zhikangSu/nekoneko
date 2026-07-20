@@ -503,11 +503,13 @@ role_first / neutral_assistant mode toggle
 ```text
 Profile memory
 Event memory
-Reminder memory
 Consent / settings
 删除按钮
 暂停记忆按钮
 ```
+
+提醒记录由 ReminderStore 和 `/reminders` 页面单独管理，不在 Memory Center
+重复展示。
 
 ### 5.3 Sensor Simulator
 

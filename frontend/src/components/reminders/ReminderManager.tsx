@@ -26,6 +26,7 @@ export function ReminderManager() {
   const [content, setContent] = useState("");
   const [time, setTime] = useState("08:00");
   const [recurrence, setRecurrence] = useState<Recurrence>("daily");
+  const [date, setDate] = useState(getLocalDateInputValue);
 
   const refresh = useCallback(async () => {
     try {
@@ -43,8 +44,13 @@ export function ReminderManager() {
   }, [refresh]);
 
   async function handleCreate() {
-    if (!content.trim() || !time) return;
-    await addReminder(DEFAULT_USER_ID, { content: content.trim(), time, recurrence });
+    if (!content.trim() || !time || (recurrence === "once" && !date)) return;
+    await addReminder(DEFAULT_USER_ID, {
+      content: content.trim(),
+      time,
+      recurrence,
+      date: recurrence === "once" ? date : null,
+    });
     setContent("");
     await refresh();
   }
@@ -93,7 +99,7 @@ export function ReminderManager() {
 
       <div className="rounded-2xl bg-surface border border-black/5 p-5 space-y-3">
         <h2 className="text-lg font-semibold text-ink">添加提醒</h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] lg:items-end">
           <div>
             <label htmlFor="r-content" className="block text-base text-muted mb-1">
               提醒内容
@@ -106,6 +112,21 @@ export function ReminderManager() {
               className="w-full rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
             />
           </div>
+          {recurrence === "once" ? (
+            <div>
+              <label htmlFor="r-date" className="block text-base text-muted mb-1">
+                日期
+              </label>
+              <input
+                id="r-date"
+                type="date"
+                min={getLocalDateInputValue()}
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
+              />
+            </div>
+          ) : null}
           <div>
             <label htmlFor="r-time" className="block text-base text-muted mb-1">
               时间
@@ -125,7 +146,9 @@ export function ReminderManager() {
             <select
               id="r-recur"
               value={recurrence}
-              onChange={(event) => setRecurrence(event.target.value as Recurrence)}
+              onChange={(event) =>
+                setRecurrence(event.target.value as Recurrence)
+              }
               className="rounded-xl border border-black/10 bg-canvas px-4 py-3 text-lg focus:border-companion"
             >
               <option value="daily">每天</option>
@@ -135,7 +158,7 @@ export function ReminderManager() {
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={!content.trim()}
+            disabled={!content.trim() || (recurrence === "once" && !date)}
             className="rounded-xl bg-companion px-6 py-3 text-lg font-semibold text-white disabled:opacity-50"
           >
             添加
@@ -159,8 +182,9 @@ export function ReminderManager() {
                   <div className="text-lg text-ink">
                     <span className="font-semibold tabular-nums">{r.time}</span>
                     <span className="mx-2 text-muted">·</span>
-                    {RECURRENCE_LABELS[r.recurrence]}
-                    {r.date ? `（${r.date}）` : ""}
+                    {r.recurrence === "once" && r.date
+                      ? `${formatReminderDate(r.date)}（一次）`
+                      : RECURRENCE_LABELS[r.recurrence]}
                     <span className="mx-2 text-muted">·</span>
                     {r.content}
                   </div>
@@ -198,4 +222,16 @@ export function ReminderManager() {
       </section>
     </div>
   );
+}
+
+function getLocalDateInputValue() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function formatReminderDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return `${year}年${month}月${day}日`;
 }

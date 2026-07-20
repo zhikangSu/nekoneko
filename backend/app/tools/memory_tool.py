@@ -22,7 +22,14 @@ class MemoryTool:
         self._extractor = MemoryCandidateExtractor()
 
     def load_context(self, user_id: str) -> list[MemoryEntry]:
-        return self._store.list(user_id)
+        # Keep legacy reminder/setting entries readable through the memory API,
+        # but do not feed operational reminders into companion context. New
+        # reminders belong exclusively to ReminderStore.
+        return [
+            entry
+            for entry in self._store.list(user_id)
+            if entry.category != MemoryCategory.reminder_or_setting
+        ]
 
     def is_extraction_paused(self, user_id: str) -> bool:
         return self._store.is_extraction_paused(user_id)
