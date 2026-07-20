@@ -36,6 +36,17 @@ _FOLLOW_UP_MARKERS = (
     "你刚说",
 )
 
+_SENSITIVE_TOPIC_CARD_OPENINGS = {
+    "deceased_grief": (
+        "可以，我们聊聊已故亲友和回忆。这个话题有时会牵动不同感受，"
+        "您可以按舒服的节奏说，也可以随时停下或换个话题。"
+    ),
+    "health_care": (
+        "可以，我们聊聊身体健康和照护。我不能判断病情，也不能给用药或剂量建议；"
+        "您可以从自己最想说的一点开始，也可以随时停下或换个话题。"
+    ),
+}
+
 
 class FakeLLMProvider(LLMProvider):
     name = "fake"
@@ -56,6 +67,9 @@ class FakeLLMProvider(LLMProvider):
                 f"我帮您看了一下：{payload.retrieval_context}"
                 "您要是想出门，我可以帮您一起看看怎么安排，比如提醒您带把伞或带点水。"
             )
+
+        if payload.topic in _SENSITIVE_TOPIC_CARD_OPENINGS:
+            return _SENSITIVE_TOPIC_CARD_OPENINGS[payload.topic]
 
         if payload.conversation_history and any(
             marker in payload.message for marker in _FOLLOW_UP_MARKERS

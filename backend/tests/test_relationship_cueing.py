@@ -550,6 +550,63 @@ def test_topic_card_true_acceptances_still_seed_one_opening_role(client):
         assert orchestrator["detail"]["topic_card_opening"] is True
 
 
+def test_deceased_topic_card_opens_on_topic_without_assuming_grief(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "sensitive_card_grief",
+            "message": "聊这个吧",
+            "topic_id": "T09",
+            "topic_label": "已故亲友与重要记忆",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "已故亲友" in body["response_text"]
+    assert "您正在悲伤" not in body["response_text"]
+    assert "您一定很想念" not in body["response_text"]
+    research = body["agent_trace"]["research_trace"]
+    assert research["topic"]["classified_topic"] == "deceased_grief"
+    assert research["role"]["selected_roles"] == []
+    assert research["role"]["cueing_style"] == "no_cue"
+    assert research["boundary"]["boundary_state"] == "guarded"
+    companion = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "CompanionAgent"
+    )
+    assert companion["detail"]["sensitive_topic_card"] is True
+    assert companion["detail"]["single_companion_voice"] is True
+
+
+def test_health_topic_card_opens_on_topic_without_assuming_illness(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "sensitive_card_health",
+            "message": "聊这个吧",
+            "topic_id": "T10",
+            "topic_label": "身体健康和照护",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "身体健康和照护" in body["response_text"]
+    assert "您身体不好" not in body["response_text"]
+    assert "您正在服药" not in body["response_text"]
+    assert "不能判断病情" in body["response_text"]
+    assert "不能给用药或剂量建议" in body["response_text"]
+    research = body["agent_trace"]["research_trace"]
+    assert research["topic"]["classified_topic"] == "health_care"
+    assert research["role"]["selected_roles"] == []
+    assert research["role"]["cueing_style"] == "no_cue"
+    assert research["boundary"]["boundary_state"] == "guarded"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 2: culture/arts preference -> cue route AND memory still saved
 # ---------------------------------------------------------------------------
@@ -786,6 +843,47 @@ def test_topic_card_start_uses_real_llm_when_configured():
     assert companion_step.detail["llm_role_reply_fallback_used"] is False
     assert companion_step.detail["companion_input_source"] == "raw_user_input"
     assert companion_step.detail["topic_card_greeting"] is False
+
+
+def test_sensitive_topic_card_reaches_real_provider_as_non_assumptive_context():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = "可以，我们按您舒服的节奏聊聊已故亲友和回忆，也可以随时换个话题。"
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_sensitive_card_real",
+        user_id="u_sensitive_card_real",
+        user_input="聊这个吧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_sensitive_card_real"),
+        memory_context=[],
+        topic_id="T09",
+        topic_label="已故亲友与重要记忆",
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 1
+    payload = provider.payloads[0]
+    assert payload.message == "聊这个吧"
+    assert payload.topic == "deceased_grief"
+    assert "参考背景，不是用户自述" in (payload.system_prompt or "")
+    assert "不得把选卡本身解释为用户正在悲伤" in (
+        payload.system_prompt or ""
+    )
+    assert "绝不扮演、模仿或代替逝者本人" in (
+        payload.system_prompt or ""
+    )
+    assert state.draft_reply == provider.reply_text
+    assert state.role_messages == []
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["classified_topic"] == "deceased_grief"
+    assert detail["selected_roles"] == []
 
 
 def test_topic_card_refusal_uses_one_real_llm_boundary_reply():

@@ -23,6 +23,11 @@ from app.relationship.cue_generator import (
     role_messages_from_cue,
 )
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, get_role_profile
+from app.relationship.topic_classifier import (
+    SENSITIVE_TOPICS,
+    Topic,
+    classify_topic,
+)
 from app.relationship.turn_intent import (
     PresenceQuestionKind,
     classify_presence_question,
@@ -170,6 +175,52 @@ def _is_topic_card_refusal_turn(state: GraphState) -> bool:
 
 def _is_topic_card_start_turn(state: GraphState) -> bool:
     return bool(_topic_card_seed_text(state) and _can_topic_card_seed_cue(state))
+
+
+def _sensitive_topic_card_topic(state: GraphState) -> Topic | None:
+    """Return the classified sensitive card only for a true card-start turn."""
+
+    if not _is_topic_card_start_turn(state):
+        return None
+    topic = classify_topic(_topic_card_seed_text(state))
+    return topic if topic in SENSITIVE_TOPICS else None
+
+
+def _apply_sensitive_topic_card_trace(state: GraphState, topic: Topic) -> dict:
+    """Record a restrained, single-companion sensitive-card decision."""
+
+    state.interaction_intent = "topic_turn"
+    state.relationship_role_selection_mode = state.role_selection_mode.value
+    state.relationship_role_selection_source = "policy"
+    state.candidate_relationship_roles = []
+    state.selected_relationship_roles = []
+    state.silent_relationship_roles = []
+    state.relationship_primary_role = None
+    state.relationship_topic = topic.value
+    state.cueing_style = "no_cue"
+    state.relationship_allow_follow_up = False
+    state.relationship_follow_up_reason = "敏感话题卡不主动追问细节。"
+    if topic is Topic.deceased_grief:
+        state.relationship_boundary_notes = [
+            "用户选择了已故亲友话题卡；不将选卡推断为当前悲伤或具体丧亲经历。",
+            "绝不扮演逝者本人；允许用户随时停下或换话题。",
+        ]
+    else:
+        state.relationship_boundary_notes = [
+            "用户选择了健康照护话题卡；不将选卡推断为患病或正在用药。",
+            "不做医疗诊断、治疗建议或用药剂量建议。",
+        ]
+    return {
+        "sensitive_topic_card": True,
+        "single_companion_voice": True,
+        "topic_id": state.topic_id,
+        "topic_label": state.topic_label,
+        "classified_topic": topic.value,
+        "auto_role_style": False,
+        "manual_role_style": False,
+        "selected_roles": [],
+        "role_labels": [],
+    }
 
 
 def _relationship_cue_input(state: GraphState) -> str:
@@ -966,7 +1017,18 @@ def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
     state.conversation_history_used = bool(state.conversation_history)
-    role_style_context, role_style_trace = _companion_role_style_context(state, deps)
+    sensitive_card_topic = _sensitive_topic_card_topic(state)
+    if sensitive_card_topic is not None:
+        role_style_context = None
+        role_style_trace = _apply_sensitive_topic_card_trace(
+            state,
+            sensitive_card_topic,
+        )
+    else:
+        role_style_context, role_style_trace = _companion_role_style_context(
+            state,
+            deps,
+        )
     result = deps.companion.respond(
         message=state.user_input,
         mode=state.mode,
@@ -975,6 +1037,8 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         retrieval_context=state.retrieval_context,
         role_style_context=role_style_context,
         conversation_history=state.conversation_history,
+        topic=sensitive_card_topic,
+        topic_label=state.topic_label,
     )
     structured_role_ids = _role_ids_for_structured_reply(role_style_trace)
     direct_presence_question_kind = (
