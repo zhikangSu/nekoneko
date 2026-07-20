@@ -8,13 +8,16 @@ import { COMPANION_FALLBACK_NAME } from "@/lib/constants";
 import { useProfile } from "@/components/profile/ProfileProvider";
 import { ProfileSettingsDialog } from "@/components/profile/ProfileSettingsDialog";
 
+const SHOW_RESEARCH_UI =
+  process.env.NEXT_PUBLIC_SHOW_RESEARCH_UI === "true";
+
 const NAV_ITEMS = [
   { href: "/chat", label: "聊天" },
   { href: "/memory", label: "记忆" },
   { href: "/reminders", label: "提醒" },
   { href: "/sensors", label: "关怀" },
   { href: "/caregiver", label: "照护摘要" },
-  { href: "/evaluation", label: "评估" },
+  ...(SHOW_RESEARCH_UI ? [{ href: "/evaluation", label: "评估" }] : []),
 ];
 
 function NavLink({ href, label }: { href: string; label: string }) {
