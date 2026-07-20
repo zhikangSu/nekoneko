@@ -171,7 +171,7 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert body["agent_trace"]["research_trace"]["role"]["allow_follow_up"] is False
 
 
-def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
+def test_fake_topic_card_greeting_stays_on_normal_reply_path(client):
     body = client.post(
         "/api/chat",
         json={
@@ -183,22 +183,9 @@ def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
         },
     ).json()
 
-    assert _route(body) == "relationship_cueing"
-    assert len(body["role_messages"]) == 1
-    assert "您好" in body["role_messages"][0]["text"]
-    assert all(
-        "粤剧" not in message["text"] for message in body["role_messages"]
-    )
-    orchestrator = next(
-        step
-        for step in body["agent_trace"]["agents"]
-        if step["name"] == "RelationshipOrchestratorAgent"
-    )
-    assert orchestrator["detail"]["topic_card_greeting"] is True
-    assert all(
-        step["name"] != "CompanionAgent"
-        for step in body["agent_trace"]["agents"]
-    )
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "老电影" not in body["response_text"]
 
 
 def test_learning_topic_card_introduces_concrete_learning_scene(client):
@@ -498,6 +485,71 @@ def test_topic_card_relationship_strain_is_not_replaced_by_card_seed(client):
     assert body["role_messages"] == []
 
 
+def _post_topic_card(client, user_id: str, message: str) -> dict:
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": user_id,
+            "message": message,
+            "topic_id": "T06",
+            "topic_label": "老电影与地方文化",
+            "material_type": "topic_card",
+        },
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_topic_card_greeting_with_question_answers_actual_turn(client):
+    body = _post_topic_card(
+        client,
+        "cue_topic_card_greeting_question",
+        "你们好啊 你们在聊什么",
+    )
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "在聊" in body["response_text"]
+    interaction = body["agent_trace"]["research_trace"]["interaction"]
+    assert interaction["intent"] == "presence_activity"
+
+
+def test_topic_card_bare_greeting_is_not_acceptance(client):
+    body = _post_topic_card(client, "cue_topic_card_greeting", "你们好啊")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+
+
+def test_topic_card_question_is_not_acceptance_and_gets_direct_answer(client):
+    body = _post_topic_card(client, "cue_topic_card_question", "你们在聊什么")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "在聊" in body["response_text"]
+
+
+def test_topic_card_topic_question_is_not_acceptance(client):
+    body = _post_topic_card(client, "cue_topic_card_topic_question", "这是什么话题？")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+
+
+def test_topic_card_true_acceptances_still_seed_one_opening_role(client):
+    for index, message in enumerate(("好啊", "好呀", "聊这个吧", "开始吧")):
+        body = _post_topic_card(client, f"cue_topic_card_accept_{index}", message)
+
+        assert _route(body) == "relationship_cueing"
+        assert len(body["role_messages"]) == 1
+        orchestrator = next(
+            step
+            for step in body["agent_trace"]["agents"]
+            if step["name"] == "RelationshipOrchestratorAgent"
+        )
+        assert orchestrator["detail"]["topic_card_opening"] is True
+
+
 # ---------------------------------------------------------------------------
 # Scenario 2: culture/arts preference -> cue route AND memory still saved
 # ---------------------------------------------------------------------------
@@ -734,53 +786,6 @@ def test_topic_card_start_uses_real_llm_when_configured():
     assert companion_step.detail["llm_role_reply_fallback_used"] is False
     assert companion_step.detail["companion_input_source"] == "raw_user_input"
     assert companion_step.detail["topic_card_greeting"] is False
-
-
-def test_topic_card_greeting_retries_when_real_llm_ignores_user():
-    provider = _SpyRealLLMProvider()
-    repaired_reply = "中年传承者：您好，咱们不着急，先按您舒服的节奏来。"
-    provider.reply_texts = [
-        "中年传承者：这些老戏老曲一代代传下来，确实有自己的味道。",
-        repaired_reply,
-    ]
-    deps = SimpleNamespace(
-        companion=CompanionAgent(provider),
-        relationship_orchestrator=RelationshipOrchestratorAgent(),
-        cue_generator=CueGenerator(),
-    )
-    state = GraphState(
-        turn_id="t_topic_card_greeting_llm",
-        user_id="u_topic_card_greeting_llm",
-        user_input="你们好啊",
-        mode=CompanionMode.role_first,
-        user_profile=UserProfile(user_id="u_topic_card_greeting_llm"),
-        memory_context=[],
-        topic_id="T06",
-        topic_label="老电影、戏曲、歌曲、地方文化",
-    )
-
-    relationship_cueing_node(state, deps)
-
-    assert len(provider.payloads) == 2
-    assert all(payload.message == "你们好啊" for payload in provider.payloads)
-    assert "上面的 topic 是系统提供的背景" in (
-        provider.payloads[0].system_prompt or ""
-    )
-    assert "第一位角色必须先自然回应用户的问候" in (
-        provider.payloads[1].system_prompt or ""
-    )
-    assert state.draft_reply == repaired_reply
-    detail = next(
-        step.detail for step in state.agents if step.name == "CompanionAgent"
-    )
-    assert detail["companion_input_source"] == "raw_user_input"
-    assert detail["topic_card_greeting"] is True
-    assert detail["llm_role_reply_initial_rejection_reason"] == (
-        "topic_card_greeting_not_acknowledged"
-    )
-    assert detail["llm_role_reply_retry_used"] is True
-    assert detail["llm_role_reply_retry_accepted"] is True
-    assert detail["llm_role_reply_fallback_used"] is False
 
 
 def test_topic_card_refusal_uses_one_real_llm_boundary_reply():

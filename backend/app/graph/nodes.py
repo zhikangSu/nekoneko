@@ -94,7 +94,21 @@ _GENERIC_TOPIC_CARD_MARKERS: tuple[str, ...] = (
     "开始吧",
     "可以",
     "好啊",
+    "好呀",
     "继续",
+)
+
+_TOPIC_CARD_QUESTION_MARKERS: tuple[str, ...] = (
+    "什么",
+    "怎么",
+    "为什么",
+    "为啥",
+    "哪",
+    "谁",
+    "吗",
+    "呢",
+    "？",
+    "?",
 )
 
 _TOPIC_CARD_REFUSAL_MARKERS: tuple[str, ...] = (
@@ -134,6 +148,13 @@ def _can_topic_card_seed_cue(state: GraphState) -> bool:
     if _is_topic_card_refusal_turn(state):
         return False
     if is_relationship_cue_excluded(text):
+        return False
+    # Topic-card metadata accompanies every message in the ambient scene.  It
+    # must only seed the deterministic opener for a real acceptance turn, not
+    # when a greeting happens to contain ``好啊`` or the user asks a question.
+    if is_greeting_turn(text) or classify_presence_question(text) is not None:
+        return False
+    if any(marker in text for marker in _TOPIC_CARD_QUESTION_MARKERS):
         return False
     return any(marker in text for marker in _GENERIC_TOPIC_CARD_MARKERS)
 
