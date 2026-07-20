@@ -50,6 +50,13 @@ def test_list_respects_limit(tmp_path):
     assert len(store.list(user_id="demo_user", limit=3)) == 3
 
 
+def test_list_limit_none_returns_all(tmp_path):
+    store = TraceStore(tmp_path)
+    for i in range(5):
+        store.save(_record(f"t_{i}", "demo_user", f"2026-06-19T10:0{i}:00+00:00"))
+    assert len(store.list(user_id="demo_user", limit=None)) == 5
+
+
 def test_invalid_turn_id_raises(tmp_path):
     with pytest.raises(ValueError):
         TraceStore(tmp_path).get("../etc")
