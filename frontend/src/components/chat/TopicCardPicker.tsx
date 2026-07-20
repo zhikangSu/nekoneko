@@ -41,7 +41,7 @@ export function TopicCardPicker({
               key={card.topic_id}
               type="button"
               aria-pressed={selected}
-              onClick={() => onChangeSelectedTopic(card)}
+              onClick={() => onChangeSelectedTopic(selected ? null : card)}
               disabled={disabled}
               className={[
                 "min-h-12 rounded-lg border px-2 py-1.5 text-left text-sm transition",

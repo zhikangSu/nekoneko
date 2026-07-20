@@ -107,13 +107,13 @@ export function ChatExperience() {
 
   const handleSelectedTopicChange = useCallback(
     (topic: TopicMaterialContext | null) => {
-      if (!topic) {
+      if (!topic || topic.topic_id === selectedTopic?.topic_id) {
         setSelectedTopic(null);
         return;
       }
       void startTopicConversation(topic);
     },
-    [setSelectedTopic, startTopicConversation],
+    [selectedTopic, setSelectedTopic, startTopicConversation],
   );
 
   return (
