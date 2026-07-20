@@ -7,10 +7,11 @@ questions route to safety (#8), not here.
 from __future__ import annotations
 
 import re
+from datetime import date as calendar_date
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -57,6 +58,19 @@ class ReminderCreate(BaseModel):
     @field_validator("date")
     @classmethod
     def _valid_date(cls, value: Optional[str]) -> Optional[str]:
-        if value is not None and not _DATE_RE.match(value):
-            raise ValueError("date must be YYYY-MM-DD")
+        if value is not None:
+            if not _DATE_RE.match(value):
+                raise ValueError("date must be YYYY-MM-DD")
+            try:
+                calendar_date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError("date must be a valid calendar date") from exc
         return value
+
+    @model_validator(mode="after")
+    def _date_matches_recurrence(self) -> "ReminderCreate":
+        if self.recurrence == Recurrence.once and self.date is None:
+            raise ValueError("date is required for one-off reminders")
+        if self.recurrence == Recurrence.daily and self.date is not None:
+            raise ValueError("date is only allowed for one-off reminders")
+        return self

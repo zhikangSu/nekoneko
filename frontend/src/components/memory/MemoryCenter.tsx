@@ -13,16 +13,16 @@ import { DEFAULT_USER_ID } from "@/lib/constants";
 import type { MemoryCard, MemoryCategory, MemoryEntry } from "@/types/memory";
 import { MemoryCardPrompt } from "./MemoryCardPrompt";
 
-const CATEGORY_LABELS: Record<MemoryCategory, string> = {
+type VisibleMemoryCategory = Exclude<MemoryCategory, "reminder_or_setting">;
+
+const CATEGORY_LABELS: Record<VisibleMemoryCategory, string> = {
   profile_preference: "偏好",
   event_memory: "事件",
-  reminder_or_setting: "提醒 / 设置",
   boundary_preference: "边界偏好",
 };
-const CATEGORY_ORDER: MemoryCategory[] = [
+const CATEGORY_ORDER: VisibleMemoryCategory[] = [
   "profile_preference",
   "event_memory",
-  "reminder_or_setting",
   "boundary_preference",
 ];
 

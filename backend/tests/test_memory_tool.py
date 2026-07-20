@@ -1,3 +1,4 @@
+from app.schemas.memory import MemoryCategory
 from app.stores.memory_store import MemoryStore
 from app.tools.memory_tool import MemoryTool
 
@@ -27,3 +28,13 @@ def test_remember_skips_when_paused(tmp_path):
     tool = MemoryTool(store)
     assert tool.remember_from_text("u", "我喜欢听粤剧") == []
     assert store.list("u") == []
+
+
+def test_load_context_ignores_legacy_reminder_entries(tmp_path):
+    store = MemoryStore(tmp_path)
+    store.add("u", MemoryCategory.reminder_or_setting, "每天八点吃药")
+    store.add("u", MemoryCategory.profile_preference, "喜欢粤剧")
+
+    context = MemoryTool(store).load_context("u")
+
+    assert [entry.content for entry in context] == ["喜欢粤剧"]
