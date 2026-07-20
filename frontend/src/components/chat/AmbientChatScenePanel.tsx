@@ -131,7 +131,10 @@ export function AmbientChatStateProvider({
   const [isSceneSending, setIsSceneSending] = useState(false);
   const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
   const [threadSceneId, setThreadSceneId] = useState<string | null>(null);
-  const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
+  // Wait for memory loading before choosing the first scene. Initialising with
+  // the default bank would lock activeSceneId to the opera card and preserve it
+  // even after the memory-ranked list arrived asynchronously.
+  const [scenes, setScenes] = useState<AmbientChatScene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(
     () => new Set(),

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -73,7 +74,8 @@ def apply_preset(
     if preset is None:
         raise HTTPException(status_code=404, detail="unknown preset")
 
-    now = datetime.now(timezone.utc)
+    local_timezone = ZoneInfo(settings.app_timezone)
+    now = datetime.now(local_timezone)
     profile = profile_store.get(request.user_id)
     proactive_effective = resolve_proactive_effective(profile, settings)
     state_event = _adapter.encode(preset.raw_signal, now=now)
@@ -108,6 +110,8 @@ def apply_preset(
                     "reason": decision.reason,
                     "cooldown_applied": decision.cooldown_applied,
                     "cooldown_minutes": decision.cooldown_minutes,
+                    "local_timezone": settings.app_timezone,
+                    "local_time": now.isoformat(),
                     "profile_preferences": {
                         "proactive_checkin_enabled": (
                             profile.proactive_checkin_enabled

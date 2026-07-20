@@ -22,6 +22,8 @@ def test_air_quality_turn_uses_retrieval(client):
     body = client.post("/api/chat", json={"message": "今天空气质量好不好"}).json()
     assert body["agent_trace"]["route"] == "retrieval_supported_response"
     assert body["agent_trace"]["retrieval_used"] is True
+    assert "演示数据" in body["response_text"]
+    assert "不是实时空气质量" in body["response_text"]
 
 
 def test_emotional_turn_does_not_use_retrieval(client):

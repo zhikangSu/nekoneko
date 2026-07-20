@@ -995,14 +995,17 @@ def memory_read_node(state: GraphState, deps: GraphDeps) -> GraphState:
 def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.info_retrieval.retrieve(state.user_input)
     state.retrieval_used = True
+    state.retrieval_source = result.source
+    state.retrieval_mock = result.mock
     state.retrieval_context = result.summary if result.found else None
+    retrieval_label = "演示检索数据" if result.mock else "外部实时检索"
     state.tools.append(
         TraceStep(
             kind=TraceEntryKind.retrieval,
             name=deps.info_retrieval.name,
             summary=(
-                f"调用外部检索（{result.query_kind}，来源 {result.source}"
-                f"{'，mock' if result.mock else ''}）：{result.summary[:40]}"
+                f"使用{retrieval_label}（{result.query_kind}，来源 {result.source}）："
+                f"{result.summary[:40]}"
             ),
             detail={
                 "query_kind": result.query_kind,
@@ -1013,6 +1016,28 @@ def retrieval_node(state: GraphState, deps: GraphDeps) -> GraphState:
         )
     )
     return state
+
+
+def _ensure_mock_retrieval_disclosure(state: GraphState) -> None:
+    """Never let deterministic/degraded facts sound like live weather.
+
+    Prompt guidance is not a reliable disclosure boundary: a real provider may
+    paraphrase the supplied fact while dropping its provenance.  Keep the
+    user-facing invariant deterministic at the graph boundary.
+    """
+
+    if not state.retrieval_mock or not state.draft_reply.strip():
+        return
+    if "演示数据" in state.draft_reply or "非实时" in state.draft_reply:
+        return
+    subject = (
+        "空气质量"
+        if state.retrieval_source == "mock_air_quality"
+        else "天气"
+    )
+    state.draft_reply = (
+        f"先说明一下：下面是演示数据，不是实时{subject}。{state.draft_reply}"
+    )
 
 
 def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
@@ -1167,6 +1192,7 @@ def companion_node(state: GraphState, deps: GraphDeps) -> GraphState:
         result,
         extra_detail=role_style_trace or None,
     )
+    _ensure_mock_retrieval_disclosure(state)
     return state
 
 
@@ -1250,6 +1276,7 @@ def relationship_cueing_node(state: GraphState, deps: GraphDeps) -> GraphState:
         user_role_preferences=None,
         role_selection_mode=role_selection_mode,
         selected_role_ids=selected_role_ids,
+        topic_card_opening=topic_card_start,
         risk_flags=None,
     )
     decision = deps.relationship_orchestrator.orchestrate(inp)
@@ -1631,6 +1658,14 @@ def reminder_node(state: GraphState, deps: GraphDeps) -> GraphState:
 def output_guard_node(state: GraphState, deps: GraphDeps) -> GraphState:
     result = deps.output_guard.run(state.draft_reply)
     state.response_text = result.final_text
+    if result.rewritten and state.role_messages:
+        # The frontend renders structured role bubbles before response_text.
+        # Rebuild them from the guarded text so an unsafe or infantilising
+        # provider draft cannot leak through the structured representation.
+        state.role_messages = role_messages_from_cue(
+            result.final_text,
+            [message.role_id for message in state.role_messages],
+        )
     state.guards.append(
         TraceStep(
             kind=TraceEntryKind.guard,

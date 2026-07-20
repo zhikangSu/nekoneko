@@ -208,6 +208,24 @@ def test_work_collective_uses_peer_as_only_speaker():
     _assert_common_invariants(d)
 
 
+def test_topic_card_opening_stages_peer_and_junior_before_minimal_followups():
+    d = _orchestrate(
+        "年轻时的工作经历，聊这个吧",
+        topic_card_opening=True,
+    )
+    assert d.candidate_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
+    assert d.selected_roles == [RoleId.same_age_peer, RoleId.curious_junior]
+    assert d.silent_roles == [RoleId.middle_age_bridge]
+    assert d.primary_role is RoleId.same_age_peer
+    assert d.cueing_style is CueingStyle.agent_agent_then_invite
+    assert d.allow_follow_up is True
+    _assert_common_invariants(d)
+
+
 def test_general_reminiscence_uses_direct_peer_reply():
     d = _orchestrate("总想起以前的事")
     assert d.topic == Topic.general_reminiscence.value
