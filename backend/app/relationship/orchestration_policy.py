@@ -10,9 +10,12 @@ not touch any existing graph/safety/Guardian/Reminder/Retrieval path.
 
 Policy summary:
 
-* Each topic keeps an auditable candidate set, but automatic turns select the
-  smallest useful speaking set (normally one primary role).
-* Multi-role output is reserved for explicit manual / fixed-study selection.
+* Each topic keeps an auditable candidate set. Automatic follow-up turns select
+  the smallest useful speaking set (normally one primary role), while the first
+  non-sensitive topic-card turn stages two roles as the social cue required by
+  the research design.
+* Outside the initial topic-card cue, multi-role output is reserved for
+  explicit manual / fixed-study selection.
 * SENSITIVE topics consider boundary_guardian + elder_mentor, but only the
   boundary guardian speaks by default.
 
@@ -508,9 +511,24 @@ def decide(
     candidates = _cap_and_sanitize(base_roles, registry_ids)
     if primary not in candidates:
         primary = candidates[0] if candidates else None
-    selected = [primary] if primary is not None else []
+    if inp.topic_card_opening and candidates:
+        # A topic card is the one deliberate social-cue moment: let a peer
+        # ground the topic and a curious junior leave a low-pressure opening.
+        # Keep later turns minimal so the interface does not become noisy.
+        selected = [candidates[0]]
+        second = (
+            RoleId.curious_junior
+            if RoleId.curious_junior in candidates
+            else (candidates[1] if len(candidates) > 1 else None)
+        )
+        if second is not None and second not in selected:
+            selected.append(second)
+        primary = selected[0]
+        cueing = CueingStyle.agent_agent_then_invite
+    else:
+        selected = [primary] if primary is not None else []
+        cueing = CueingStyle.direct
     silent = [role for role in candidates if role not in selected]
-    cueing = CueingStyle.direct
 
     # Memory card only for clear, non-sensitive personal facts/interests.
     should_generate_memory_card = topic in {
@@ -531,11 +549,15 @@ def decide(
         f"话题为{topic_label}，候选为 {candidate_names}；"
         f"本轮只安排 {role_names} 发言。"
     ]
+    if inp.topic_card_opening:
+        reason_bits.append(
+            "用户刚选择话题卡，本轮用两个角色形成简短社会线索；后续轮次恢复最少必要角色。"
+        )
     if dropped_junior:
         reason_bits.append("已根据用户偏好去掉“晚辈好奇者”的连续追问。")
     if long_narrative:
         reason_bits.append("用户已给出较完整的叙述，直接接话且不追问。")
-    else:
+    elif not inp.topic_card_opening:
         reason_bits.append("自动模式采用最少必要角色直接回应，不进行多人铺垫或固定追问。")
     reason = "".join(reason_bits)
 
@@ -558,8 +580,12 @@ def decide(
         cueing_style=cueing,
         role_selection_reason=reason,
         boundary_notes=boundary_notes,
-        allow_follow_up=False,
-        follow_up_reason="自动模式默认直接回应；只有明确必要或显式研究条件才允许一个轻问题。",
+        allow_follow_up=inp.topic_card_opening,
+        follow_up_reason=(
+            "话题卡开场允许最后一个角色留下一个低压力邀请。"
+            if inp.topic_card_opening
+            else "自动模式默认直接回应；只有明确必要或显式研究条件才允许一个轻问题。"
+        ),
         should_generate_memory_card=should_generate_memory_card,
         trace_visible_summary=summary,
         role_trace=role_trace,

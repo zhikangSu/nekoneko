@@ -156,7 +156,10 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     ).json()
 
     assert _route(body) == "relationship_cueing"
-    assert len(body["role_messages"]) == 1
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert body["role_messages"][0]["role_label"]
     assert body["role_messages"][0]["text"]
     assert "给我们讲讲" not in body["response_text"]
@@ -167,8 +170,8 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert metadata["topic_id"] == "T05"
     assert metadata["material_type"] == "topic_card"
     assert "same_age_peer" in metadata["selected_roles"]
-    assert metadata["cueing_style"] == "direct"
-    assert body["agent_trace"]["research_trace"]["role"]["allow_follow_up"] is False
+    assert metadata["cueing_style"] == "agent_agent_then_invite"
+    assert body["agent_trace"]["research_trace"]["role"]["allow_follow_up"] is True
 
 
 def test_fake_topic_card_greeting_stays_on_normal_reply_path(client):
@@ -202,7 +205,10 @@ def test_learning_topic_card_introduces_concrete_learning_scene(client):
 
     assert _route(body) == "relationship_cueing"
     text = body["response_text"]
-    assert len(body["role_messages"]) == 1
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert any(word in text for word in ("读书", "上学", "学校", "老师", "同学"))
     assert "想聊什么都行" not in text
     assert "接着刚才说的" not in text
@@ -230,7 +236,10 @@ def test_work_topic_card_opening_does_not_assume_elder_story(client):
 
     assert _route(body) == "relationship_cueing"
     text = body["response_text"]
-    assert len(body["role_messages"]) == 1
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert any(word in text for word in ("工作", "单位", "车间", "同事", "上班"))
     assert "接着刚才说的" not in text
     assert "听前面这么一说" not in text
@@ -536,12 +545,15 @@ def test_topic_card_topic_question_is_not_acceptance(client):
     assert body["role_messages"] == []
 
 
-def test_topic_card_true_acceptances_still_seed_one_opening_role(client):
+def test_topic_card_true_acceptances_seed_two_opening_roles(client):
     for index, message in enumerate(("好啊", "好呀", "聊这个吧", "开始吧")):
         body = _post_topic_card(client, f"cue_topic_card_accept_{index}", message)
 
         assert _route(body) == "relationship_cueing"
-        assert len(body["role_messages"]) == 1
+        assert [message["role_id"] for message in body["role_messages"]] == [
+            "same_age_peer",
+            "curious_junior",
+        ]
         orchestrator = next(
             step
             for step in body["agent_trace"]["agents"]
@@ -801,7 +813,10 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
 
 def test_topic_card_start_uses_real_llm_when_configured():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = "同龄共鸣者：说到年轻时学习，课本、教室和同学都能带出那个年代的生活细节。"
+    provider.reply_text = (
+        "同龄共鸣者：说到年轻时学习，课本、教室和同学都能带出那个年代的生活细节。\n"
+        "晚辈好奇者：可以从一段上学路或一位老师慢慢说起，您想到哪儿说到哪儿。"
+    )
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -828,7 +843,10 @@ def test_topic_card_start_uses_real_llm_when_configured():
     assert "上面的 topic 是系统提供的背景" in (
         provider.payloads[0].system_prompt or ""
     )
-    assert [m.role_label for m in state.role_messages] == ["同龄共鸣者"]
+    assert [m.role_label for m in state.role_messages] == [
+        "同龄共鸣者",
+        "晚辈好奇者",
+    ]
     assert state.draft_reply == provider.reply_text
     assert any(word in state.draft_reply for word in ("学习", "读书", "上学", "课本"))
     assert "想聊什么都行" not in state.draft_reply
@@ -1024,6 +1042,46 @@ def test_real_relationship_cue_retries_malformed_reply_before_fallback():
     assert detail["llm_role_reply_initial_rejection_reason"] == "role_line_too_short"
     assert detail["llm_role_reply_final_rejection_reason"] == "role_line_too_short"
     assert detail["llm_role_reply_retry_used"] is True
+    assert detail["llm_role_reply_retry_accepted"] is False
+    assert detail["llm_role_reply_fallback_used"] is True
+
+
+def test_topic_card_malformed_real_reply_falls_back_to_complete_two_role_cue():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = "同龄共鸣者：说到工作，我们"
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_malformed",
+        user_id="u_topic_card_malformed",
+        user_input="聊这个吧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_malformed"),
+        memory_context=[],
+        topic_id="T02",
+        topic_label="年轻时的工作经历",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert [message.role_id for message in state.role_messages] == [
+        RoleId.same_age_peer,
+        RoleId.curious_junior,
+    ]
+    assert all(
+        not message.text.endswith(("我们", "就", "，"))
+        for message in state.role_messages
+    )
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "expected_2_role_lines_got_1"
+    )
     assert detail["llm_role_reply_retry_accepted"] is False
     assert detail["llm_role_reply_fallback_used"] is True
 

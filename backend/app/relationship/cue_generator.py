@@ -2,9 +2,10 @@
 
 Turns a :class:`RelationshipDecision` (from the deterministic
 RelationshipOrchestratorAgent, #52) into a short, visible social cue for a
-NON-SENSITIVE reminiscence turn. Automatic turns keep the candidate-role set in
-the trace but normally let only the primary role speak. Explicit research
-conditions may render multiple roles and add at most one low-pressure invitation.
+NON-SENSITIVE reminiscence turn. Automatic follow-up turns keep the
+candidate-role set in the trace but normally let only the primary role speak.
+The initial topic-card cue and explicit research conditions may render multiple
+roles and add at most one low-pressure invitation.
 
 This is pure templates — NO LLM. It stages VISIBLE relationship personas (from
 #51); those personas are not autonomous agents. It never touches the existing

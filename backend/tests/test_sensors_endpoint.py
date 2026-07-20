@@ -58,6 +58,38 @@ def test_apply_poor_sleep_checks_in_and_persists_trace(client):
     assert client.get(f"/api/traces/{body['turn_id']}").status_code == 200
 
 
+def test_guardian_converts_utc_instant_to_configured_local_timezone(
+    client, monkeypatch
+):
+    """02:30 UTC is daytime in Hong Kong and must not hit quiet hours."""
+
+    import app.api.routes.sensors as sensors_mod
+
+    fixed_utc = _datetime(2026, 7, 20, 2, 30, tzinfo=timezone.utc)
+
+    class _FixedUtcInstant(_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_utc if tz is None else fixed_utc.astimezone(tz)
+
+    monkeypatch.setattr(sensors_mod, "datetime", _FixedUtcInstant)
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        app_timezone="Asia/Hong_Kong"
+    )
+    try:
+        body = client.post(
+            "/api/sensors/apply-preset",
+            json={"user_id": "sensor_local_daytime", "preset_id": "poor_sleep"},
+        ).json()
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert body["guardian_decision"]["decision"] == "check_in"
+    detail = body["agent_trace"]["agents"][0]["detail"]
+    assert detail["local_timezone"] == "Asia/Hong_Kong"
+    assert detail["local_time"].endswith("+08:00")
+
+
 def test_apply_elevated_hr_makes_no_medical_claim(client):
     body = client.post(
         "/api/sensors/apply-preset",

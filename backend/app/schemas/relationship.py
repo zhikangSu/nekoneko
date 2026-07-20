@@ -159,6 +159,10 @@ class OrchestrationInput(BaseModel):
     # Roles already visible in the current UI scene. They preserve conversational
     # continuity but are not treated as a manual user choice.
     context_role_ids: list[RoleId] = Field(default_factory=list, max_length=3)
+    # True only for the acceptance turn immediately after a user selects a
+    # topic card. That turn intentionally stages a short 2-role social cue;
+    # ordinary follow-up turns still use the smallest useful speaker set.
+    topic_card_opening: bool = False
     risk_flags: dict | None = None
 
 

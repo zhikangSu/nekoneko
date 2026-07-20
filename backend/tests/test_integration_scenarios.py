@@ -18,11 +18,10 @@ from app.core.constants import (
 
 
 def _pin_sensor_clock(monkeypatch, *, hour: int, minute: int = 0) -> None:
-    """Pin /api/sensors/apply-preset's clock to a fixed UTC time (issue #70).
+    """Pin the UTC instant; the route converts it to the app timezone.
 
-    The route computes ``datetime.now(timezone.utc)`` internally, and GuardianAgent's
-    quiet hours (22:00–07:00, evaluated in UTC) would otherwise flip a ``check_in``
-    into a ``defer`` depending on the real wall-clock time the suite happens to run.
+    Guardian quiet hours are local wall-clock values, so tests choose an instant
+    whose Asia/Hong_Kong conversion is explicitly daytime or nighttime.
     """
     import app.api.routes.sensors as sensors_mod
 
@@ -98,7 +97,7 @@ def test_scenario_memory_remember_and_reuse(client):
 def test_scenario_proactive_care_boundary(client, monkeypatch):
     # Deterministic: pin to a non-quiet-hours time so poor_sleep yields check_in
     # regardless of when the suite runs (issue #70).
-    _pin_sensor_clock(monkeypatch, hour=14)
+    _pin_sensor_clock(monkeypatch, hour=2)  # 10:00 Asia/Hong_Kong
     body = client.post(
         "/api/sensors/apply-preset",
         json={"user_id": "demo_care", "preset_id": "poor_sleep"},
@@ -116,9 +115,9 @@ def test_scenario_proactive_care_boundary(client, monkeypatch):
 
 
 def test_scenario_proactive_care_defers_in_quiet_hours(client, monkeypatch):
-    # The other side of the boundary (issue #70): during quiet hours (22:00–07:00,
-    # evaluated in UTC) a non-escalation poor_sleep check-in is deferred, not raised.
-    _pin_sensor_clock(monkeypatch, hour=2)
+    # The other side of the boundary (issue #70): during local quiet hours
+    # (22:00–07:00) a non-escalation poor_sleep check-in is deferred, not raised.
+    _pin_sensor_clock(monkeypatch, hour=18)  # 02:00 Asia/Hong_Kong next day
     body = client.post(
         "/api/sensors/apply-preset",
         json={"user_id": "demo_care_quiet", "preset_id": "poor_sleep"},
@@ -143,6 +142,15 @@ def test_scenario_controlled_retrieval(client):
     ).json()
     assert weather["agent_trace"]["route"] == "retrieval_supported_response"
     assert weather["agent_trace"]["retrieval_used"] is True
+    assert "演示数据" in weather["response_text"]
+    assert "不是实时天气" in weather["response_text"]
+    retrieval = next(
+        step
+        for step in weather["agent_trace"]["tools"]
+        if step["name"] == "InfoRetrievalTool"
+    )
+    assert retrieval["detail"]["mock"] is True
+    assert "演示检索数据" in retrieval["summary"]
     # The same user disclosing a feeling must NOT trigger external retrieval.
     emotion = client.post(
         "/api/chat", json={"user_id": "demo_retr", "message": "我最近很孤单"}

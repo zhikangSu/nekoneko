@@ -51,6 +51,8 @@ class GraphState:
     memory_context: Optional[Any] = None
     retrieval_needed: bool = False
     retrieval_context: Optional[str] = None
+    retrieval_source: Optional[str] = None
+    retrieval_mock: bool = False
 
     # Filled during the run
     risk: RiskClassification = field(default_factory=RiskClassification)

@@ -57,6 +57,24 @@ def test_modes_select_different_prompts():
     assert role.trace_summary() != neutral.trace_summary()
 
 
+def test_prompts_explicitly_forbid_emoji_and_infantilizing_praise():
+    role = _agent().respond(
+        message="今天心情不错",
+        mode=CompanionMode.role_first,
+        companion_display_name="阿南",
+    )
+    neutral = _agent().respond(
+        message="今天心情不错",
+        mode=CompanionMode.neutral_assistant,
+        companion_display_name="阿南",
+    )
+
+    for prompt in (role.rendered_prompt, neutral.rendered_prompt):
+        assert "emoji" in prompt
+        assert "小太阳" in prompt
+        assert "真乖" in prompt
+
+
 def test_manual_role_style_context_is_added_to_prompt():
     result = _agent().respond(
         message="我终于也是活到了我妈妈的那个年纪",
