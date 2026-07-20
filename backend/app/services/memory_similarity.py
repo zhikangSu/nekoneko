@@ -12,6 +12,8 @@ import re
 _PUNCT_OR_SPACE = re.compile(r"[\s，。、,.!！?？；;：:（）()\[\]【】\"'“”‘’]+")
 _LOW_VALUE_CHARS = ("听", "看", "聊", "的", "这件事", "这个事", "事情")
 
+_CONTAINMENT_MIN_RATIO = 0.8
+
 
 class MemorySimilarityService:
     def normalize(self, text: str) -> str:
@@ -20,9 +22,20 @@ class MemorySimilarityService:
             normalized = normalized.replace(token, "")
         return normalized
 
+    def is_duplicate(self, left: str, right: str) -> bool:
+        a = self.normalize(left)
+        b = self.normalize(right)
+        return bool(a) and a == b
+
     def is_similar(self, left: str, right: str) -> bool:
         a = self.normalize(left)
         b = self.normalize(right)
         if not a or not b:
             return False
-        return a == b or a in b or b in a
+        if a == b:
+            return True
+        shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+        return (
+            shorter in longer
+            and len(shorter) / len(longer) >= _CONTAINMENT_MIN_RATIO
+        )

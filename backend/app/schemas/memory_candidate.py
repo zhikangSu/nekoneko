@@ -38,3 +38,4 @@ class MemoryTriageDecision(BaseModel):
     reason: str
     ask_now: bool = False
     cooldown_applied: bool = False
+    target_memory_id: Optional[str] = None

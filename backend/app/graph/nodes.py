@@ -1369,6 +1369,7 @@ def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
 
     saved_memory_id: str | None = None
     card_id: str | None = None
+    updated_memory_id: str | None = None
     if decision.action == MemoryTriageAction.auto_save:
         saved = deps.memory_tool.save_candidate(state.user_id, candidate)
         if saved is not None:
@@ -1380,6 +1381,15 @@ def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
         card = deps.memory_card_tool.draft_from_candidate(state.user_id, candidate)
         deps.memory_card_store.add(card)
         card_id = card.card_id
+    elif (
+        decision.action == MemoryTriageAction.update_existing
+        and decision.target_memory_id is not None
+    ):
+        updated = deps.memory_tool.update_candidate(
+            state.user_id, decision.target_memory_id, candidate
+        )
+        if updated is not None:
+            updated_memory_id = updated.id
 
     state.tools.append(
         TraceStep(
@@ -1395,6 +1405,7 @@ def memory_write_node(state: GraphState, deps: GraphDeps) -> GraphState:
                 "saved": saved_memory_id is not None,
                 "saved_memory_id": saved_memory_id,
                 "memory_card_id": card_id,
+                "updated_memory_id": updated_memory_id,
             },
         )
     )

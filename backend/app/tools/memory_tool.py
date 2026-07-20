@@ -41,6 +41,21 @@ class MemoryTool:
             category = MemoryCategory.event_memory
         return self._store.add_if_absent(user_id, category, candidate.summary)
 
+    def update_candidate(
+        self, user_id: str, memory_id: str, candidate: MemoryCandidate
+    ) -> MemoryEntry | None:
+        existing = next(
+            (m for m in self._store.list(user_id) if m.id == memory_id), None
+        )
+        if existing is None:
+            return None
+        content = (
+            candidate.summary
+            if len(candidate.summary) > len(existing.content)
+            else existing.content
+        )
+        return self._store.update_content(user_id, memory_id, content)
+
     def remember_from_text(self, user_id: str, text: str) -> list[MemoryEntry]:
         """Extract and persist new preferences, unless extraction is paused."""
         if self._store.is_extraction_paused(user_id):

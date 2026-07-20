@@ -25,6 +25,7 @@ class MemoryEntry(BaseModel):
     category: MemoryCategory
     content: str
     created_at: str
+    updated_at: Optional[str] = None
 
 
 class MemoryCreate(BaseModel):
