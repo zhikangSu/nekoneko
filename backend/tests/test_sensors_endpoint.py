@@ -2,6 +2,19 @@ from datetime import datetime as _datetime, timezone
 
 import pytest
 
+from app.core.config import Settings, get_settings
+from app.main import app
+
+
+@pytest.fixture
+def env_quiet_settings():
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        quiet_hours_start="11:00",
+        quiet_hours_end="13:00",
+    )
+    yield
+    app.dependency_overrides.pop(get_settings, None)
+
 
 @pytest.fixture(autouse=True)
 def _fixed_daytime(monkeypatch):
@@ -109,6 +122,80 @@ def test_profile_proactive_preferences_feed_guardian_trace(client):
     assert detail["quiet_hours_end"] == "13:00"
     assert detail["max_checkins_per_day"] == 1
     assert detail["same_topic_cooldown_minutes"] == 45
+
+
+def test_env_guardian_config_applies_when_profile_unset(
+    client,
+    env_quiet_settings,
+):
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": "sensor_env_quiet", "preset_id": "poor_sleep"},
+    ).json()
+
+    assert body["guardian_decision"]["decision"] == "defer"
+    detail = body["agent_trace"]["agents"][0]["detail"]
+    assert detail["profile_preferences"]["quiet_hours_start"] == "11:00"
+    assert detail["profile_overrides"]["quiet_hours_start"] is None
+
+
+def test_profile_override_beats_env_guardian_config(
+    client,
+    env_quiet_settings,
+):
+    uid = "sensor_env_override"
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={
+            "proactive_quiet_hours_start": "14:00",
+            "proactive_quiet_hours_end": "15:00",
+        },
+    )
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": uid, "preset_id": "poor_sleep"},
+    ).json()
+
+    assert body["guardian_decision"]["decision"] == "check_in"
+
+
+def test_patch_null_resets_profile_to_env_guardian_config(
+    client,
+    env_quiet_settings,
+):
+    uid = "sensor_env_reset"
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={
+            "proactive_quiet_hours_start": "14:00",
+            "proactive_quiet_hours_end": "15:00",
+        },
+    )
+    client.patch(
+        f"/api/users/{uid}/profile",
+        json={
+            "proactive_quiet_hours_start": None,
+            "proactive_quiet_hours_end": None,
+        },
+    )
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": uid, "preset_id": "poor_sleep"},
+    ).json()
+
+    assert body["guardian_decision"]["decision"] == "defer"
+
+
+def test_env_quiet_hours_do_not_silence_escalation(
+    client,
+    env_quiet_settings,
+):
+    body = client.post(
+        "/api/sensors/apply-preset",
+        json={"user_id": "sensor_env_escalation", "preset_id": "no_response"},
+    ).json()
+
+    assert body["guardian_decision"]["decision"] == "safety_escalation"
 
 
 def test_refuse_then_defer(client):

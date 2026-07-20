@@ -29,6 +29,7 @@ from app.schemas.sensor import (
     Severity,
 )
 from app.schemas.trace import AgentTrace, TraceRecord, TraceStep
+from app.services.proactive_preferences import resolve_proactive_effective
 from app.stores.guardian_state_store import GuardianStateStore
 from app.stores.profile_store import ProfileStore
 from app.stores.trace_store import TraceStore
@@ -74,6 +75,7 @@ def apply_preset(
 
     now = datetime.now(timezone.utc)
     profile = profile_store.get(request.user_id)
+    proactive_effective = resolve_proactive_effective(profile, settings)
     state_event = _adapter.encode(preset.raw_signal, now=now)
     guardian = GuardianAgent(guardian_store, settings)
     decision = guardian.decide(
@@ -110,11 +112,12 @@ def apply_preset(
                         "proactive_checkin_enabled": (
                             profile.proactive_checkin_enabled
                         ),
+                        **proactive_effective.model_dump(),
+                    },
+                    "profile_overrides": {
                         "quiet_hours_start": profile.proactive_quiet_hours_start,
                         "quiet_hours_end": profile.proactive_quiet_hours_end,
-                        "max_checkins_per_day": (
-                            profile.proactive_max_checkins_per_day
-                        ),
+                        "max_checkins_per_day": profile.proactive_max_checkins_per_day,
                         "same_topic_cooldown_minutes": (
                             profile.proactive_same_topic_cooldown_minutes
                         ),

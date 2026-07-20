@@ -27,20 +27,32 @@ def _validate_hhmm(value: str) -> str:
 
 
 class UserProfile(BaseModel):
+    """Stored profile.
+
+    Proactive limit fields are per-user overrides.  ``None`` means that the
+    Guardian should follow the current global Settings/env value.
+    """
+
     user_id: str
     companion_display_name: Optional[str] = None
     user_display_name: Optional[str] = None
     onboarding_completed: bool = False
     memory_enabled: bool = True
     proactive_checkin_enabled: bool = True
-    proactive_quiet_hours_start: str = "22:00"
-    proactive_quiet_hours_end: str = "07:00"
-    proactive_max_checkins_per_day: int = Field(default=3, ge=0, le=6)
-    proactive_same_topic_cooldown_minutes: int = Field(default=120, ge=0, le=720)
+    proactive_quiet_hours_start: Optional[str] = None
+    proactive_quiet_hours_end: Optional[str] = None
+    proactive_max_checkins_per_day: Optional[int] = Field(default=None, ge=0, le=6)
+    proactive_same_topic_cooldown_minutes: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=720,
+    )
 
     @field_validator("proactive_quiet_hours_start", "proactive_quiet_hours_end")
     @classmethod
-    def validate_quiet_hours(cls, value: str) -> str:
+    def validate_quiet_hours(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         return _validate_hhmm(value)
 
 
@@ -48,7 +60,8 @@ class ProfileUpdate(BaseModel):
     """Partial update. Only fields explicitly sent are changed.
 
     To clear a name, send an empty string (or null); it normalizes to ``None``
-    so the neutral fallback applies again.
+    so the neutral fallback applies again.  Explicit ``null`` for a proactive
+    override resets it to the global Settings/env value.
     """
 
     companion_display_name: Optional[str] = Field(default=None, max_length=_NAME_MAX)
@@ -69,6 +82,21 @@ class ProfileUpdate(BaseModel):
         if value is None:
             return value
         return _validate_hhmm(value)
+
+
+class ProactiveEffective(BaseModel):
+    """Proactive limits after profile → Settings/env fallback resolution."""
+
+    quiet_hours_start: str
+    quiet_hours_end: str
+    max_checkins_per_day: int
+    same_topic_cooldown_minutes: int
+
+
+class UserProfileResponse(UserProfile):
+    """Stored profile overrides plus the limits Guardian actually applies."""
+
+    proactive_effective: ProactiveEffective
 
 
 def normalize_name(value: Optional[str]) -> Optional[str]:
