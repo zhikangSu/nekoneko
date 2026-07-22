@@ -76,6 +76,27 @@ _TEMPORARY_EMOTION_MARKERS = (
     "现在心情不好",
 )
 
+# Interrogative / uncertainty markers: questions like “我是不是老糊涂了” must not
+# be stored as facts or preferences.
+_QUESTION_MARKERS = (
+    "是不是",
+    "吗",
+    "呢",
+    "怎么",
+    "为什么",
+    "什么",
+    "能不能",
+    "好不好",
+    "有没有",
+    "是否",
+)
+
+
+def _is_question(text: str) -> bool:
+    if "？" in text or "?" in text:
+        return True
+    return any(marker in text for marker in _QUESTION_MARKERS)
+
 
 def _first_group(patterns, text: str) -> str | None:
     for pattern in patterns:
@@ -131,6 +152,9 @@ class MemoryCandidateExtractor:
                 source_turn_id=source_turn_id,
                 recommended_action=MemoryTriageAction.ignore,
             )
+
+        if _is_question(text):
+            return None
 
         role_obj = _first_group(_ROLE_PREFERENCE_PATTERNS, text)
         if role_obj is not None:

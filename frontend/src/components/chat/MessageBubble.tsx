@@ -24,10 +24,8 @@ const ROLE_LABELS: Record<RelationshipRoleId, string> = {
   theme_companion: "主题陪伴者",
   memory_organizer: "回忆整理者",
   boundary_guardian: "边界守护者",
-  no_ai_role: "不需要 AI 角色",
+  no_ai_role: "不使用关系角色",
 };
-
-const GENERAL_NO_ROLE_LABEL = "百事通";
 
 export function MessageBubble({
   message,
@@ -112,7 +110,7 @@ function getCompanionSpeakerLabel(
   }
 
   if (usesNoRoleResponder(message)) {
-    return GENERAL_NO_ROLE_LABEL;
+    return companionLabel;
   }
 
   const manualRoleLabels = selectedTalkRoleLabels(message);

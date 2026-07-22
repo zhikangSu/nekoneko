@@ -86,10 +86,10 @@ def test_chat_memory_off_blocks_extract_card_and_write(client):
     ]
 
 
-def test_chat_similar_interest_does_not_duplicate(client):
+def test_chat_repeated_interest_does_not_duplicate(client):
     uid = "triage_duplicate"
     _chat(client, uid, "我喜欢粤剧")
-    body = _chat(client, uid, "我爱听粤剧")
+    body = _chat(client, uid, "我喜欢粤剧")
 
     memories = _memories(client, uid)
     assert [m["content"] for m in memories] == ["喜欢粤剧"]
@@ -98,5 +98,56 @@ def test_chat_similar_interest_does_not_duplicate(client):
     triage = [
         s for s in body["agent_trace"]["tools"] if s["name"] == "MemoryTriagePolicy"
     ][-1]
-    assert triage["detail"]["decision"]["action"] == "update_existing"
+    assert triage["detail"]["decision"]["action"] == "ignore"
     assert triage["detail"]["decision"]["cooldown_applied"] is True
+    assert "重复" in triage["detail"]["decision"]["reason"]
+    assert triage["detail"]["saved"] is False
+
+
+def test_chat_near_duplicate_interest_updates_existing_memory(client):
+    uid = "triage_update"
+    _chat(client, uid, "我喜欢太极")
+    memory_id = _memories(client, uid)[0]["id"]
+    body = _chat(client, uid, "我喜欢太极拳")
+
+    memories = _memories(client, uid)
+    assert [m["content"] for m in memories] == ["喜欢太极拳"]
+    assert memories[0]["id"] == memory_id
+    assert memories[0]["updated_at"] is not None
+    assert _cards(client, uid) == []
+
+    triage = [
+        s for s in body["agent_trace"]["tools"] if s["name"] == "MemoryTriagePolicy"
+    ][-1]
+    assert triage["detail"]["decision"]["action"] == "update_existing"
+    assert triage["detail"]["updated_memory_id"] == memory_id
+
+
+def test_chat_new_interest_with_shared_prefix_saves_new_memory(client):
+    uid = "triage_new_interest"
+    _chat(client, uid, "我喜欢书")
+    body = _chat(client, uid, "我特别喜欢书法")
+
+    memories = _memories(client, uid)
+    assert [m["content"] for m in memories] == ["喜欢书", "喜欢书法"]
+
+    triage = [
+        s for s in body["agent_trace"]["tools"] if s["name"] == "MemoryTriagePolicy"
+    ][-1]
+    assert triage["detail"]["decision"]["action"] == "auto_save"
+    assert triage["detail"]["saved"] is True
+    assert triage["detail"]["saved_memory_id"] == memories[1]["id"]
+
+
+def test_chat_repeated_fact_does_not_duplicate_card(client):
+    uid = "triage_repeat_fact"
+    _chat(client, uid, "我年轻时做过教师")
+    body = _chat(client, uid, "我年轻时做过教师")
+
+    assert len(_cards(client, uid)) == 1
+
+    triage = [
+        s for s in body["agent_trace"]["tools"] if s["name"] == "MemoryTriagePolicy"
+    ][-1]
+    assert triage["detail"]["decision"]["action"] == "ignore"
+    assert "重复" in triage["detail"]["decision"]["reason"]

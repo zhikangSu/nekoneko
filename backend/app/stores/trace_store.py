@@ -41,7 +41,9 @@ class TraceStore:
             return None
         return TraceRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
-    def list(self, user_id: Optional[str] = None, limit: int = 20) -> list[TraceSummary]:
+    def list(
+        self, user_id: Optional[str] = None, limit: Optional[int] = 20
+    ) -> list[TraceSummary]:
         if not self.base_dir.exists():
             return []
         records: list[TraceRecord] = []
@@ -55,6 +57,8 @@ class TraceStore:
         if user_id is not None:
             records = [r for r in records if r.user_id == user_id]
         records.sort(key=lambda r: r.created_at, reverse=True)
+        if limit is not None:
+            records = records[: max(0, limit)]
         return [
             TraceSummary(
                 turn_id=r.turn_id,
@@ -65,5 +69,5 @@ class TraceStore:
                 safety_critic_used=r.trace.safety_critic_used,
                 retrieval_used=r.trace.retrieval_used,
             )
-            for r in records[: max(0, limit)]
+            for r in records
         ]

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     demo_mode: bool = True
     log_level: str = "info"
+    # Quiet-hour preferences are local wall-clock values. Keep the timezone
+    # explicit so Guardian decisions do not accidentally interpret them as UTC.
+    app_timezone: str = "Asia/Hong_Kong"
 
     # Providers (fake/mock by default)
     llm_provider: str = "fake"

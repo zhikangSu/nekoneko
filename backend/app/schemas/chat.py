@@ -7,6 +7,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import CompanionMode
+from app.schemas.conversation import ConversationMessage
 from app.schemas.relationship import (
     ElderControlAction,
     MaterialType,
@@ -44,6 +45,15 @@ class ChatRequest(BaseModel):
     # Some UI surfaces, such as the ambient social-cue scene, should keep their
     # short-term continuity without reading/writing the user's durable memory.
     memory_scope: MemoryScope = "default"
+    # UI-only opening lines that were already shown before the first API turn.
+    # They seed bounded, in-process history only when the session is empty.
+    conversation_seed: list[ConversationMessage] = Field(
+        default_factory=list,
+        max_length=4,
+    )
+    # Relationship roles already visible in the current UI scene. This is
+    # conversational context, not a manual role choice by the user.
+    context_role_ids: list[RoleId] = Field(default_factory=list, max_length=3)
 
     @field_validator("message")
     @classmethod

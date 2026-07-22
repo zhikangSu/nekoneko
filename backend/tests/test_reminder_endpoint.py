@@ -45,6 +45,50 @@ def test_invalid_time_rejected(rem_client):
     assert response.status_code == 422
 
 
+def test_one_off_reminder_requires_valid_date(rem_client):
+    missing = rem_client.post(
+        "/api/reminders/demo_user",
+        json={"content": "复诊", "time": "09:30", "recurrence": "once"},
+    )
+    assert missing.status_code == 422
+
+    invalid = rem_client.post(
+        "/api/reminders/demo_user",
+        json={
+            "content": "复诊",
+            "time": "09:30",
+            "recurrence": "once",
+            "date": "2026-02-30",
+        },
+    )
+    assert invalid.status_code == 422
+
+    created = rem_client.post(
+        "/api/reminders/demo_user",
+        json={
+            "content": "复诊",
+            "time": "09:30",
+            "recurrence": "once",
+            "date": "2026-07-25",
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["date"] == "2026-07-25"
+
+
+def test_daily_reminder_rejects_irrelevant_date(rem_client):
+    response = rem_client.post(
+        "/api/reminders/demo_user",
+        json={
+            "content": "喝水",
+            "time": "10:00",
+            "recurrence": "daily",
+            "date": "2026-07-25",
+        },
+    )
+    assert response.status_code == 422
+
+
 def test_trigger_missing_returns_404(rem_client):
     assert rem_client.post("/api/reminders/demo_user/missing/trigger").status_code == 404
 
@@ -70,6 +114,7 @@ def test_chat_creates_medication_reminder(client):
 
     reminders = client.get(f"/api/reminders/{uid}").json()
     assert any(r["content"] == "吃药" and r["time"] == "08:00" for r in reminders)
+    assert client.get(f"/api/memory/{uid}").json()["memories"] == []
 
 
 def test_chat_dosage_question_routes_to_safety(client):

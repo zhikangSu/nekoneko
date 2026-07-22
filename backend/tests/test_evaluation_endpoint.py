@@ -37,3 +37,27 @@ def test_evaluation_csv_export_contains_only_summary_columns(client):
     assert "turn_id,created_at,route,risk_level,safety_critic_used,retrieval_used" in text
     assert "companion_chat" in text
     assert "你好" not in text
+
+
+def test_evaluation_csv_export_sanitizes_filename_header(client):
+    response = client.get(
+        "/api/evaluation/export.csv",
+        params={"user_id": 'abc"def\r\nX-Evil: 1'},
+    )
+    assert response.status_code == 200
+    disposition = response.headers["content-disposition"]
+    assert disposition == 'attachment; filename="qaq-evaluation-abc_def__X-Evil__1.csv"'
+    assert "\r" not in disposition
+    assert "\n" not in disposition
+    assert "x-evil" not in response.headers
+
+
+def test_evaluation_csv_export_keeps_safe_user_id_filename(client):
+    response = client.get(
+        "/api/evaluation/export.csv", params={"user_id": "eval_csv-1"}
+    )
+    assert response.status_code == 200
+    assert (
+        response.headers["content-disposition"]
+        == 'attachment; filename="qaq-evaluation-eval_csv-1.csv"'
+    )

@@ -96,3 +96,11 @@ def test_blank_memory_content_rejected(mem_client):
         json={"category": "event_memory", "content": "   "},
     )
     assert response.status_code == 422
+
+
+def test_reminder_category_cannot_be_added_to_long_term_memory(mem_client):
+    response = mem_client.post(
+        "/api/memory/demo_user",
+        json={"category": "reminder_or_setting", "content": "每天八点吃药"},
+    )
+    assert response.status_code == 422

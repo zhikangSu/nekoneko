@@ -98,6 +98,20 @@ class MemoryStore:
             return None
         return self.add(user_id, category, content)
 
+    def update_content(
+        self, user_id: str, memory_id: str, content: str
+    ) -> MemoryEntry | None:
+        content = content.strip()
+        data = self._load(user_id)
+        for item in data["memories"]:
+            if item["id"] != memory_id:
+                continue
+            item["content"] = content
+            item["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._save(user_id, data)
+            return MemoryEntry.model_validate(item)
+        return None
+
     def delete(self, user_id: str, memory_id: str) -> bool:
         data = self._load(user_id)
         before = len(data["memories"])

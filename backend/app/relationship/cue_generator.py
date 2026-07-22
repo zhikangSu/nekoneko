@@ -2,9 +2,10 @@
 
 Turns a :class:`RelationshipDecision` (from the deterministic
 RelationshipOrchestratorAgent, #52) into a short, visible social cue for a
-NON-SENSITIVE reminiscence turn: two or three VISIBLE relationship roles briefly
-respond to one another about the shared object/topic, then the last line gently
-opens a next turn for the elder — without forcing an answer.
+NON-SENSITIVE reminiscence turn. Automatic follow-up turns keep the
+candidate-role set in the trace but normally let only the primary role speak.
+The initial topic-card cue and explicit research conditions may render multiple
+roles and add at most one low-pressure invitation.
 
 This is pure templates — NO LLM. It stages VISIBLE relationship personas (from
 #51); those personas are not autonomous agents. It never touches the existing
@@ -135,12 +136,12 @@ def is_relationship_cue_turn(text: str) -> bool:
 _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
     RoleId.same_age_peer: {
         Topic.study_learning: "那时候读书上学不容易，课本、教室、同学，一提起来就有那个年代的味道。",
-        Topic.old_object_photo: "这样的老物件我们那会儿家家都有，一看见就想起从前的日子。",
-        Topic.work_collective: "那会儿在单位、在大院里一块儿忙活的日子，想起来真亲切。",
-        Topic.culture_arts: "这些老段子、老曲子我们那代人都听着长大，一听就有味道。",
-        Topic.family_education: "那时候拉扯孩子不容易，我们那代人都是这么一步步过来的。",
-        Topic.general_reminiscence: "您说的这些，我们那会儿也常经历，一提起来就觉得亲切。",
-        None: "您说的这些，我们那会儿也常经历，一提起来就觉得亲切。",
+        Topic.old_object_photo: "这样的老物件在那个年代很常见，一看见就容易带出从前的生活细节。",
+        Topic.work_collective: "那个年代在单位、在大院里一块儿忙活的日子，常常带着很浓的生活气。",
+        Topic.culture_arts: "这些老段子、老曲子陪伴过很多人，一响起来就很有那个年代的味道。",
+        Topic.family_education: "那个年代拉扯孩子不容易，许多家庭都是一步步熬过来的。",
+        Topic.general_reminiscence: "听您这么说，这段经历对您很有分量。",
+        None: "听您这么说，这段经历对您很有分量。",
     },
     RoleId.curious_junior: {
         Topic.study_learning: "您那时候上学路上是什么样的呀，听起来会有很多小故事。",
@@ -161,8 +162,8 @@ _RESONATE: dict[RoleId, dict[Topic | None, str]] = {
         None: "您这份经历很难得，我在想它对后来的人也很有启发。",
     },
     RoleId.theme_companion: {
-        Topic.culture_arts: "说到这个我也很喜欢，这些老段子真是越品越有味道。",
-        None: "说到这个我也很喜欢，聊起来真是越说越起劲。",
+        Topic.culture_arts: "这个话题很有味道，这些老段子常常越品越有意思。",
+        None: "这个话题听起来很有意思，可以顺着您在意的地方慢慢聊。",
     },
     RoleId.elder_mentor: {
         None: "慢慢说，没有对错，我们陪您一起想想那些日子。",
@@ -329,7 +330,7 @@ class CueGenerator:
         roles = [r for r in decision.selected_roles][:MAX_ROLES_PER_TURN]
 
         if RoleId.no_ai_role in roles:
-            return "好，我们先不安排 AI 角色。您可以自己慢慢讲；想停也可以。"
+            return "我在听，您想怎么说都可以。"
 
         if topic_card_refusal:
             fallback = "好，这个话题先放下，按您觉得自在的来。"
@@ -365,19 +366,39 @@ class CueGenerator:
             line = _line_for(_RESONATE, role, topic, resonate_fallback)
             return f"{_label(role)}：{line}"
 
-        if decision.cueing_style in (CueingStyle.direct, CueingStyle.single_role_prelude):
-            # Single role picks up the thread + one gentle open invitation.
+        if decision.cueing_style is CueingStyle.direct:
+            # Direct turns answer or acknowledge without mechanically appending
+            # a question. The real provider may ask one only when it is useful.
             role = decision.primary_role or roles[0]
-            resonate_fallback = "您说的这些，一提起来就觉得亲切。"
-            invite_fallback = "您想到哪儿说到哪儿，我慢慢听。"
+            resonate_fallback = "听您这么说，这件事对您有它自己的分量。"
             resonate = _line_for(_RESONATE, role, topic, resonate_fallback)
+            return f"{_label(role)}：{resonate}"
+
+        if decision.cueing_style is CueingStyle.single_role_prelude:
+            # An explicit prelude may include one low-pressure invitation.
+            role = decision.primary_role or roles[0]
+            resonate_fallback = "听您这么说，这件事对您有它自己的分量。"
+            resonate = _line_for(_RESONATE, role, topic, resonate_fallback)
+            if not decision.allow_follow_up:
+                return f"{_label(role)}：{resonate}"
+            invite_fallback = "您想到哪儿说到哪儿，我慢慢听。"
             invite = _line_for(_INVITE, role, topic, invite_fallback)
             return f"{_label(role)}：{resonate}{invite}"
 
         # agent_agent_then_invite: earlier roles resonate; the LAST role invites.
         lines: list[str] = []
-        resonate_fallback = "您说的这些，我们那会儿也常经历，一提起来就觉得亲切。"
+        resonate_fallback = "听您这么说，这段经历对您很有分量。"
         invite_fallback = "您那时候有没有类似的经历？不着急，想到哪儿说到哪儿。"
+
+        if not decision.allow_follow_up:
+            lines = []
+            for index, role in enumerate(roles):
+                line = _line_for(_RESONATE, role, topic, resonate_fallback)
+                lines.append(
+                    f"{_label(role)}："
+                    f"{_dialogue_line(line, index=index, total=len(roles))}"
+                )
+            return "\n".join(lines[:MAX_ROLES_PER_TURN])
 
         *resonating, inviting = roles
         total = len(roles)

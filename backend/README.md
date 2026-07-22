@@ -152,6 +152,21 @@ same-type cooldown, a daily cap, quiet hours, and a 24h refusal pause
 `medical_claim_allowed=false`, so Guardian makes no medical claim. Each decision
 is persisted as a trace (SensorAdapter tool + StateEvent + GuardianAgent agent).
 
+Guardian limits resolve in this order:
+
+```text
+per-user profile override
+→ Settings / environment value
+→ built-in Settings default (22:00–07:00 / 3 per day / 120 minutes)
+```
+
+The four stored proactive limit fields are `null` while unset. Sending an
+explicit `null` in `PATCH /api/users/{id}/profile` resets an override to the
+global value. Profile responses include `proactive_effective`, which contains
+the values Guardian currently applies. Existing profile JSON is migrated on
+read: old built-in default values become unset, while custom values are kept.
+Safety escalation is not suppressed by quiet hours, cooldown, or the daily cap.
+
 ### Voice I/O (mock pipeline, #4)
 
 `POST /api/voice/asr` takes the recorded clip as the **raw request body** (no

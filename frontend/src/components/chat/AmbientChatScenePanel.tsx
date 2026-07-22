@@ -23,7 +23,6 @@ import {
 } from "@/lib/proactiveTopics";
 import { useVoice, type VoiceControls } from "@/hooks/useVoice";
 import type { RelationshipRoleId, RoleCueMessage } from "@/types/chat";
-import type { AgentTrace } from "@/types/trace";
 import { ReplayButton } from "./ReplayButton";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 
@@ -75,10 +74,6 @@ interface AmbientChatStateContextValue {
   setActiveSceneId: Dispatch<SetStateAction<string | null>>;
   seenSceneIds: Set<string>;
   setSeenSceneIds: Dispatch<SetStateAction<Set<string>>>;
-  ambientTrace: AgentTrace | undefined;
-  setAmbientTrace: Dispatch<SetStateAction<AgentTrace | undefined>>;
-  ambientTraceVersion: number;
-  setAmbientTraceVersion: Dispatch<SetStateAction<number>>;
   ambientSessionRoot: string;
 }
 
@@ -136,13 +131,14 @@ export function AmbientChatStateProvider({
   const [isSceneSending, setIsSceneSending] = useState(false);
   const [threadItems, setThreadItems] = useState<AmbientThreadItem[]>([]);
   const [threadSceneId, setThreadSceneId] = useState<string | null>(null);
-  const [scenes, setScenes] = useState(() => buildAmbientChatScenes([]));
+  // Wait for memory loading before choosing the first scene. Initialising with
+  // the default bank would lock activeSceneId to the opera card and preserve it
+  // even after the memory-ranked list arrived asynchronously.
+  const [scenes, setScenes] = useState<AmbientChatScene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [seenSceneIds, setSeenSceneIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [ambientTrace, setAmbientTrace] = useState<AgentTrace | undefined>();
-  const [ambientTraceVersion, setAmbientTraceVersion] = useState(0);
   const [ambientSessionRoot] = useState(() =>
     newClientSessionRoot("ambient"),
   );
@@ -178,10 +174,6 @@ export function AmbientChatStateProvider({
         setActiveSceneId,
         seenSceneIds,
         setSeenSceneIds,
-        ambientTrace,
-        setAmbientTrace,
-        ambientTraceVersion,
-        setAmbientTraceVersion,
         ambientSessionRoot,
       }}
     >

@@ -83,6 +83,13 @@ guides) is maintained in the team's development repository.
 For a complete feature checklist and step-by-step acceptance scenarios, see the
 [QAQ Feature Experience and Test Guide](FEATURE_TEST_GUIDE.md)（中文）.
 
+Poster and coursework handoff materials:
+
+- [Current project status and poster refinement brief](docs/07_project_status_for_poster.md)（中文）
+- [5–8 minute bilingual poster presentation script](docs/08_poster_presentation_script_bilingual.md)
+- [English SDSC6002 project report](docs/09_course_project_report.md)
+- [Current A0 poster source and previews](output/poster/)
+
 ---
 
 ## Architecture at a glance
@@ -116,6 +123,8 @@ is a **tool** or **service**. The Agent Trace must keep this distinction visible
 ├── backend/     FastAPI + Pydantic v2 backend (agents, tools, services, API)
 ├── frontend/    Next.js + TypeScript + Tailwind web UI
 ├── data/        Local demo data: seed memory cards, traces, audio cache
+├── docs/        Poster handoff, presentation script, report, and evidence images
+├── output/      A0 poster source/previews and the functional test report
 ├── scripts/     Dev runner scripts
 ├── FEATURE_TEST_GUIDE.md  Chinese feature and acceptance-test guide
 └── Makefile     make setup / make dev / make test
@@ -170,8 +179,8 @@ npm install
 npm run dev                     # serves http://localhost:3000
 ```
 
-Open `http://localhost:3000`, send a text message, and watch the placeholder
-trace appear. Set `NEXT_PUBLIC_API_BASE_URL` in `.env` if the backend is not on
+Open `http://localhost:3000`, send a text message, and inspect the per-turn
+Agent Trace. Set `NEXT_PUBLIC_API_BASE_URL` in `.env` if the backend is not on
 `http://localhost:8000`.
 
 Each backend / frontend folder also has its own README with exact commands.
@@ -217,8 +226,9 @@ acceptance matrix and exact test prompts are in
    refused with a safe alternative, never diagnosed.
 7. **Relationship-aware reminiscence** — 2–3 relationship roles provide a short
    social cue before inviting the elder into a memory topic.
-8. **Trace, caregiver summary, and evaluation export** — inspect routing and
-   privacy-preserving metadata without exposing complete transcripts.
+8. **Trace and caregiver summary** — inspect routing and privacy-preserving
+   metadata without exposing complete transcripts. Research evaluation export
+   remains implemented but is hidden from the coursework UI by default.
 
 ---
 

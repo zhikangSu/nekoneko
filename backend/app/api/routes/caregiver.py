@@ -89,10 +89,14 @@ def caregiver_summary(
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=7)
     reminders = [r for r in reminder_store.list(user_id) if r.active]
-    traces = trace_store.list(user_id=user_id, limit=limit)
-    recent_traces = [t for t in traces if _is_recent(t, cutoff)]
-    proactive = [t for t in recent_traces if t.route == Route.proactive_checkin]
-    safety = [t for t in recent_traces if _is_safety_event(t)]
+    window_traces = [
+        t for t in trace_store.list(user_id=user_id, limit=None) if _is_recent(t, cutoff)
+    ]
+    proactive = [t for t in window_traces if t.route == Route.proactive_checkin]
+    safety = [t for t in window_traces if _is_safety_event(t)]
+    recent_traces = window_traces[:limit]
+    recent_proactive = [t for t in recent_traces if t.route == Route.proactive_checkin]
+    recent_safety = [t for t in recent_traces if _is_safety_event(t)]
     confirmed_today = sum(1 for r in reminders if _is_today(r.last_confirmed_at, now))
 
     return CaregiverSummary(
@@ -118,7 +122,7 @@ def caregiver_summary(
             )
             for index, reminder in enumerate(reminders, start=1)
         ],
-        proactive_events=[_event_digest(t) for t in proactive[:5]],
-        safety_events=[_event_digest(t) for t in safety[:5]],
+        proactive_events=[_event_digest(t) for t in recent_proactive[:5]],
+        safety_events=[_event_digest(t) for t in recent_safety[:5]],
         privacy_boundaries=_PRIVACY_BOUNDARIES,
     )
