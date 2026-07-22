@@ -30,6 +30,8 @@ def test_agent_trace_minimal_valid():
         "safety_critic_used",
         "conversation_history_used",
         "conversation_history_count",
+        "conversation_seed_used",
+        "conversation_seed_count",
         "research_metadata",
         "research_trace",
     ):

@@ -22,6 +22,11 @@ npm run build      # production build / type-check
 npm run lint       # next lint
 ```
 
+The research-only evaluation export is hidden from the coursework-delivery UI
+by default. Set `NEXT_PUBLIC_SHOW_RESEARCH_UI=true` before starting or building
+the frontend to restore the evaluation navigation and page for a later study.
+The internal demo-video checklist is not part of the product UI.
+
 ## What's here (Slice 1)
 
 - `src/app/layout.tsx` — wraps every page in `AppShell` (header shows the

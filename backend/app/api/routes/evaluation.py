@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from datetime import datetime, timezone
 from io import StringIO
 from typing import Iterable
@@ -16,6 +17,11 @@ from app.schemas.trace import TraceSummary
 from app.stores.trace_store import TraceStore
 
 router = APIRouter(prefix="/evaluation", tags=["evaluation"])
+
+
+def _safe_filename_component(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]", "_", value)
+    return cleaned or "export"
 
 
 def _count_by(rows: Iterable[TraceSummary], field: str) -> dict[str, int]:
@@ -86,7 +92,8 @@ def export_evaluation_csv(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": (
-                f'attachment; filename="qaq-evaluation-{user_id}.csv"'
+                "attachment; "
+                f'filename="qaq-evaluation-{_safe_filename_component(user_id)}.csv"'
             )
         },
     )

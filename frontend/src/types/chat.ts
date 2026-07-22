@@ -39,6 +39,13 @@ export interface ChatRequest {
   voice_enabled?: boolean;
   sensor_preset_id?: string | null;
   companion_display_name?: string | null;
+  conversation_seed?: ConversationSeedMessage[];
+  context_role_ids?: RelationshipRoleId[];
+}
+
+export interface ConversationSeedMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface RoleCueMessage {

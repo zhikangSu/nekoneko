@@ -75,6 +75,73 @@ def test_conversation_history_is_scoped_by_study_session(client):
     assert upper_followup["agent_trace"]["conversation_history_count"] == 2
 
 
+def test_ambient_seed_is_used_once_without_overwriting_session_history(client):
+    uid = "history_ambient_seed_demo"
+    session_id = "ambient_seed_opera_demo"
+    seed = [
+        {"role": "assistant", "content": "中年传承者：刚才我们在聊粤剧和地方文化。"},
+        {"role": "assistant", "content": "同龄共鸣者：有些唱段一响就很亲切。"},
+    ]
+
+    first = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "你们在干什么",
+            "study_session_id": session_id,
+            "conversation_seed": seed,
+        },
+    ).json()
+
+    assert first["agent_trace"]["conversation_seed_used"] is True
+    assert first["agent_trace"]["conversation_seed_count"] == 2
+    assert first["agent_trace"]["conversation_history_used"] is True
+    assert first["agent_trace"]["conversation_history_count"] == 2
+    assert "在聊天" in first["response_text"]
+    assert "粤剧" not in str(first["agent_trace"])
+
+    second = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "继续刚才的话题",
+            "study_session_id": session_id,
+            "conversation_seed": seed,
+        },
+    ).json()
+
+    assert second["agent_trace"]["conversation_seed_used"] is False
+    assert second["agent_trace"]["conversation_seed_count"] == 0
+    assert second["agent_trace"]["conversation_history_count"] == 4
+
+
+def test_conversation_seed_is_scoped_by_study_session(client):
+    uid = "history_seed_scope_demo"
+    seed = [{"role": "assistant", "content": "同龄共鸣者：我们先聊两句。"}]
+
+    first = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "你好",
+            "study_session_id": "ambient_seed_a",
+            "conversation_seed": seed,
+        },
+    ).json()
+    second = client.post(
+        "/api/chat",
+        json={
+            "user_id": uid,
+            "message": "你好",
+            "study_session_id": "ambient_seed_b",
+            "conversation_seed": seed,
+        },
+    ).json()
+
+    assert first["agent_trace"]["conversation_seed_count"] == 1
+    assert second["agent_trace"]["conversation_seed_count"] == 1
+
+
 def test_session_only_scope_skips_long_term_memory(client):
     uid = "history_session_memory_scope_demo"
     saved = client.post(
@@ -134,6 +201,21 @@ def test_conversation_history_store_keeps_bounded_recent_window():
         "assistant 1",
         "user 2",
         "assistant 2",
+    ]
+
+
+def test_conversation_history_store_seeds_only_an_empty_session():
+    store = ConversationHistoryStore(max_messages=4)
+    seed = [
+        ConversationMessage(role="assistant", content="场景开场一"),
+        ConversationMessage(role="assistant", content="场景开场二"),
+    ]
+
+    assert store.seed_if_empty("u1", seed, "ambient") == 2
+    assert store.seed_if_empty("u1", seed, "ambient") == 0
+    assert [message.content for message in store.recent("u1", "ambient")] == [
+        "场景开场一",
+        "场景开场二",
     ]
 
 

@@ -17,17 +17,6 @@ const ROUTE_LABELS: Record<string, string> = {
   relationship_cueing: "关系话题引导",
 };
 
-const DEMO_CHECKLIST = [
-  "完成一次文字或语音陪伴对话",
-  "展示用户可命名的陪伴 AI 设置",
-  "新增、确认或删除一条提醒",
-  "展示 Memory Center 的查看与删除",
-  "运行一次关怀模拟并打开 Trace",
-  "演示天气/时间敏感问题的受控查询",
-  "演示健康或用药高风险问题的安全回复",
-  "导出评估 JSON 或 CSV 作为报告素材",
-];
-
 export function EvaluationExportPanel() {
   const [summary, setSummary] = useState<EvaluationExport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,25 +113,6 @@ export function EvaluationExportPanel() {
         </section>
       </div>
 
-      <section className="rounded-lg border border-black/10 bg-surface p-5">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-xl font-semibold text-ink">Demo video checklist</h2>
-          <span className="text-sm text-muted">
-            导出于 {formatDateTime(summary.exported_at)}
-          </span>
-        </div>
-        <ul className="mt-4 grid gap-3 md:grid-cols-2">
-          {DEMO_CHECKLIST.map((item) => (
-            <li key={item} className="flex gap-3 text-base text-ink">
-              <span
-                aria-hidden
-                className="mt-1 h-5 w-5 shrink-0 rounded border border-companion"
-              />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
@@ -193,15 +163,4 @@ function downloadBlob(blob: Blob, filename: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

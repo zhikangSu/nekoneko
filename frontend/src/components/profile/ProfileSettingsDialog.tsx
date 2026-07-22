@@ -1,10 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { COMPANION_FALLBACK_NAME } from "@/lib/constants";
 import { PROACTIVE_TOPIC_BANK } from "@/lib/proactiveTopics";
+import type { ProfileUpdate, UserProfile } from "@/types/profile";
 import { useProfile } from "./ProfileProvider";
+
+interface ProactiveFormValues {
+  quietStart: string;
+  quietEnd: string;
+  maxCheckins: string;
+  cooldownMinutes: string;
+}
+
+const BUILT_IN_PROACTIVE_VALUES: ProactiveFormValues = {
+  quietStart: "22:00",
+  quietEnd: "07:00",
+  maxCheckins: "3",
+  cooldownMinutes: "120",
+};
+
+function proactiveFormValues(profile: UserProfile | null): ProactiveFormValues {
+  const effective = profile?.proactive_effective;
+  return {
+    quietStart:
+      profile?.proactive_quiet_hours_start ??
+      effective?.quiet_hours_start ??
+      BUILT_IN_PROACTIVE_VALUES.quietStart,
+    quietEnd:
+      profile?.proactive_quiet_hours_end ??
+      effective?.quiet_hours_end ??
+      BUILT_IN_PROACTIVE_VALUES.quietEnd,
+    maxCheckins: String(
+      profile?.proactive_max_checkins_per_day ??
+        effective?.max_checkins_per_day ??
+        BUILT_IN_PROACTIVE_VALUES.maxCheckins,
+    ),
+    cooldownMinutes: String(
+      profile?.proactive_same_topic_cooldown_minutes ??
+        effective?.same_topic_cooldown_minutes ??
+        BUILT_IN_PROACTIVE_VALUES.cooldownMinutes,
+    ),
+  };
+}
 
 // Rename / clear the companion name and toggle basic preferences (#21). The
 // fuller Memory Center arrives in #10; this is the minimal settings surface.
@@ -23,19 +62,30 @@ export function ProfileSettingsDialog({
   const [maxCheckins, setMaxCheckins] = useState("3");
   const [cooldownMinutes, setCooldownMinutes] = useState("120");
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const initialProactiveRef = useRef<ProactiveFormValues>(
+    BUILT_IN_PROACTIVE_VALUES,
+  );
+  const formInitializedRef = useRef(false);
 
-  // Re-sync form when opened or when the profile changes.
+  // Initialize once per open cycle. Immediate toggle saves update ``profile``;
+  // they must not wipe other unsaved text/limit edits in this dialog.
   useEffect(() => {
-    if (open) {
-      setCompanionName(profile?.companion_display_name ?? "");
-      setUserName(profile?.user_display_name ?? "");
-      setQuietStart(profile?.proactive_quiet_hours_start ?? "22:00");
-      setQuietEnd(profile?.proactive_quiet_hours_end ?? "07:00");
-      setMaxCheckins(String(profile?.proactive_max_checkins_per_day ?? 3));
-      setCooldownMinutes(
-        String(profile?.proactive_same_topic_cooldown_minutes ?? 120),
-      );
+    if (!open) {
+      formInitializedRef.current = false;
+      return;
     }
+    if (formInitializedRef.current || !profile) return;
+    const proactive = proactiveFormValues(profile);
+    setCompanionName(profile.companion_display_name ?? "");
+    setUserName(profile.user_display_name ?? "");
+    setQuietStart(proactive.quietStart);
+    setQuietEnd(proactive.quietEnd);
+    setMaxCheckins(proactive.maxCheckins);
+    setCooldownMinutes(proactive.cooldownMinutes);
+    initialProactiveRef.current = proactive;
+    formInitializedRef.current = true;
+    setErrorMessage(null);
   }, [open, profile]);
 
   if (!open) return null;
@@ -43,21 +93,43 @@ export function ProfileSettingsDialog({
   async function save() {
     if (saving) return;
     setSaving(true);
+    setErrorMessage(null);
     try {
-      await update({
+      const changes: ProfileUpdate = {
         companion_display_name: companionName.trim() || null,
         user_display_name: userName.trim() || null,
-        proactive_quiet_hours_start: quietStart,
-        proactive_quiet_hours_end: quietEnd,
-        proactive_max_checkins_per_day: clampInt(maxCheckins, 0, 6, 3),
-        proactive_same_topic_cooldown_minutes: clampInt(
+      };
+      const initial = initialProactiveRef.current;
+      if (quietStart !== initial.quietStart) {
+        changes.proactive_quiet_hours_start = quietStart.trim() || null;
+      }
+      if (quietEnd !== initial.quietEnd) {
+        changes.proactive_quiet_hours_end = quietEnd.trim() || null;
+      }
+      if (maxCheckins !== initial.maxCheckins) {
+        changes.proactive_max_checkins_per_day = parseOptionalInt(
+          maxCheckins,
+          0,
+          6,
+          "每日最多问候",
+        );
+      }
+      if (cooldownMinutes !== initial.cooldownMinutes) {
+        changes.proactive_same_topic_cooldown_minutes = parseOptionalInt(
           cooldownMinutes,
           0,
           720,
-          120,
-        ),
-      });
+          "同类话题冷却",
+        );
+      }
+      await update(changes);
       onClose();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error && error.message.startsWith("请输入")
+          ? error.message
+          : "保存没成功，请检查填写内容和后台连接后再试一次。",
+      );
     } finally {
       setSaving(false);
     }
@@ -66,9 +138,12 @@ export function ProfileSettingsDialog({
   async function clearCompanionName() {
     if (saving) return;
     setSaving(true);
+    setErrorMessage(null);
     try {
       await update({ companion_display_name: null });
       setCompanionName("");
+    } catch {
+      setErrorMessage("删除名字没成功，请确认后台连接后再试一次。");
     } finally {
       setSaving(false);
     }
@@ -78,7 +153,12 @@ export function ProfileSettingsDialog({
     field: "memory_enabled" | "proactive_checkin_enabled",
     value: boolean,
   ) {
-    await update({ [field]: value });
+    setErrorMessage(null);
+    try {
+      await update({ [field]: value });
+    } catch {
+      setErrorMessage("设置没保存成功，请确认后台连接后再试一次。");
+    }
   }
 
   return (
@@ -148,6 +228,9 @@ export function ProfileSettingsDialog({
 
           <div className="border-t border-black/10 pt-4">
             <h3 className="text-lg font-semibold text-ink">主动关怀规则</h3>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              当前显示的是实际生效值；只会保存您改过的项目。清空某一项可恢复全局默认。
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-base text-muted">安静时段开始</span>
@@ -208,6 +291,12 @@ export function ProfileSettingsDialog({
           </div>
         </div>
 
+        {errorMessage ? (
+          <p role="alert" className="mt-4 text-base text-caution">
+            {errorMessage}
+          </p>
+        ) : null}
+
         <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
           <button
             type="button"
@@ -231,15 +320,19 @@ export function ProfileSettingsDialog({
   );
 }
 
-function clampInt(
+function parseOptionalInt(
   value: string,
   min: number,
   max: number,
-  fallback: number,
-): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
+  label: string,
+): number | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`请输入 ${min}–${max} 之间的${label}数值。`);
+  }
+  return parsed;
 }
 
 function Toggle({

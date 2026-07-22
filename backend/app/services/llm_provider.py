@@ -39,6 +39,10 @@ class CompanionReplyInput:
     system_prompt: Optional[str] = None
     # External fact from InfoRetrievalTool (#13) to weave into the reply.
     retrieval_context: Optional[str] = None
+    # Topic-card context for companion-path turns.  The card is a user-selected
+    # conversation anchor, not evidence that the user has the described
+    # feeling, condition, or personal history.
+    topic: Optional[str] = None
     # Short-term, in-process history (#82). Real providers include this as
     # bounded chat messages before the current user turn; fake provider may use
     # it only for deterministic offline continuity checks.

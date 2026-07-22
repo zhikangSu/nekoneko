@@ -17,6 +17,7 @@ from app.graph.state import GraphState
 from app.relationship.cue_generator import CueGenerator, is_relationship_cue_turn
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN, list_role_profiles
 from app.schemas.profile import UserProfile
+from app.schemas.conversation import ConversationMessage
 from app.schemas.relationship import OrchestrationInput, RoleId, RoleSelectionMode
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
@@ -50,11 +51,11 @@ def _distinct_role_labels(text: str) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 1: old TV / old object -> multi-role cue
+# Scenario 1: old TV / old object -> minimal role cue
 # ---------------------------------------------------------------------------
 
 
-def test_old_tv_routes_to_relationship_cueing_with_multi_role_cue(client):
+def test_old_tv_routes_to_relationship_cueing_with_one_direct_role(client):
     body = client.post(
         "/api/chat",
         json={"user_id": "cue_tv", "message": "看到这个老电视，我想起以前的日子"},
@@ -63,10 +64,9 @@ def test_old_tv_routes_to_relationship_cueing_with_multi_role_cue(client):
     assert _route(body) == "relationship_cueing"
 
     text = body["response_text"]
-    # At least two distinct visible role labels appear.
-    assert len(_distinct_role_labels(text)) >= 2
-    # And a gentle, non-forcing invitation is present.
-    assert any(kw in text for kw in ("想聊", "愿意", "不想说也没关系", "不着急"))
+    assert _distinct_role_labels(text) == {"同龄共鸣者"}
+    assert "？" not in text
+    assert "我们那会儿" not in text
 
     # Trace has an agent step from RelationshipOrchestratorAgent with a
     # non-empty role_trace, and its selected roles include same_age_peer.
@@ -75,7 +75,17 @@ def test_old_tv_routes_to_relationship_cueing_with_multi_role_cue(client):
     assert len(orch) == 1
     assert orch[0]["kind"] == "agent"
     assert orch[0]["detail"]["role_trace"].strip()
-    assert "same_age_peer" in orch[0]["detail"]["selected_roles"]
+    assert orch[0]["detail"]["selected_roles"] == ["same_age_peer"]
+    assert orch[0]["detail"]["candidate_roles"] == [
+        "same_age_peer",
+        "middle_age_bridge",
+        "curious_junior",
+    ]
+    assert orch[0]["detail"]["silent_roles"] == [
+        "middle_age_bridge",
+        "curious_junior",
+    ]
+    assert orch[0]["detail"]["allow_follow_up"] is False
 
 
 def test_manual_roles_are_sent_to_orchestrator_trace(client):
@@ -122,14 +132,14 @@ def test_manual_no_ai_role_suppresses_role_lines(client):
 
     assert _route(body) == "relationship_cueing"
     assert _role_lines(body["response_text"]) == []
-    assert "不安排 AI 角色" in body["response_text"]
+    assert body["response_text"] == "我在听，您想怎么说都可以。"
 
     orch = [
         a
         for a in body["agent_trace"]["agents"]
         if a["name"] == "RelationshipOrchestratorAgent"
     ]
-    assert orch[0]["detail"]["selected_roles"] == ["no_ai_role"]
+    assert orch[0]["detail"]["selected_roles"] == []
     assert orch[0]["detail"]["cueing_style"] == "no_cue"
 
 
@@ -146,7 +156,10 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     ).json()
 
     assert _route(body) == "relationship_cueing"
-    assert len(body["role_messages"]) >= 2
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert body["role_messages"][0]["role_label"]
     assert body["role_messages"][0]["text"]
     assert "给我们讲讲" not in body["response_text"]
@@ -158,9 +171,10 @@ def test_topic_card_metadata_routes_generic_cue_and_returns_role_messages(client
     assert metadata["material_type"] == "topic_card"
     assert "same_age_peer" in metadata["selected_roles"]
     assert metadata["cueing_style"] == "agent_agent_then_invite"
+    assert body["agent_trace"]["research_trace"]["role"]["allow_follow_up"] is True
 
 
-def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
+def test_fake_topic_card_greeting_stays_on_normal_reply_path(client):
     body = client.post(
         "/api/chat",
         json={
@@ -172,21 +186,9 @@ def test_fake_topic_card_greeting_acknowledges_user_before_topic(client):
         },
     ).json()
 
-    assert _route(body) == "relationship_cueing"
-    assert body["role_messages"][0]["text"] == "您好呀，我们都在，见到您很高兴。"
-    assert all(
-        "粤剧" not in message["text"] for message in body["role_messages"]
-    )
-    orchestrator = next(
-        step
-        for step in body["agent_trace"]["agents"]
-        if step["name"] == "RelationshipOrchestratorAgent"
-    )
-    assert orchestrator["detail"]["topic_card_greeting"] is True
-    assert all(
-        step["name"] != "CompanionAgent"
-        for step in body["agent_trace"]["agents"]
-    )
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "老电影" not in body["response_text"]
 
 
 def test_learning_topic_card_introduces_concrete_learning_scene(client):
@@ -203,7 +205,10 @@ def test_learning_topic_card_introduces_concrete_learning_scene(client):
 
     assert _route(body) == "relationship_cueing"
     text = body["response_text"]
-    assert len(body["role_messages"]) == 3
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert any(word in text for word in ("读书", "上学", "学校", "老师", "同学"))
     assert "想聊什么都行" not in text
     assert "接着刚才说的" not in text
@@ -231,7 +236,10 @@ def test_work_topic_card_opening_does_not_assume_elder_story(client):
 
     assert _route(body) == "relationship_cueing"
     text = body["response_text"]
-    assert len(body["role_messages"]) == 3
+    assert [message["role_id"] for message in body["role_messages"]] == [
+        "same_age_peer",
+        "curious_junior",
+    ]
     assert any(word in text for word in ("工作", "单位", "车间", "同事", "上班"))
     assert "接着刚才说的" not in text
     assert "听前面这么一说" not in text
@@ -309,27 +317,21 @@ def test_study_condition_c2_uses_fixed_role_prelude(client):
     ]
 
 
-def test_culture_topic_returns_two_role_lines_before_invitation(client):
+def test_culture_topic_uses_one_bridge_reply_without_fixed_invitation(client):
     body = client.post(
         "/api/chat",
         json={"user_id": "cue_culture_scene", "message": "我喜欢听粤剧。"},
     ).json()
 
     assert _route(body) == "relationship_cueing"
-    assert len(body["role_messages"]) >= 3
-    first_two_labels = [m["role_label"] for m in body["role_messages"][:2]]
-    assert first_two_labels == ["同龄共鸣者", "中年传承者"]
-    assert body["role_messages"][2]["role_label"] == "晚辈好奇者"
-    assert body["role_messages"][1]["text"].startswith("是啊")
-    assert body["role_messages"][2]["text"].startswith("听前面这么一说")
+    assert [message["role_label"] for message in body["role_messages"]] == [
+        "中年传承者"
+    ]
+    assert "？" not in body["response_text"]
 
     metadata = body["agent_trace"]["research_metadata"]
-    assert metadata["cueing_style"] == "agent_agent_then_invite"
-    assert metadata["selected_roles"] == [
-        "same_age_peer",
-        "middle_age_bridge",
-        "curious_junior",
-    ]
+    assert metadata["cueing_style"] == "direct"
+    assert metadata["selected_roles"] == ["middle_age_bridge"]
 
 
 def test_elder_pause_roles_suppresses_relationship_cueing(client):
@@ -367,7 +369,7 @@ def test_elder_continue_keeps_relationship_cueing(client):
     ).json()
 
     assert _route(body) == "relationship_cueing"
-    assert len(body["role_messages"]) >= 2
+    assert len(body["role_messages"]) == 1
     metadata = body["agent_trace"]["research_metadata"]
     assert metadata["elder_control_action"] == "continue_session"
     assert metadata["study_session_id"] == "session_continue"
@@ -408,7 +410,7 @@ def test_topic_card_does_not_override_sensitive_user_input(client):
     assert body["agent_trace"]["research_metadata"]["topic_id"] == "T05"
 
 
-def test_topic_card_refusal_keeps_multi_role_cast_and_stops_old_topic(client):
+def test_topic_card_refusal_uses_one_role_and_stops_old_topic(client):
     body = client.post(
         "/api/chat",
         json={
@@ -422,11 +424,8 @@ def test_topic_card_refusal_keeps_multi_role_cast_and_stops_old_topic(client):
 
     assert _route(body) == "relationship_cueing"
     assert [message["role_id"] for message in body["role_messages"]] == [
-        "same_age_peer",
-        "middle_age_bridge",
-        "curious_junior",
+        "same_age_peer"
     ]
-    assert len({message["text"] for message in body["role_messages"]}) == 3
     assert all("？" not in message["text"] for message in body["role_messages"])
     assert all("老照片" not in message["text"] for message in body["role_messages"])
     assert all("旧物" not in message["text"] for message in body["role_messages"])
@@ -438,7 +437,7 @@ def test_topic_card_refusal_keeps_multi_role_cast_and_stops_old_topic(client):
     )
     assert orchestrator["detail"]["topic_card_refusal"] is True
     assert orchestrator["detail"]["cueing_style"] == "boundary_acknowledgement"
-    assert "角色阵容保持不变" in orchestrator["detail"]["boundary_trace"]
+    assert "实际发言角色" in orchestrator["detail"]["boundary_trace"]
     assert any(
         "停止延续" in note
         for note in body["agent_trace"]["research_trace"]["boundary"][
@@ -493,6 +492,131 @@ def test_topic_card_relationship_strain_is_not_replaced_by_card_seed(client):
 
     assert _route(body) == "companion_chat"
     assert body["role_messages"] == []
+
+
+def _post_topic_card(client, user_id: str, message: str) -> dict:
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": user_id,
+            "message": message,
+            "topic_id": "T06",
+            "topic_label": "老电影与地方文化",
+            "material_type": "topic_card",
+        },
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_topic_card_greeting_with_question_answers_actual_turn(client):
+    body = _post_topic_card(
+        client,
+        "cue_topic_card_greeting_question",
+        "你们好啊 你们在聊什么",
+    )
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "在聊" in body["response_text"]
+    interaction = body["agent_trace"]["research_trace"]["interaction"]
+    assert interaction["intent"] == "presence_activity"
+
+
+def test_topic_card_bare_greeting_is_not_acceptance(client):
+    body = _post_topic_card(client, "cue_topic_card_greeting", "你们好啊")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+
+
+def test_topic_card_question_is_not_acceptance_and_gets_direct_answer(client):
+    body = _post_topic_card(client, "cue_topic_card_question", "你们在聊什么")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "在聊" in body["response_text"]
+
+
+def test_topic_card_topic_question_is_not_acceptance(client):
+    body = _post_topic_card(client, "cue_topic_card_topic_question", "这是什么话题？")
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+
+
+def test_topic_card_true_acceptances_seed_two_opening_roles(client):
+    for index, message in enumerate(("好啊", "好呀", "聊这个吧", "开始吧")):
+        body = _post_topic_card(client, f"cue_topic_card_accept_{index}", message)
+
+        assert _route(body) == "relationship_cueing"
+        assert [message["role_id"] for message in body["role_messages"]] == [
+            "same_age_peer",
+            "curious_junior",
+        ]
+        orchestrator = next(
+            step
+            for step in body["agent_trace"]["agents"]
+            if step["name"] == "RelationshipOrchestratorAgent"
+        )
+        assert orchestrator["detail"]["topic_card_opening"] is True
+
+
+def test_deceased_topic_card_opens_on_topic_without_assuming_grief(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "sensitive_card_grief",
+            "message": "聊这个吧",
+            "topic_id": "T09",
+            "topic_label": "已故亲友与重要记忆",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "已故亲友" in body["response_text"]
+    assert "您正在悲伤" not in body["response_text"]
+    assert "您一定很想念" not in body["response_text"]
+    research = body["agent_trace"]["research_trace"]
+    assert research["topic"]["classified_topic"] == "deceased_grief"
+    assert research["role"]["selected_roles"] == []
+    assert research["role"]["cueing_style"] == "no_cue"
+    assert research["boundary"]["boundary_state"] == "guarded"
+    companion = next(
+        step
+        for step in body["agent_trace"]["agents"]
+        if step["name"] == "CompanionAgent"
+    )
+    assert companion["detail"]["sensitive_topic_card"] is True
+    assert companion["detail"]["single_companion_voice"] is True
+
+
+def test_health_topic_card_opens_on_topic_without_assuming_illness(client):
+    body = client.post(
+        "/api/chat",
+        json={
+            "user_id": "sensitive_card_health",
+            "message": "聊这个吧",
+            "topic_id": "T10",
+            "topic_label": "身体健康和照护",
+            "material_type": "topic_card",
+        },
+    ).json()
+
+    assert _route(body) == "companion_chat"
+    assert body["role_messages"] == []
+    assert "身体健康和照护" in body["response_text"]
+    assert "您身体不好" not in body["response_text"]
+    assert "您正在服药" not in body["response_text"]
+    assert "不能判断病情" in body["response_text"]
+    assert "不能给用药或剂量建议" in body["response_text"]
+    research = body["agent_trace"]["research_trace"]
+    assert research["topic"]["classified_topic"] == "health_care"
+    assert research["role"]["selected_roles"] == []
+    assert research["role"]["cueing_style"] == "no_cue"
+    assert research["boundary"]["boundary_state"] == "guarded"
 
 
 # ---------------------------------------------------------------------------
@@ -655,11 +779,7 @@ class _SpyRealLLMProvider(LLMProvider):
 
 def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = (
-        "同龄共鸣者：粤剧一响起来，老戏院里的热闹劲儿好像也跟着回来了。\n"
-        "中年传承者：这些唱腔把地方的声音和一代人的生活都留了下来。\n"
-        "晚辈好奇者：听前面这么一说，我也好奇您最喜欢哪一段？"
-    )
+    provider.reply_text = "中年传承者：这些唱腔把地方的声音和一代人的生活都留了下来。"
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -678,12 +798,8 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
 
     assert provider.payloads
     assert "关系编排计划" in (provider.payloads[0].system_prompt or "")
-    assert "必须让每个角色分别说一句" in (provider.payloads[0].system_prompt or "")
-    assert [m.role_label for m in state.role_messages] == [
-        "同龄共鸣者",
-        "中年传承者",
-        "晚辈好奇者",
-    ]
+    assert "必须让每个角色分别说一句" not in (provider.payloads[0].system_prompt or "")
+    assert [m.role_label for m in state.role_messages] == ["中年传承者"]
     companion_steps = [a for a in state.agents if a.name == "CompanionAgent"]
     assert len(companion_steps) == 1
     detail = companion_steps[0].detail
@@ -698,9 +814,8 @@ def test_relationship_cue_uses_companion_llm_when_real_provider_configured():
 def test_topic_card_start_uses_real_llm_when_configured():
     provider = _SpyRealLLMProvider()
     provider.reply_text = (
-        "同龄共鸣者：说起上学，我们那时候一本课本常常要翻上好多遍。\n"
-        "中年传承者：这些读书经历里，也留着当时学校和家庭的生活印记。\n"
-        "晚辈好奇者：刚才两位说得真有画面，我想知道您最先想到哪位老师？"
+        "同龄共鸣者：说到年轻时学习，课本、教室和同学都能带出那个年代的生活细节。\n"
+        "晚辈好奇者：可以从一段上学路或一位老师慢慢说起，您想到哪儿说到哪儿。"
     )
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
@@ -730,11 +845,10 @@ def test_topic_card_start_uses_real_llm_when_configured():
     )
     assert [m.role_label for m in state.role_messages] == [
         "同龄共鸣者",
-        "中年传承者",
         "晚辈好奇者",
     ]
     assert state.draft_reply == provider.reply_text
-    assert "读书" in state.draft_reply or "上学" in state.draft_reply
+    assert any(word in state.draft_reply for word in ("学习", "读书", "上学", "课本"))
     assert "想聊什么都行" not in state.draft_reply
     assert "接着刚才说的" not in state.draft_reply
     assert "听前面这么一说" not in state.draft_reply
@@ -749,68 +863,50 @@ def test_topic_card_start_uses_real_llm_when_configured():
     assert companion_step.detail["topic_card_greeting"] is False
 
 
-def test_topic_card_greeting_retries_when_real_llm_ignores_user():
+def test_sensitive_topic_card_reaches_real_provider_as_non_assumptive_context():
     provider = _SpyRealLLMProvider()
-    repaired_reply = (
-        "同龄共鸣者：您好呀，我们都在，见到您很高兴。\n"
-        "中年传承者：您好，咱们不着急，先按您舒服的节奏来。\n"
-        "晚辈好奇者：您好呀，您想先聊这张话题卡，还是随意说两句都可以。"
-    )
-    provider.reply_texts = [
-        (
-            "同龄共鸣者：粤剧一响起来，街头巷尾都像回到从前了。\n"
-            "中年传承者：这些老戏老曲一代代传下来，确实有自己的味道。\n"
-            "晚辈好奇者：我挺好奇的，您平时最喜欢听哪出戏呀？"
-        ),
-        repaired_reply,
-    ]
+    provider.reply_text = "可以，我们按您舒服的节奏聊聊已故亲友和回忆，也可以随时换个话题。"
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
         cue_generator=CueGenerator(),
     )
     state = GraphState(
-        turn_id="t_topic_card_greeting_llm",
-        user_id="u_topic_card_greeting_llm",
-        user_input="你们好啊",
+        turn_id="t_sensitive_card_real",
+        user_id="u_sensitive_card_real",
+        user_input="聊这个吧",
         mode=CompanionMode.role_first,
-        user_profile=UserProfile(user_id="u_topic_card_greeting_llm"),
+        user_profile=UserProfile(user_id="u_sensitive_card_real"),
         memory_context=[],
-        topic_id="T06",
-        topic_label="老电影、戏曲、歌曲、地方文化",
+        topic_id="T09",
+        topic_label="已故亲友与重要记忆",
     )
 
-    relationship_cueing_node(state, deps)
+    companion_node(state, deps)
 
-    assert len(provider.payloads) == 2
-    assert all(payload.message == "你们好啊" for payload in provider.payloads)
-    assert "上面的 topic 是系统提供的背景" in (
-        provider.payloads[0].system_prompt or ""
+    assert len(provider.payloads) == 1
+    payload = provider.payloads[0]
+    assert payload.message == "聊这个吧"
+    assert payload.topic == "deceased_grief"
+    assert "参考背景，不是用户自述" in (payload.system_prompt or "")
+    assert "不得把选卡本身解释为用户正在悲伤" in (
+        payload.system_prompt or ""
     )
-    assert "第一位角色必须先自然回应用户的问候" in (
-        provider.payloads[1].system_prompt or ""
+    assert "绝不扮演、模仿或代替逝者本人" in (
+        payload.system_prompt or ""
     )
-    assert state.draft_reply == repaired_reply
+    assert state.draft_reply == provider.reply_text
+    assert state.role_messages == []
     detail = next(
         step.detail for step in state.agents if step.name == "CompanionAgent"
     )
-    assert detail["companion_input_source"] == "raw_user_input"
-    assert detail["topic_card_greeting"] is True
-    assert detail["llm_role_reply_initial_rejection_reason"] == (
-        "topic_card_greeting_not_acknowledged"
-    )
-    assert detail["llm_role_reply_retry_used"] is True
-    assert detail["llm_role_reply_retry_accepted"] is True
-    assert detail["llm_role_reply_fallback_used"] is False
+    assert detail["classified_topic"] == "deceased_grief"
+    assert detail["selected_roles"] == []
 
 
-def test_topic_card_refusal_uses_real_llm_with_multi_role_boundary_prompt():
+def test_topic_card_refusal_uses_one_real_llm_boundary_reply():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = (
-        "同龄共鸣者：好，这个我们就先放下，不勉强您。\n"
-        "中年传承者：明白，照您觉得自在的方式来最合适。\n"
-        "晚辈好奇者：好呀，我也不再追问，安静一会儿也没关系。"
-    )
+    provider.reply_text = "同龄共鸣者：好，这个话题先放下，按您觉得自在的方式来。"
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -835,21 +931,13 @@ def test_topic_card_refusal_uses_real_llm_with_multi_role_boundary_prompt():
     assert "不得继续展开被拒绝的话题" in prompt
     assert "不得提出问题" in prompt
     assert provider.payloads[0].message == "先不聊这个吧"
-    assert [message.role_id for message in state.role_messages] == [
-        RoleId.same_age_peer,
-        RoleId.middle_age_bridge,
-        RoleId.curious_junior,
-    ]
+    assert [message.role_id for message in state.role_messages] == [RoleId.same_age_peer]
     assert state.draft_reply == provider.reply_text
 
 
 def test_pressuring_real_llm_topic_refusal_reply_falls_back_to_safe_roles():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = (
-        "同龄共鸣者：好，那您还记得照片里的人吗？\n"
-        "中年传承者：这段经历还是很值得继续说。\n"
-        "晚辈好奇者：您愿意再讲讲吗？"
-    )
+    provider.reply_text = "同龄共鸣者：好，那您还记得照片里的人吗？"
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -872,7 +960,7 @@ def test_pressuring_real_llm_topic_refusal_reply_falls_back_to_safe_roles():
     assert "上一版回复没有满足" in provider.payloads[1].system_prompt
     assert "不得提出问题" in provider.payloads[1].system_prompt
     assert state.draft_reply != provider.reply_text
-    assert len(state.role_messages) == 3
+    assert len(state.role_messages) == 1
     assert all("？" not in message.text for message in state.role_messages)
     companion_step = next(
         step for step in state.agents if step.name == "CompanionAgent"
@@ -887,13 +975,13 @@ def test_pressuring_real_llm_topic_refusal_reply_falls_back_to_safe_roles():
     assert companion_step.detail["llm_role_reply_fallback_used"] is True
 
 
-def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
+def test_real_relationship_cue_retries_fabricated_lived_experience():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = (
-        "中年传承者：这些粤剧唱段里有很多老街坊的味道，听您提起来很亲切。\n"
-        "同龄共鸣者：我们那时候听戏，常常一听前奏就知道是哪一段。\n"
-        "晚辈好奇者：您最记得的是哪一段？我想听听。"
-    )
+    repaired_reply = "中年传承者：这些粤剧唱段里留着地方生活的声音，听您提起来很有分量。"
+    provider.reply_texts = [
+        "中年传承者：我们那会儿听戏，常常一听前奏就知道是哪一段。",
+        repaired_reply,
+    ]
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -910,19 +998,20 @@ def test_real_relationship_cue_parses_llm_role_lines_instead_of_templates():
 
     relationship_cueing_node(state, deps)
 
-    assert state.draft_reply != provider.reply_text
-    assert [m.role_label for m in state.role_messages] == [
-        "同龄共鸣者",
-        "中年传承者",
-        "晚辈好奇者",
-    ]
-    assert state.role_messages[0].text.startswith("我们那时候听戏")
-    assert state.role_messages[1].text.startswith("这些粤剧唱段里")
+    assert state.draft_reply == repaired_reply
+    assert [m.role_label for m in state.role_messages] == ["中年传承者"]
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "fabricated_lived_experience"
+    )
+    assert detail["llm_role_reply_retry_accepted"] is True
 
 
 def test_real_relationship_cue_retries_malformed_reply_before_fallback():
     provider = _SpyRealLLMProvider()
-    provider.reply_text = "同龄共鸣者：粤剧啊，我们"
+    provider.reply_text = "中年传承者：粤剧啊，我们"
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
@@ -942,11 +1031,7 @@ def test_real_relationship_cue_retries_malformed_reply_before_fallback():
     assert len(provider.payloads) == 2
     assert "上一版回复没有满足" in provider.payloads[1].system_prompt
     assert state.draft_reply != provider.reply_text
-    assert [m.role_label for m in state.role_messages] == [
-        "同龄共鸣者",
-        "中年传承者",
-        "晚辈好奇者",
-    ]
+    assert [m.role_label for m in state.role_messages] == ["中年传承者"]
     assert all(
         not message.text.endswith(("我们", "就", "，"))
         for message in state.role_messages
@@ -954,29 +1039,58 @@ def test_real_relationship_cue_retries_malformed_reply_before_fallback():
     companion_steps = [a for a in state.agents if a.name == "CompanionAgent"]
     detail = companion_steps[0].detail
     assert detail["llm_role_reply_accepted"] is False
-    assert detail["llm_role_reply_initial_rejection_reason"] == (
-        "expected_3_role_lines_got_1"
-    )
-    assert detail["llm_role_reply_final_rejection_reason"] == (
-        "expected_3_role_lines_got_1"
-    )
+    assert detail["llm_role_reply_initial_rejection_reason"] == "role_line_too_short"
+    assert detail["llm_role_reply_final_rejection_reason"] == "role_line_too_short"
     assert detail["llm_role_reply_retry_used"] is True
+    assert detail["llm_role_reply_retry_accepted"] is False
+    assert detail["llm_role_reply_fallback_used"] is True
+
+
+def test_topic_card_malformed_real_reply_falls_back_to_complete_two_role_cue():
+    provider = _SpyRealLLMProvider()
+    provider.reply_text = "同龄共鸣者：说到工作，我们"
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_topic_card_malformed",
+        user_id="u_topic_card_malformed",
+        user_input="聊这个吧",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_topic_card_malformed"),
+        memory_context=[],
+        topic_id="T02",
+        topic_label="年轻时的工作经历",
+    )
+
+    relationship_cueing_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert [message.role_id for message in state.role_messages] == [
+        RoleId.same_age_peer,
+        RoleId.curious_junior,
+    ]
+    assert all(
+        not message.text.endswith(("我们", "就", "，"))
+        for message in state.role_messages
+    )
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "expected_2_role_lines_got_1"
+    )
     assert detail["llm_role_reply_retry_accepted"] is False
     assert detail["llm_role_reply_fallback_used"] is True
 
 
 def test_real_relationship_cue_accepts_repaired_role_reply():
     provider = _SpyRealLLMProvider()
-    repaired_reply = (
-        "同龄共鸣者：粤剧一响起来，熟悉的调子就回来了。\n"
-        "中年传承者：听前面这么一说，这些唱段也留住了地方生活的记忆。\n"
-        "晚辈好奇者：我也想听听，您最喜欢的是哪一段？"
-    )
+    repaired_reply = "中年传承者：这些唱段留住了地方生活的声音和记忆。"
     provider.reply_texts = [
-        (
-            "同龄共鸣者：粤剧一响起来，熟悉的调子就回来了。\n"
-            "晚辈好奇者：听着就很有老街坊一起看戏的感觉。"
-        ),
+        "同龄共鸣者：粤剧一响起来，熟悉的调子就回来了。",
         repaired_reply,
     ]
     deps = SimpleNamespace(
@@ -996,17 +1110,13 @@ def test_real_relationship_cue_accepts_repaired_role_reply():
     relationship_cueing_node(state, deps)
 
     assert len(provider.payloads) == 2
-    assert [m.role_label for m in state.role_messages] == [
-        "同龄共鸣者",
-        "中年传承者",
-        "晚辈好奇者",
-    ]
+    assert [m.role_label for m in state.role_messages] == ["中年传承者"]
     assert state.draft_reply == repaired_reply
     detail = next(
         step.detail for step in state.agents if step.name == "CompanionAgent"
     )
     assert detail["llm_role_reply_initial_rejection_reason"] == (
-        "expected_3_role_lines_got_2"
+        "expected_1_role_lines_got_0"
     )
     assert detail["llm_role_reply_final_rejection_reason"] is None
     assert detail["llm_role_reply_retry_used"] is True
@@ -1017,13 +1127,14 @@ def test_real_relationship_cue_accepts_repaired_role_reply():
 def test_companion_chat_multi_role_reply_becomes_separate_role_messages():
     provider = _SpyRealLLMProvider()
     provider.reply_text = (
-        "同龄共鸣者：聊工作啊，我们那会儿在单位里忙起来，确实有累也有热闹。\n"
+        "同龄共鸣者：聊工作啊，单位里忙起来，确实有累也有热闹。\n"
         "晚辈好奇者：我有点好奇，您那时候最常做的是哪一类活儿？\n"
         "中年传承者：这些在岗位上熬出来的经验，后来回头看很有分量。"
     )
     deps = SimpleNamespace(
         companion=CompanionAgent(provider),
         relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
     )
     state = GraphState(
         turn_id="t_companion_multi_roles",
@@ -1102,11 +1213,175 @@ def test_companion_chat_retries_when_manual_role_is_missing():
     )
 
 
+def test_companion_direct_presence_question_retries_irrelevant_role_reply():
+    provider = _SpyRealLLMProvider()
+    repaired_reply = "同龄共鸣者：我们刚才在聊这张话题卡，也在这里等着听您说话。"
+    provider.reply_texts = [
+        "同龄共鸣者：当时最让您记得的一件小事是什么呢？",
+        repaired_reply,
+    ]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_retry",
+        user_id="u_companion_presence_retry",
+        user_input="你们在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_retry"),
+        context_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+        conversation_history=[
+            ConversationMessage(
+                role="assistant",
+                content="同龄共鸣者：刚才我们在聊粤剧和地方文化。",
+            )
+        ],
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert provider.payloads[0].message == "你们在干什么"
+    assert provider.payloads[0].conversation_history == state.conversation_history
+    assert "必须先按字面直接回答当前问题" in provider.payloads[0].system_prompt
+    assert "不得转成回忆引导" in provider.payloads[1].system_prompt
+    assert state.draft_reply == repaired_reply
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["direct_presence_question"] is True
+    assert detail["direct_presence_question_kind"] == "activity"
+    assert detail["llm_role_reply_initial_rejection_reason"] == (
+        "direct_presence_question_not_answered"
+    )
+    assert detail["llm_role_reply_retry_accepted"] is True
+    assert detail["llm_role_reply_fallback_used"] is False
+
+
+def test_companion_direct_presence_question_uses_relevant_fallback():
+    provider = _SpyRealLLMProvider()
+    irrelevant_reply = (
+        "同龄共鸣者：您说的这些，我们那会儿也常经历，一提起来就觉得亲切。\n"
+        "晚辈好奇者：当时最让您记得的一件小事是什么呢？"
+    )
+    provider.reply_texts = [irrelevant_reply, irrelevant_reply]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_fallback",
+        user_id="u_companion_presence_fallback",
+        user_input="你们在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_fallback"),
+        context_role_ids=[RoleId.same_age_peer, RoleId.curious_junior],
+    )
+
+    companion_node(state, deps)
+
+    assert "在这里陪您聊天" in state.draft_reply
+    assert "最让您记得" not in state.draft_reply
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_role_reply_retry_accepted"] is False
+    assert detail["llm_role_reply_fallback_used"] is True
+
+
+def test_companion_direct_presence_question_without_scene_uses_freeform_fallback():
+    provider = _SpyRealLLMProvider()
+    irrelevant_reply = "您最想聊哪一段往事呢？"
+    provider.reply_texts = [irrelevant_reply, irrelevant_reply]
+    deps = SimpleNamespace(
+        companion=CompanionAgent(provider),
+        relationship_orchestrator=RelationshipOrchestratorAgent(),
+        cue_generator=CueGenerator(),
+    )
+    state = GraphState(
+        turn_id="t_companion_presence_freeform",
+        user_id="u_companion_presence_freeform",
+        user_input="你在干什么",
+        mode=CompanionMode.role_first,
+        user_profile=UserProfile(user_id="u_companion_presence_freeform"),
+    )
+
+    companion_node(state, deps)
+
+    assert len(provider.payloads) == 2
+    assert state.role_messages == []
+    assert "正在这里陪您聊天" in state.draft_reply
+    assert "往事" not in state.draft_reply
+    orchestrator_detail = next(
+        step.detail
+        for step in state.agents
+        if step.name == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator_detail["interaction_intent"] == "presence_activity"
+    assert orchestrator_detail["selected_roles"] == []
+    detail = next(
+        step.detail for step in state.agents if step.name == "CompanionAgent"
+    )
+    assert detail["llm_direct_reply_retry_used"] is True
+    assert detail["llm_direct_reply_retry_accepted"] is False
+    assert detail["llm_direct_reply_fallback_used"] is True
+
+
+def test_ambient_presence_turn_separates_topic_intent_and_visible_role_context(client):
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": "ambient_presence_axes",
+            "message": "你们在干什么",
+            "study_session_id": "ambient_presence_axes_session",
+            "topic_id": "T06",
+            "topic_label": "老电影、戏曲、歌曲、地方文化",
+            "material_type": "topic_card",
+            "conversation_seed": [
+                {
+                    "role": "assistant",
+                    "content": "中年传承者：我们刚才在聊粤剧和地方文化。",
+                }
+            ],
+            "context_role_ids": ["middle_age_bridge", "same_age_peer"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    trace = body["agent_trace"]
+    assert trace["conversation_seed_used"] is True
+    assert trace["research_trace"]["topic"]["classified_topic"] == "other"
+    assert trace["research_trace"]["topic"]["topic_id"] == "T06"
+    assert trace["research_trace"]["interaction"] == {
+        "intent": "presence_activity",
+        "role_selection_source": "visible_context",
+        "context_role_ids": ["middle_age_bridge", "same_age_peer"],
+    }
+    assert trace["research_trace"]["role"]["candidate_roles"] == [
+        "middle_age_bridge",
+        "same_age_peer",
+    ]
+    assert trace["research_trace"]["role"]["selected_roles"] == ["middle_age_bridge"]
+    assert trace["research_trace"]["role"]["silent_roles"] == ["same_age_peer"]
+    orchestrator_detail = next(
+        step["detail"]
+        for step in trace["agents"]
+        if step["name"] == "RelationshipOrchestratorAgent"
+    )
+    assert orchestrator_detail["interaction_intent"] == "presence_activity"
+    assert orchestrator_detail["role_selection_source"] == "visible_context"
+    assert "其他角色保持沉默" in orchestrator_detail["role_selection_reason"]
+
+
 def test_companion_chat_reorders_roles_and_normalizes_unpleasant_plural():
     provider = _SpyRealLLMProvider()
     provider.reply_text = (
         "中年传承者：您们在车间磨出来的配合，是很珍贵的经验。\n"
-        "同龄共鸣者：机器一响起来，我们那会儿也常靠手势交流。\n"
+        "同龄共鸣者：机器一响起来，车间里常要靠手势交流。\n"
         "晚辈好奇者：听前面这么一说，我也能想见当时忙碌的样子。"
     )
     deps = SimpleNamespace(

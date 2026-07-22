@@ -20,9 +20,11 @@ from app.relationship.topic_classifier import (
 )
 from app.schemas.relationship import (
     CueingStyle,
+    InteractionIntent,
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionSource,
     RoleSelectionMode,
 )
 
@@ -35,13 +37,26 @@ def _orchestrate(text: str, **kwargs) -> RelationshipDecision:
 
 
 def _assert_common_invariants(decision: RelationshipDecision) -> None:
-    # selected_roles length within [1, 3]
-    assert 1 <= len(decision.selected_roles) <= MAX_ROLES_PER_TURN
+    # The classifier may abstain (Topic.other), in which case the normal named
+    # companion answers without forcing a visible reminiscence role.
+    assert 0 <= len(decision.selected_roles) <= MAX_ROLES_PER_TURN
+    if not decision.selected_roles:
+        assert decision.topic == Topic.other.value
+        assert decision.primary_role is None
     # never exceeds 3
     assert len(decision.selected_roles) <= 3
-    # all selected are valid registry roles
-    for role in decision.selected_roles:
+    assert len(decision.candidate_roles) <= MAX_ROLES_PER_TURN
+    # all candidate/selected/silent roles are valid registry roles
+    for role in [
+        *decision.candidate_roles,
+        *decision.selected_roles,
+        *decision.silent_roles,
+    ]:
         assert role in REGISTRY_IDS
+    assert set(decision.selected_roles).issubset(set(decision.candidate_roles))
+    assert set(decision.silent_roles) == (
+        set(decision.candidate_roles) - set(decision.selected_roles)
+    )
     # no duplicates
     assert len(decision.selected_roles) == len(set(decision.selected_roles))
     # no_ai_role never sits beside a speaking role
@@ -87,17 +102,44 @@ def test_sensitive_keywords_take_priority_over_cheerful_ones():
     assert Topic.privacy_family_conflict in SENSITIVE_TOPICS
 
 
+def test_ambiguous_bare_words_do_not_trigger_sensitive_topics():
+    normal_daily_statements = {
+        "我老伴今天做了红烧肉": Topic.other,
+        "我和老伴准备下午去公园": Topic.other,
+        "我离开家去散步了": Topic.other,
+        "孩子刚离开，我准备看电视": Topic.family_education,
+        "我身体挺好的": Topic.other,
+        "出去走走对身体好": Topic.other,
+        "我想一个人安静一会儿": Topic.other,
+        "今天一个人去超市买菜": Topic.other,
+    }
+    for text, expected in normal_daily_statements.items():
+        assert classify_topic(text) is expected
+
+
+def test_sensitive_phrases_still_match_after_bare_word_narrowing():
+    assert classify_topic("我今天有点想老伴了") is Topic.deceased_grief
+    assert classify_topic("我想起已经离开的老伴") is Topic.deceased_grief
+    assert classify_topic("我最近身体不好在住院") is Topic.health_care
+    assert classify_topic("一个人在家，觉得没意思") is Topic.loneliness_mood
+
+
 # --------------------------------------------------------------------------- #
 # Acceptance examples                                                          #
 # --------------------------------------------------------------------------- #
 
 
-def test_accept_old_tv_reminiscence_uses_peer_set_agent_agent():
+def test_accept_old_tv_reminiscence_uses_minimal_speaker_set():
     d = _orchestrate("看到老电视想起以前")
-    assert RoleId.same_age_peer in d.selected_roles
-    assert RoleId.curious_junior in d.selected_roles
-    assert RoleId.middle_age_bridge in d.selected_roles
-    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert d.candidate_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
+    assert d.selected_roles == [RoleId.same_age_peer]
+    assert d.silent_roles == [RoleId.middle_age_bridge, RoleId.curious_junior]
+    assert d.cueing_style == CueingStyle.direct
+    assert d.allow_follow_up is False
     assert d.role_selection_reason.strip()
     _assert_common_invariants(d)
 
@@ -113,16 +155,16 @@ def test_accept_deceased_partner_is_boundary_path():
     _assert_common_invariants(d)
 
 
-def test_accept_yueju_uses_bridge_peer_and_junior():
+def test_accept_yueju_keeps_candidates_but_only_bridge_speaks():
     d = _orchestrate("我喜欢粤剧")
-    assert d.selected_roles == [
+    assert d.candidate_roles == [
         RoleId.same_age_peer,
         RoleId.middle_age_bridge,
         RoleId.curious_junior,
     ]
-    assert RoleId.theme_companion not in d.selected_roles
-    assert len(d.selected_roles) >= 3
-    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert d.selected_roles == [RoleId.middle_age_bridge]
+    assert d.silent_roles == [RoleId.same_age_peer, RoleId.curious_junior]
+    assert d.cueing_style == CueingStyle.direct
     _assert_common_invariants(d)
 
 
@@ -131,54 +173,104 @@ def test_accept_yueju_uses_bridge_peer_and_junior():
 # --------------------------------------------------------------------------- #
 
 
-def test_study_learning_uses_topic_specific_peer_set():
+def test_study_learning_uses_topic_specific_candidates_and_one_speaker():
     d = _orchestrate("年轻时学习读书上学学校同学")
     assert d.topic == Topic.study_learning.value
-    assert d.selected_roles == [
+    assert d.candidate_roles == [
         RoleId.same_age_peer,
         RoleId.middle_age_bridge,
         RoleId.curious_junior,
     ]
+    assert d.selected_roles == [RoleId.same_age_peer]
     assert d.primary_role is RoleId.same_age_peer
-    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert d.cueing_style == CueingStyle.direct
     _assert_common_invariants(d)
 
 
-def test_family_education_uses_junior_and_bridge():
+def test_family_education_uses_bridge_as_only_speaker():
     d = _orchestrate("想聊聊孩子的教育和儿女")
-    assert RoleId.same_age_peer in d.selected_roles
-    assert RoleId.curious_junior in d.selected_roles
-    assert RoleId.middle_age_bridge in d.selected_roles
-    assert len(d.selected_roles) >= 3
+    assert d.selected_roles == [RoleId.middle_age_bridge]
+    assert set(d.silent_roles) == {RoleId.same_age_peer, RoleId.curious_junior}
     assert d.primary_role is RoleId.middle_age_bridge
-    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert d.cueing_style == CueingStyle.direct
     _assert_common_invariants(d)
 
 
-def test_work_collective_uses_peer_set():
+def test_work_collective_uses_peer_as_only_speaker():
     d = _orchestrate("那会儿在厂里车间跟老同事一起上班")
-    assert d.selected_roles == [
+    assert d.candidate_roles == [
         RoleId.same_age_peer,
         RoleId.middle_age_bridge,
         RoleId.curious_junior,
     ]
+    assert d.selected_roles == [RoleId.same_age_peer]
     assert d.primary_role is RoleId.same_age_peer
     _assert_common_invariants(d)
 
 
-def test_general_reminiscence_uses_peer_set():
+def test_topic_card_opening_stages_peer_and_junior_before_minimal_followups():
+    d = _orchestrate(
+        "年轻时的工作经历，聊这个吧",
+        topic_card_opening=True,
+    )
+    assert d.candidate_roles == [
+        RoleId.same_age_peer,
+        RoleId.middle_age_bridge,
+        RoleId.curious_junior,
+    ]
+    assert d.selected_roles == [RoleId.same_age_peer, RoleId.curious_junior]
+    assert d.silent_roles == [RoleId.middle_age_bridge]
+    assert d.primary_role is RoleId.same_age_peer
+    assert d.cueing_style is CueingStyle.agent_agent_then_invite
+    assert d.allow_follow_up is True
+    _assert_common_invariants(d)
+
+
+def test_general_reminiscence_uses_direct_peer_reply():
     d = _orchestrate("总想起以前的事")
     assert d.topic == Topic.general_reminiscence.value
     assert RoleId.same_age_peer in d.selected_roles
-    assert d.cueing_style == CueingStyle.agent_agent_then_invite
+    assert d.cueing_style == CueingStyle.direct
+    assert d.allow_follow_up is False
     _assert_common_invariants(d)
 
 
-def test_loneliness_mood_is_gentle_single_prelude():
+def test_loneliness_mood_is_gentle_direct_reply():
     d = _orchestrate("一个人在家，觉得没意思")
     assert RoleId.elder_mentor in d.selected_roles
     assert d.primary_role is RoleId.elder_mentor
-    assert d.cueing_style == CueingStyle.single_role_prelude
+    assert d.cueing_style == CueingStyle.direct
+    _assert_common_invariants(d)
+
+
+def test_other_abstains_without_forcing_reminiscence_roles():
+    d = _orchestrate("今天天气怎么样")
+    assert d.topic == Topic.other.value
+    assert d.interaction_intent is InteractionIntent.general_turn
+    assert d.selected_roles == []
+    assert d.primary_role is None
+    assert d.role_selection_source is RoleSelectionSource.policy
+    assert d.cueing_style is CueingStyle.direct
+    assert "不强行" in d.role_selection_reason
+    assert d.should_generate_memory_card is False
+    _assert_common_invariants(d)
+
+
+def test_presence_question_keeps_visible_scene_roles_as_context():
+    context_roles = [RoleId.middle_age_bridge, RoleId.same_age_peer]
+    d = _orchestrate(
+        "你们在干什么",
+        context_role_ids=context_roles,
+    )
+    assert d.topic == Topic.other.value
+    assert d.interaction_intent is InteractionIntent.presence_activity
+    assert d.candidate_roles == context_roles
+    assert d.selected_roles == [RoleId.middle_age_bridge]
+    assert d.silent_roles == [RoleId.same_age_peer]
+    assert d.primary_role is RoleId.middle_age_bridge
+    assert d.role_selection_source is RoleSelectionSource.visible_context
+    assert d.cueing_style is CueingStyle.direct
+    assert "候选" in d.role_selection_reason
     _assert_common_invariants(d)
 
 
@@ -292,8 +384,9 @@ def test_manual_empty_selection_falls_back_to_auto():
         selected_role_ids=[],
     )
     assert RoleId.same_age_peer in d.selected_roles
-    assert RoleId.curious_junior in d.selected_roles
-    assert RoleId.middle_age_bridge in d.selected_roles
+    assert RoleId.curious_junior in d.candidate_roles
+    assert RoleId.middle_age_bridge in d.candidate_roles
+    assert d.selected_roles == [RoleId.same_age_peer]
     assert "用户手动选择" not in d.role_selection_reason
     _assert_common_invariants(d)
 

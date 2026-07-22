@@ -129,6 +129,41 @@ def test_user_daily_cap_override_silences(tmp_path):
     assert second.decision == GuardianDecisionType.silent_log
 
 
+def test_env_quiet_hours_apply_when_profile_override_unset(tmp_path, monkeypatch):
+    monkeypatch.setenv("QUIET_HOURS_START", "09:00")
+    monkeypatch.setenv("QUIET_HOURS_END", "11:00")
+    decision = GuardianAgent(GuardianStateStore(tmp_path), Settings()).decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+    )
+    assert decision.decision == GuardianDecisionType.defer
+
+
+def test_profile_override_beats_env_quiet_hours(tmp_path, monkeypatch):
+    monkeypatch.setenv("QUIET_HOURS_START", "09:00")
+    monkeypatch.setenv("QUIET_HOURS_END", "11:00")
+    decision = GuardianAgent(GuardianStateStore(tmp_path), Settings()).decide(
+        user_id="u",
+        state_event=_event(StateEventType.POOR_SLEEP),
+        now=_NOON,
+        user_quiet_hours_start="14:00",
+        user_quiet_hours_end="15:00",
+    )
+    assert decision.decision == GuardianDecisionType.check_in
+
+
+def test_env_quiet_hours_do_not_silence_escalation(tmp_path, monkeypatch):
+    monkeypatch.setenv("QUIET_HOURS_START", "09:00")
+    monkeypatch.setenv("QUIET_HOURS_END", "11:00")
+    decision = GuardianAgent(GuardianStateStore(tmp_path), Settings()).decide(
+        user_id="u",
+        state_event=_event(StateEventType.LONG_NO_RESPONSE, Severity.medium),
+        now=_NOON,
+    )
+    assert decision.decision == GuardianDecisionType.safety_escalation
+
+
 def test_user_cooldown_override_allows_sooner_checkin(tmp_path):
     guardian = _guardian(tmp_path)
     guardian.decide(

@@ -119,13 +119,32 @@ class CueingStyle(str, Enum):
       each other, then turn to invite the elder in. Never used on sensitive
       topics (it can feel performative around grief/health/conflict).
     * ``no_cue`` — no staged persona banter at all (sensitive topics, or the
-      elder wants no AI role / just wants to talk).
+      user wants the named CompanionAgent without research-role labels).
     """
 
     direct = "direct"
     single_role_prelude = "single_role_prelude"
     agent_agent_then_invite = "agent_agent_then_invite"
     no_cue = "no_cue"
+
+
+class InteractionIntent(str, Enum):
+    """What the current utterance is doing, separate from its content topic."""
+
+    presence_activity = "presence_activity"
+    presence_identity = "presence_identity"
+    presence_hearing = "presence_hearing"
+    topic_turn = "topic_turn"
+    general_turn = "general_turn"
+
+
+class RoleSelectionSource(str, Enum):
+    """Why the current visible relationship-role set was selected."""
+
+    policy = "policy"
+    user_manual = "user_manual"
+    visible_context = "visible_context"
+    user_preference = "user_preference"
 
 
 class OrchestrationInput(BaseModel):
@@ -137,6 +156,13 @@ class OrchestrationInput(BaseModel):
     user_role_preferences: dict | None = None
     role_selection_mode: RoleSelectionMode = RoleSelectionMode.auto
     selected_role_ids: list[RoleId] = Field(default_factory=list)
+    # Roles already visible in the current UI scene. They preserve conversational
+    # continuity but are not treated as a manual user choice.
+    context_role_ids: list[RoleId] = Field(default_factory=list, max_length=3)
+    # True only for the acceptance turn immediately after a user selects a
+    # topic card. That turn intentionally stages a short 2-role social cue;
+    # ordinary follow-up turns still use the smallest useful speaker set.
+    topic_card_opening: bool = False
     risk_flags: dict | None = None
 
 
@@ -150,11 +176,20 @@ class RelationshipDecision(BaseModel):
     """
 
     topic: str
+    interaction_intent: InteractionIntent
+    # Roles considered by policy before choosing the smallest useful speaker
+    # set. ``selected_roles`` are the roles that actually speak this turn;
+    # ``silent_roles`` remain visible/auditable but do not produce a bubble.
+    candidate_roles: list[RoleId] = Field(default_factory=list)
     selected_roles: list[RoleId]
+    silent_roles: list[RoleId] = Field(default_factory=list)
     primary_role: RoleId | None
+    role_selection_source: RoleSelectionSource = RoleSelectionSource.policy
     cueing_style: CueingStyle
     role_selection_reason: str
     boundary_notes: list[str] = Field(default_factory=list)
+    allow_follow_up: bool = False
+    follow_up_reason: str = "本轮不需要追问。"
     should_generate_memory_card: bool = False
     trace_visible_summary: str
     role_trace: str

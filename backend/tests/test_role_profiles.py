@@ -112,9 +112,11 @@ def test_get_role_profile_raises_on_unknown():
         get_role_profile("not_a_real_role")
 
 
-def test_no_ai_role_has_empty_opening():
+def test_no_relationship_role_uses_neutral_companion_opening():
     no_ai = get_role_profile(RoleId.no_ai_role)
-    assert no_ai.example_opening == ""
+    assert no_ai.label_zh == "不使用关系角色"
+    assert no_ai.example_opening == "我在听，您想怎么说都可以。"
+    assert "固定 AI 人设" in " ".join(no_ai.boundary_rules)
 
 
 def test_max_roles_per_turn_is_three():

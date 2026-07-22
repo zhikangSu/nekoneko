@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.constants import DEFAULT_COMPANION_DISPLAY_NAME, CompanionMode
+from app.relationship.topic_classifier import Topic
 from app.schemas.conversation import ConversationMessage
 from app.services.llm_provider import CompanionReplyInput, LLMProvider
 
@@ -29,6 +30,17 @@ _PROMPT_FILES = {
 }
 _PROMPT_VERSION = "v1"
 _NAME_PLACEHOLDER = "{companion_display_name}"
+
+_SENSITIVE_TOPIC_GUIDANCE: dict[Topic, str] = {
+    Topic.deceased_grief: (
+        "这是关于已故亲友与回忆的话题卡。不得把选卡本身解释为用户正在悲伤、"
+        "想念某个人或已经讲过相关经历；绝不扮演、模仿或代替逝者本人。"
+    ),
+    Topic.health_care: (
+        "这是关于身体健康与照护的话题卡。不得把选卡本身解释为用户患病、"
+        "身体不适或正在服药；不得诊断、推荐治疗，也不得提供用药或剂量建议。"
+    ),
+}
 
 
 @lru_cache(maxsize=None)
@@ -68,6 +80,8 @@ class CompanionAgent:
         relationship_cue_context: str | None = None,
         role_style_context: str | None = None,
         conversation_history: list[ConversationMessage] | None = None,
+        topic: Topic | None = None,
+        topic_label: str | None = None,
     ) -> CompanionResult:
         named_by_user = bool(companion_display_name and companion_display_name.strip())
         display_name = (
@@ -109,7 +123,8 @@ class CompanionAgent:
                 "请把它改写成一个自然、温和、口语化的陪伴回复。"
                 "不要写成访谈提纲，不要添加主持人总结，不要冒充真实家人。"
                 "不要使用括号式旁白或解释你在怎么设计回复。"
-                "先接住用户当下的话，再给一个低压力邀请；最多一个问题。"
+                "先接住用户当下的话；只有确实有助于继续时才给低压力邀请，最多一个问题，也可以不提问。"
+                "不得声称自己有年龄、年代身份或亲身经历，不得使用“我们那会儿”“我们那代人”等口吻。"
                 "如果后续关系角色口吻要求逐角色输出，请优先按逐角色格式输出，不要合并成一段。\n"
                 "--- 关系编排计划结束 ---"
             )
@@ -120,8 +135,20 @@ class CompanionAgent:
                 "本轮可见关系角色已经确定。请严格按所选角色的关系功能和语气回复，"
                 "不要自行换成其他角色，也不要退回默认的“陪伴 AI”泛化口吻。"
                 "不要在正文中解释角色选择，不要说“作为某某角色”，不要冒充真实家人、医生或照护者。"
-                "若多个角色被选择，保持自然，不要七嘴八舌；最多一个轻问题。\n"
+                "若多个角色被选择，保持自然，不要七嘴八舌；最多一个轻问题，也可以不提问。"
+                "任何角色都不得声称自己亲历过用户的年代或拥有真实人生经历。\n"
                 "--- 关系角色口吻结束 ---"
+            )
+        if topic is not None:
+            guidance = _SENSITIVE_TOPIC_GUIDANCE.get(topic)
+            rendered_prompt += (
+                "\n\n--- 用户选择的话题卡（参考背景，不是用户自述）---\n"
+                f"话题：{topic_label or topic.value}（分类：{topic.value}）\n"
+                "请用一个自然的陪伴者声音围绕该话题温和开场，不要输出关系角色标签，"
+                "不要假设用户已经有某种经历或情绪，也不要强制追问；"
+                "明确允许用户按舒服的节奏继续、停下或换话题。\n"
+                + (f"{guidance}\n" if guidance else "")
+                + "--- 话题卡结束 ---"
             )
 
         reply_text = self._llm.generate_companion_reply(
@@ -131,6 +158,7 @@ class CompanionAgent:
                 companion_display_name=display_name,
                 system_prompt=rendered_prompt,
                 retrieval_context=retrieval_context,
+                topic=topic.value if topic is not None else None,
                 conversation_history=list(conversation_history or []),
             )
         )

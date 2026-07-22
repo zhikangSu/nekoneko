@@ -53,10 +53,40 @@ def test_sensitive_content_is_ignored_by_default():
     assert decision.ask_now is False
 
 
-def test_similar_existing_memory_suppresses_duplicate():
+def test_duplicate_existing_memory_is_ignored_with_duplicate_reason():
     decision = MemoryTriagePolicy().decide(
         _candidate("我爱听粤剧"),
         existing_memories=[_memory("喜欢粤剧")],
     )
+    assert decision.action == MemoryTriageAction.ignore
+    assert decision.cooldown_applied is True
+    assert "重复" in decision.reason
+    assert decision.target_memory_id == "m_1"
+
+
+def test_near_duplicate_updates_existing_memory():
+    decision = MemoryTriagePolicy().decide(
+        _candidate("我喜欢太极拳"),
+        existing_memories=[_memory("喜欢太极")],
+    )
     assert decision.action == MemoryTriageAction.update_existing
     assert decision.cooldown_applied is True
+    assert decision.target_memory_id == "m_1"
+
+
+def test_distinct_interest_with_shared_prefix_is_saved():
+    decision = MemoryTriagePolicy().decide(
+        _candidate("我特别喜欢书法"),
+        existing_memories=[_memory("喜欢书")],
+    )
+    assert decision.action == MemoryTriageAction.auto_save
+    assert decision.target_memory_id is None
+
+
+def test_distinct_longer_interest_is_saved():
+    decision = MemoryTriagePolicy().decide(
+        _candidate("我喜欢粤剧折子戏"),
+        existing_memories=[_memory("喜欢粤剧")],
+    )
+    assert decision.action == MemoryTriageAction.auto_save
+    assert decision.target_memory_id is None

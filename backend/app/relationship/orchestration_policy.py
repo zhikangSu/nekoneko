@@ -8,54 +8,45 @@ This is pure rules/templates — NO LLM. It schedules VISIBLE relationship
 personas (from #51); those personas are not autonomous agents. This module does
 not touch any existing graph/safety/Guardian/Reminder/Retrieval path.
 
-Policy summary (per topic):
+Policy summary:
 
-* study_learning / old_object_photo / work_collective / general_reminiscence
-  → [same_age_peer, curious_junior, middle_age_bridge], primary same_age_peer,
-    cueing agent_agent_then_invite.
-* family_education
-  → [same_age_peer, middle_age_bridge, curious_junior], primary middle_age_bridge,
-    cueing agent_agent_then_invite.
-* culture_arts
-  → [middle_age_bridge, same_age_peer, curious_junior], primary middle_age_bridge,
-    cueing agent_agent_then_invite.
-* SENSITIVE (deceased_grief / privacy_family_conflict / health_care) or
-  risk_flags signalling these
-  → [boundary_guardian, elder_mentor], primary boundary_guardian, cueing
-    no_cue, explicit boundary notes, no memory card.
-* loneliness_mood
-  → [elder_mentor, same_age_peer], primary elder_mentor, cueing
-    single_role_prelude.
+* Each topic keeps an auditable candidate set. Automatic follow-up turns select
+  the smallest useful speaking set (normally one primary role), while the first
+  non-sensitive topic-card turn stages two roles as the social cue required by
+  the research design.
+* Outside the initial topic-card cue, multi-role output is reserved for
+  explicit manual / fixed-study selection.
+* SENSITIVE topics consider boundary_guardian + elder_mentor, but only the
+  boundary guardian speaks by default.
 
 Overrides applied on top of the base plan:
 
-* Long/specific non-sensitive narrative → single role picks up the thread
-  (primary only, cueing direct).
 * user_role_preferences: dislike-of-follow-up drops curious_junior; wants to
-  self-narrate / prefers no AI → [no_ai_role], cueing no_cue.
-* selected roles are capped at MAX_ROLES_PER_TURN, always valid registry roles,
-  and no_ai_role never sits beside a speaking role.
+  avoid relationship roles → CompanionAgent baseline.
+* candidate and speaking roles are capped at MAX_ROLES_PER_TURN and always use
+  valid registry roles.
 """
 
 from __future__ import annotations
 
 from app.relationship.role_profiles import MAX_ROLES_PER_TURN
+from app.relationship.turn_intent import classify_interaction_intent
 from app.schemas.relationship import (
     CueingStyle,
     OrchestrationInput,
     RelationshipDecision,
     RoleId,
+    RoleSelectionSource,
     RoleSelectionMode,
     RoleProfile,
 )
 from app.relationship.topic_classifier import SENSITIVE_TOPICS, Topic
 
-# Heuristic: an utterance this long (chars) already carries a specific, developed
-# narrative, so a single role should just pick up the thread rather than staging
-# a multi-persona prelude.
+# Heuristic retained for trace explanation: a long utterance already carries a
+# specific narrative and should never trigger a staged prelude.
 _LONG_NARRATIVE_CHARS = 60
 
-# Base role plans per topic: (selected_roles, primary_role, cueing_style).
+# Base candidate plans per topic: (candidate_roles, primary_role, legacy style).
 #
 # For agent-agent cueing, order is part of the interaction design:
 # 1. a same-age peer first makes the topic feel familiar,
@@ -106,11 +97,6 @@ _BASE_PLANS: dict[Topic, tuple[list[RoleId], RoleId, CueingStyle]] = {
         RoleId.elder_mentor,
         CueingStyle.single_role_prelude,
     ),
-    Topic.other: (
-        [RoleId.same_age_peer, RoleId.curious_junior],
-        RoleId.same_age_peer,
-        CueingStyle.single_role_prelude,
-    ),
 }
 
 _TOPIC_LABEL_ZH: dict[Topic, str] = {
@@ -124,7 +110,7 @@ _TOPIC_LABEL_ZH: dict[Topic, str] = {
     Topic.privacy_family_conflict: "隐私/家庭矛盾",
     Topic.loneliness_mood: "孤单情绪",
     Topic.general_reminiscence: "一般回忆",
-    Topic.other: "其他/未识别",
+    Topic.other: "当前句未命中回忆主题",
 }
 
 _ROLE_LABEL_ZH: dict[RoleId, str] = {
@@ -135,7 +121,7 @@ _ROLE_LABEL_ZH: dict[RoleId, str] = {
     RoleId.theme_companion: "主题陪伴者",
     RoleId.memory_organizer: "回忆整理者",
     RoleId.boundary_guardian: "边界守护者",
-    RoleId.no_ai_role: "不需要AI角色",
+    RoleId.no_ai_role: "不使用关系角色",
 }
 
 
@@ -240,6 +226,7 @@ def decide(
 
     registry_ids = {p.role_id for p in roles}
     topic_label = _TOPIC_LABEL_ZH.get(topic, topic.value)
+    interaction_intent = classify_interaction_intent(inp.user_input, topic)
     prefs = inp.user_role_preferences
     memory_context = inp.memory_context or []
 
@@ -250,12 +237,14 @@ def decide(
 
     # ----- SENSITIVE path: restraint first, boundary_guardian leads ----------
     if is_sensitive:
-        selected = _cap_and_sanitize(
+        candidates = _cap_and_sanitize(
             [RoleId.boundary_guardian, RoleId.elder_mentor], registry_ids
         )
-        primary = RoleId.boundary_guardian if RoleId.boundary_guardian in selected else (
-            selected[0] if selected else None
+        primary = RoleId.boundary_guardian if RoleId.boundary_guardian in candidates else (
+            candidates[0] if candidates else None
         )
+        selected = [primary] if primary is not None else []
+        silent = [role for role in candidates if role not in selected]
         cueing = CueingStyle.no_cue
 
         boundary_notes.append("敏感话题：不进行角色之间的互动铺垫，由边界守护者温和地接住。")
@@ -272,19 +261,31 @@ def decide(
             f"话题判定为敏感（{topic_label}），优先由边界守护者克制地承接，"
             "不使用角色互动铺垫，也不自动生成回忆卡片。"
         )
+        candidate_names = "、".join(
+            _ROLE_LABEL_ZH.get(r, r.value) for r in candidates
+        )
         role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in selected)
-        role_trace = f"选择 {role_names}：敏感话题以边界守护者为主，长辈引导者提供温和陪伴。"
+        role_trace = (
+            f"候选 {candidate_names}；仅由{role_names}发言，"
+            "其余角色保持沉默，避免敏感场景过度表演。"
+        )
         topic_trace = f"话题分类：{topic_label}（敏感）。"
         boundary_trace = "已触发边界克制：暂停/转向，明确不扮演逝者、不做医疗建议、不追问隐私。"
         summary = f"{topic_label} → 敏感路径：{role_names}（{cueing.value}）"
 
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
+            candidate_roles=candidates,
             selected_roles=selected,
+            silent_roles=silent,
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.policy,
             cueing_style=cueing,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
+            allow_follow_up=False,
+            follow_up_reason="敏感话题不主动追问细节。",
             should_generate_memory_card=False,
             trace_visible_summary=summary,
             role_trace=role_trace,
@@ -297,19 +298,30 @@ def decide(
     manual_roles = _manual_requested_roles(inp, registry_ids)
     if manual_roles:
         if manual_roles == [RoleId.no_ai_role]:
-            reason = "用户手动选择不需要 AI 角色，仅留出空间，不安排任何发言角色。"
-            boundary_notes.append("尊重用户不需要 AI 的选择，不强行加入对话。")
-            role_trace = "用户手动选择 不需要AI角色：完全把空间留给老人或真人陪伴。"
+            reason = (
+                "用户手动选择不使用研究关系角色，"
+                "由用户命名的 CompanionAgent 轻量回应。"
+            )
+            boundary_notes.append(
+                "尊重用户不使用关系角色的选择，不切换成其他固定人设。"
+            )
+            role_trace = "用户手动选择不使用关系角色：由 CompanionAgent baseline 直接回应。"
             topic_trace = f"话题分类：{topic_label}；但用户手动选择优先于话题默认角色。"
-            boundary_trace = "已遵从用户手动选择：不安排 AI 角色发言。"
-            summary = f"{topic_label} → 用户自选无 AI（{CueingStyle.no_cue.value}）"
+            boundary_trace = "已遵从用户手动选择：不展示关系角色，不引入其他固定称呼。"
+            summary = f"{topic_label} → CompanionAgent baseline（{CueingStyle.no_cue.value}）"
             return RelationshipDecision(
                 topic=topic.value,
+                interaction_intent=interaction_intent,
+                candidate_roles=[RoleId.no_ai_role],
                 selected_roles=manual_roles,
+                silent_roles=[],
                 primary_role=RoleId.no_ai_role,
+                role_selection_source=RoleSelectionSource.user_manual,
                 cueing_style=CueingStyle.no_cue,
                 role_selection_reason=reason,
                 boundary_notes=boundary_notes,
+                allow_follow_up=False,
+                follow_up_reason="用户选择不使用关系角色，不追加研究式追问。",
                 should_generate_memory_card=False,
                 trace_visible_summary=summary,
                 role_trace=role_trace,
@@ -345,11 +357,17 @@ def decide(
         summary = f"{topic_label} → 用户自选 {role_names}（{cueing.value}）"
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
+            candidate_roles=manual_roles,
             selected_roles=manual_roles,
+            silent_roles=[],
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.user_manual,
             cueing_style=cueing,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
+            allow_follow_up=True,
+            follow_up_reason="用户显式选择了关系角色，允许至多一个低压力邀请。",
             should_generate_memory_card=should_generate_memory_card,
             trace_visible_summary=summary,
             role_trace=role_trace,
@@ -358,23 +376,34 @@ def decide(
             boundary_trace=boundary_trace,
         )
 
-    # ----- Preference: elder prefers no AI / just wants to self-narrate -------
+    # ----- Preference: user prefers the named companion without role labels --
     if _pref_wants_solo_or_no_ai(prefs):
         selected = _cap_and_sanitize([RoleId.no_ai_role], registry_ids)
         primary = selected[0] if selected else None
-        reason = "用户偏好自己讲述或不需要 AI 角色，仅留出空间，不安排任何发言角色。"
-        boundary_notes.append("尊重用户不需要 AI 的选择，不强行加入对话。")
-        role_trace = "选择 不需要AI角色：完全把空间留给老人或真人陪伴。"
+        reason = (
+            "用户偏好不使用研究关系角色，"
+            "由用户命名的 CompanionAgent 轻量回应。"
+        )
+        boundary_notes.append(
+            "尊重用户减少关系角色介入的偏好，不切换成其他固定人设。"
+        )
+        role_trace = "选择不使用关系角色：由 CompanionAgent baseline 直接回应。"
         topic_trace = f"话题分类：{topic_label}；但用户偏好优先于话题。"
-        boundary_trace = "已遵从用户偏好：不安排 AI 角色发言。"
-        summary = f"{topic_label} → 用户偏好无 AI（{CueingStyle.no_cue.value}）"
+        boundary_trace = "已遵从用户偏好：不展示关系角色。"
+        summary = f"{topic_label} → CompanionAgent baseline（{CueingStyle.no_cue.value}）"
         return RelationshipDecision(
             topic=topic.value,
+            interaction_intent=interaction_intent,
+            candidate_roles=selected,
             selected_roles=selected,
+            silent_roles=[],
             primary_role=primary,
+            role_selection_source=RoleSelectionSource.user_preference,
             cueing_style=CueingStyle.no_cue,
             role_selection_reason=reason,
             boundary_notes=boundary_notes,
+            allow_follow_up=False,
+            follow_up_reason="用户偏好减少角色介入，不追加追问。",
             should_generate_memory_card=False,
             trace_visible_summary=summary,
             role_trace=role_trace,
@@ -383,10 +412,90 @@ def decide(
             boundary_trace=boundary_trace,
         )
 
-    # ----- Non-sensitive base plan -------------------------------------------
-    base_roles, primary, cueing = _BASE_PLANS.get(
-        topic, _BASE_PLANS[Topic.other]
+    # ----- Visible scene continuity ------------------------------------------
+    # The UI can tell us which relationship roles are already on screen. Keep
+    # those participants stable instead of silently replacing them because the
+    # latest short utterance happens to classify as Topic.other.
+    context_roles = _cap_and_sanitize(
+        [r for r in inp.context_role_ids if r is not RoleId.no_ai_role],
+        registry_ids,
     )
+    if context_roles:
+        primary = context_roles[0]
+        selected = [primary]
+        silent = [role for role in context_roles if role not in selected]
+        role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in context_roles)
+        reason = (
+            f"当前场景已显示 {role_names}，保留他们作为候选以维持连续性；"
+            f"本轮只由{_ROLE_LABEL_ZH.get(primary, primary.value)}直接回应，其他角色保持沉默。"
+        )
+        boundary_notes.append("沿用当前可见角色；仍不扮演任何真实熟人或家人。")
+        return RelationshipDecision(
+            topic=topic.value,
+            interaction_intent=interaction_intent,
+            candidate_roles=context_roles,
+            selected_roles=selected,
+            silent_roles=silent,
+            primary_role=primary,
+            role_selection_source=RoleSelectionSource.visible_context,
+            cueing_style=CueingStyle.direct,
+            role_selection_reason=reason,
+            boundary_notes=boundary_notes,
+            allow_follow_up=False,
+            follow_up_reason="场景继续轮次优先直接回应，不固定把问题递回用户。",
+            should_generate_memory_card=topic in {
+                Topic.study_learning,
+                Topic.old_object_photo,
+                Topic.work_collective,
+                Topic.family_education,
+                Topic.culture_arts,
+                Topic.general_reminiscence,
+            },
+            trace_visible_summary=(
+                f"{topic_label} → 延续场景候选，"
+                f"由{_ROLE_LABEL_ZH.get(primary, primary.value)}发言（direct）"
+            ),
+            role_trace=(
+                f"候选 {role_names}；本轮实际发言 "
+                f"{_ROLE_LABEL_ZH.get(primary, primary.value)}，其余沉默。"
+            ),
+            topic_trace=(
+                f"当前句话题分类：{topic_label}；场景话题仍由 topic_id/topic_label 单独记录。"
+            ),
+            memory_trace=_memory_trace(memory_context),
+            boundary_trace="非敏感话题，保持角色连续；仍保留不扮演真实熟人的边界。",
+        )
+
+    # Topic.other is an abstention from the reminiscence-topic classifier, not
+    # a catch-all reminiscence topic. Let the normal CompanionAgent answer the
+    # current utterance without forcing visible roles or a memory prompt.
+    if topic is Topic.other:
+        return RelationshipDecision(
+            topic=topic.value,
+            interaction_intent=interaction_intent,
+            candidate_roles=[],
+            selected_roles=[],
+            silent_roles=[],
+            primary_role=None,
+            role_selection_source=RoleSelectionSource.policy,
+            cueing_style=CueingStyle.direct,
+            role_selection_reason=(
+                "当前句未命中研究预设的回忆主题；保持普通陪伴回复，"
+                "不强行分配同龄/晚辈角色，也不启动回忆追问。"
+            ),
+            boundary_notes=["未识别到回忆主题时不强行引导用户讲往事。"],
+            allow_follow_up=False,
+            follow_up_reason="普通直问或一般对话不固定追加回忆追问。",
+            should_generate_memory_card=False,
+            trace_visible_summary="当前句未命中回忆主题 → 普通直接回应（不强制关系角色）",
+            role_trace="未强制分配可见关系角色，由用户命名的 CompanionAgent 直接回应。",
+            topic_trace="当前句未命中研究预设的回忆主题；other 仅表示分类器 abstain。",
+            memory_trace=_memory_trace(memory_context),
+            boundary_trace="未启动回忆引导，不把普通直问改写成往事访谈。",
+        )
+
+    # ----- Non-sensitive base plan -------------------------------------------
+    base_roles, primary, cueing = _BASE_PLANS[topic]
     base_roles = list(base_roles)
 
     # Preference: dislikes continuous follow-up → drop the curious junior.
@@ -397,16 +506,29 @@ def decide(
         if primary is RoleId.curious_junior:
             primary = base_roles[0] if base_roles else None
 
-    # Long, specific narrative → a single role picks up the thread directly.
+    # Long, specific narrative reinforces the direct/no-follow-up policy.
     long_narrative = len(inp.user_input or "") >= _LONG_NARRATIVE_CHARS
-    if long_narrative:
-        primary = primary if primary in base_roles else (base_roles[0] if base_roles else primary)
-        base_roles = [primary] if primary is not None else base_roles
+    candidates = _cap_and_sanitize(base_roles, registry_ids)
+    if primary not in candidates:
+        primary = candidates[0] if candidates else None
+    if inp.topic_card_opening and candidates:
+        # A topic card is the one deliberate social-cue moment: let a peer
+        # ground the topic and a curious junior leave a low-pressure opening.
+        # Keep later turns minimal so the interface does not become noisy.
+        selected = [candidates[0]]
+        second = (
+            RoleId.curious_junior
+            if RoleId.curious_junior in candidates
+            else (candidates[1] if len(candidates) > 1 else None)
+        )
+        if second is not None and second not in selected:
+            selected.append(second)
+        primary = selected[0]
+        cueing = CueingStyle.agent_agent_then_invite
+    else:
+        selected = [primary] if primary is not None else []
         cueing = CueingStyle.direct
-
-    selected = _cap_and_sanitize(base_roles, registry_ids)
-    if primary not in selected:
-        primary = selected[0] if selected else None
+    silent = [role for role in candidates if role not in selected]
 
     # Memory card only for clear, non-sensitive personal facts/interests.
     should_generate_memory_card = topic in {
@@ -419,19 +541,28 @@ def decide(
     }
 
     # ----- Traces ------------------------------------------------------------
+    candidate_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in candidates)
     role_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in selected)
     primary_name = _ROLE_LABEL_ZH.get(primary, primary.value) if primary else "无"
 
-    reason_bits = [f"话题为{topic_label}，按策略安排 {role_names}，以{primary_name}为主。"]
+    reason_bits = [
+        f"话题为{topic_label}，候选为 {candidate_names}；"
+        f"本轮只安排 {role_names} 发言。"
+    ]
+    if inp.topic_card_opening:
+        reason_bits.append(
+            "用户刚选择话题卡，本轮用两个角色形成简短社会线索；后续轮次恢复最少必要角色。"
+        )
     if dropped_junior:
         reason_bits.append("已根据用户偏好去掉“晚辈好奇者”的连续追问。")
     if long_narrative:
-        reason_bits.append("老人已给出较完整的叙述，改为单一角色直接接话，不做多角色铺垫。")
-    else:
-        reason_bits.append(f"采用 {cueing.value} 的方式引出话题。")
+        reason_bits.append("用户已给出较完整的叙述，直接接话且不追问。")
+    elif not inp.topic_card_opening:
+        reason_bits.append("自动模式采用最少必要角色直接回应，不进行多人铺垫或固定追问。")
     reason = "".join(reason_bits)
 
-    role_trace = f"选择 {role_names}（主：{primary_name}）：{topic_label}适合这组关系功能。"
+    silent_names = "、".join(_ROLE_LABEL_ZH.get(r, r.value) for r in silent) or "无"
+    role_trace = f"候选 {candidate_names}；实际发言 {role_names}；沉默 {silent_names}。"
     topic_trace = f"话题分类：{topic_label}（非敏感）。"
     boundary_trace = "非敏感话题，允许正常陪伴与温和引导；仍不扮演真实熟人。"
     summary = f"{topic_label} → {role_names}（{cueing.value}）"
@@ -440,11 +571,21 @@ def decide(
 
     return RelationshipDecision(
         topic=topic.value,
+        interaction_intent=interaction_intent,
+        candidate_roles=candidates,
         selected_roles=selected,
+        silent_roles=silent,
         primary_role=primary,
+        role_selection_source=RoleSelectionSource.policy,
         cueing_style=cueing,
         role_selection_reason=reason,
         boundary_notes=boundary_notes,
+        allow_follow_up=inp.topic_card_opening,
+        follow_up_reason=(
+            "话题卡开场允许最后一个角色留下一个低压力邀请。"
+            if inp.topic_card_opening
+            else "自动模式默认直接回应；只有明确必要或显式研究条件才允许一个轻问题。"
+        ),
         should_generate_memory_card=should_generate_memory_card,
         trace_visible_summary=summary,
         role_trace=role_trace,

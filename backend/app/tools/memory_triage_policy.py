@@ -25,18 +25,28 @@ class MemoryTriagePolicy:
         existing_memories: list[MemoryEntry],
         existing_cards: list[MemoryCard] | None = None,
     ) -> MemoryTriageDecision:
-        if self._has_similar_memory(candidate, existing_memories):
+        matched = self._find_similar_memory(candidate, existing_memories)
+        if matched is not None:
+            if self._similarity.is_duplicate(candidate.summary, matched.content):
+                return MemoryTriageDecision(
+                    action=MemoryTriageAction.ignore,
+                    reason="重复内容：相同长期记忆已存在，不重复保存。",
+                    ask_now=False,
+                    cooldown_applied=True,
+                    target_memory_id=matched.id,
+                )
             return MemoryTriageDecision(
                 action=MemoryTriageAction.update_existing,
-                reason="相似长期记忆已存在，不重复保存或弹卡片。",
+                reason="相似长期记忆已存在，更新原有记忆而非重复保存。",
                 ask_now=False,
                 cooldown_applied=True,
+                target_memory_id=matched.id,
             )
 
         if self._has_similar_card(candidate, existing_cards or []):
             return MemoryTriageDecision(
-                action=MemoryTriageAction.update_existing,
-                reason="相似 Memory Card 已存在，避免重复打扰。",
+                action=MemoryTriageAction.ignore,
+                reason="重复内容：相似 Memory Card 已存在，避免重复打扰。",
                 ask_now=False,
                 cooldown_applied=True,
             )
@@ -85,13 +95,13 @@ class MemoryTriagePolicy:
             ask_now=False,
         )
 
-    def _has_similar_memory(
+    def _find_similar_memory(
         self, candidate: MemoryCandidate, existing: list[MemoryEntry]
-    ) -> bool:
-        return any(
-            self._similarity.is_similar(candidate.summary, item.content)
-            for item in existing
-        )
+    ) -> MemoryEntry | None:
+        for item in existing:
+            if self._similarity.is_similar(candidate.summary, item.content):
+                return item
+        return None
 
     def _has_similar_card(
         self, candidate: MemoryCandidate, existing: list[MemoryCard]

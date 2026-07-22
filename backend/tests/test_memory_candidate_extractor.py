@@ -42,3 +42,44 @@ def test_sensitive_candidate_is_high_sensitivity():
 
 def test_temporary_mood_is_not_long_term_candidate():
     assert MemoryCandidateExtractor().extract_one("我今天有点烦") is None
+
+
+def test_self_doubt_question_is_not_fact():
+    assert MemoryCandidateExtractor().extract_one("我是不是老糊涂了") is None
+
+
+def test_uncertain_question_is_not_fact():
+    assert MemoryCandidateExtractor().extract_one("我是不是说错话了") is None
+
+
+def test_question_particle_blocks_fact():
+    assert MemoryCandidateExtractor().extract_one("我是苏州人吗") is None
+
+
+def test_question_mark_blocks_interest():
+    assert MemoryCandidateExtractor().extract_one("我喜欢听粤剧？") is None
+
+
+def test_how_and_why_questions_produce_no_candidate():
+    assert MemoryCandidateExtractor().extract_one("我怎么老是忘事呢") is None
+    assert MemoryCandidateExtractor().extract_one("为什么我总是记不住") is None
+
+
+def test_plain_fact_still_extracted():
+    candidate = MemoryCandidateExtractor().extract_one("我是苏州人")
+    assert candidate is not None
+    assert candidate.candidate_type == CandidateType.fact
+    assert candidate.summary == "我是苏州人"
+
+
+def test_plain_interest_still_extracted_after_question_gate():
+    candidate = MemoryCandidateExtractor().extract_one("我喜欢听粤剧")
+    assert candidate is not None
+    assert candidate.candidate_type == CandidateType.interest
+    assert candidate.summary == "喜欢听粤剧"
+
+
+def test_boundary_with_question_word_still_extracted():
+    candidate = MemoryCandidateExtractor().extract_one("不要再问我子女的事")
+    assert candidate is not None
+    assert candidate.candidate_type == CandidateType.boundary_preference

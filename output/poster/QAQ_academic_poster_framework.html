@@ -1,0 +1,1373 @@
+<!-- DESIGN DIRECTION (locked)
+  concept:        calm joint-institution research sheet with a continuous three-column narrative
+  layout:         A0 landscape; compact masthead, one contribution band, three continuous columns
+  palette:        muted CityU burgundy + SMBU navy on warm near-white
+  typography:     restrained sans-serif; one strong title, quiet supporting registers
+  density:        research-rich, with eight merged sections rather than many small cards
+  hero moment:    relationship-aware orchestration diagram and paired prototype/trace evidence
+  boundary:       implemented software evidence is separated from planned older-adult evaluation
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relationship-Aware Orchestration for Older-Adult Reminiscence</title>
+  <style>
+    :root {
+      --cityu-red: #8d3b45;
+      --cityu-wine: #764052;
+      --cityu-orange: #b98370;
+      --smbu-navy: #334765;
+      --smbu-blue: #7889a1;
+      --smbu-red: #805064;
+      --ink: #242a34;
+      --muted: #68717d;
+      --paper: #fbfaf8;
+      --warm: #f2efeb;
+      --rose: #f2e9ea;
+      --bluewash: #edf0f3;
+      --line: #d3d5d8;
+      --soft-line: #e7e6e4;
+      --ps-mark-ink: var(--smbu-navy);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #d8dadd;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px 0;
+    }
+
+    .preview-shell {
+      width: 1400px;
+      height: 990px;
+      position: relative;
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 18px 55px rgba(17, 25, 39, .22);
+    }
+
+    .poster {
+      width: 1189mm;
+      height: 841mm;
+      transform: scale(.31146);
+      transform-origin: top left;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 110mm 48mm minmax(0, 1fr) 27mm;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 8%, rgba(176,17,23,.025), transparent 24%),
+        var(--paper);
+    }
+
+    .topline {
+      position: absolute;
+      z-index: 5;
+      inset: 0 0 auto 0;
+      height: 5mm;
+      display: grid;
+      grid-template-columns: 56% 44%;
+    }
+    .topline .cityu { background: var(--cityu-wine); }
+    .topline .smbu { background: var(--smbu-navy); }
+
+    .poster-header {
+      display: grid;
+      grid-template-columns: 200mm minmax(0, 1fr) 215mm;
+      align-items: center;
+      padding: 10mm 20mm 4mm;
+      border-bottom: 0;
+      position: relative;
+      min-height: 0;
+    }
+
+    .logo-box {
+      height: 68mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .cityu-logo {
+      width: 166mm;
+      height: 64mm;
+      object-fit: contain;
+    }
+
+    .repo-box {
+      height: 68mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .repo-meta {
+      min-width: 0;
+      width: 164mm;
+      padding-left: 6mm;
+      border-left: 1mm solid var(--cityu-orange);
+      text-align: left;
+    }
+
+    .repo-kicker {
+      display: block;
+      margin-bottom: 2.5mm;
+      color: var(--cityu-wine);
+      font-size: 5.2mm;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: .55mm;
+      text-transform: uppercase;
+    }
+
+    .repo-link {
+      display: block;
+      color: var(--smbu-navy);
+      font-size: 7.2mm;
+      line-height: 1.15;
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+
+    .title-lockup {
+      text-align: center;
+      padding: 0 8mm;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .eyebrow {
+      color: var(--cityu-wine);
+      font-size: 7.6mm;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: .45mm;
+      text-transform: uppercase;
+      margin-bottom: 2.2mm;
+      text-wrap: balance;
+    }
+
+    h1 {
+      margin: 0;
+      color: #111827;
+      font-size: 20.8mm;
+      line-height: 1.01;
+      letter-spacing: -.42mm;
+      font-weight: 900;
+      text-wrap: balance;
+    }
+
+    .subtitle {
+      margin-top: 2.5mm;
+      color: var(--smbu-navy);
+      font-size: 7.5mm;
+      line-height: 1.16;
+      font-weight: 740;
+      text-wrap: balance;
+    }
+
+    .authors {
+      margin-top: 2.4mm;
+      font-size: 5.7mm;
+      font-weight: 720;
+      line-height: 1.18;
+      text-wrap: balance;
+    }
+
+    .affiliations {
+      margin-top: 1.2mm;
+      color: var(--muted);
+      font-size: 5.5mm;
+      line-height: 1.18;
+      text-wrap: balance;
+    }
+
+    .contribution-band {
+      margin: 4mm 14mm 0;
+      border-top: .8mm solid var(--line);
+      border-left: 4mm solid var(--cityu-red);
+      border-right: 4mm solid var(--smbu-navy);
+      background: #f0edec;
+      display: grid;
+      grid-template-columns: 205mm 1fr 1fr 1fr;
+      align-items: stretch;
+      min-height: 42mm;
+    }
+
+    .band-title {
+      background: var(--cityu-wine);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 0 12mm;
+      font-size: 10.5mm;
+      font-weight: 880;
+      letter-spacing: .15mm;
+      text-transform: uppercase;
+    }
+
+    .contribution {
+      padding: 4.5mm 9mm 4mm;
+      font-size: 6.7mm;
+      line-height: 1.28;
+      border-left: .65mm solid rgba(8, 28, 99, .16);
+    }
+
+    .contribution strong {
+      color: var(--smbu-navy);
+      display: block;
+      font-size: 7.5mm;
+      margin-bottom: 1mm;
+    }
+
+    .poster-body {
+      min-height: 0;
+      padding: 6mm 14mm 5mm;
+      display: grid;
+      grid-template-columns: 1.02fr 1.16fr 1fr;
+      gap: 10mm;
+    }
+
+    .column {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6mm;
+    }
+
+    .column + .column {
+      border-left: .8mm solid var(--line);
+      padding-left: 10mm;
+    }
+
+    .system-column { gap: 4mm; }
+    .system-column .screen-mock { height: 88mm; }
+    .narrative-column { gap: 5mm; }
+    .narrative-column .section-content { font-size: 8.1mm; line-height: 1.38; }
+    .narrative-column .positioning-table { font-size: 6.8mm; }
+    .narrative-column .positioning-table th,
+    .narrative-column .positioning-table td { padding: 4mm; }
+    .narrative-column .mini-panel { min-height: 33mm; padding: 4mm; }
+    .narrative-column .principle { min-height: 36mm; padding: 4mm 3mm; }
+    .narrative-column .contribution-point { min-height: 36mm; padding: 4mm; }
+    .narrative-column .concept-node { min-height: 55mm; padding: 4mm; }
+
+    .system-column .node { min-height: 23mm; padding: 3mm; }
+    .system-column .node.core { min-height: 34mm; }
+    .system-column .guardrail div { min-height: 18mm; padding: 2mm; }
+    .system-column .flow-step { min-height: 26mm; padding: 3.5mm 2.5mm 2mm; }
+    .system-column .agent-table th,
+    .system-column .agent-table td { padding: 2.2mm 3mm; }
+    .system-column .feature-cell { min-height: 23mm; padding: 2.3mm; }
+    .system-column .layer { min-height: 27mm; padding: 3mm 2.5mm; }
+    .system-column .scenario { min-height: 24mm; padding: 2.5mm; }
+    .system-column .evidence-item { padding: 3.5mm 4mm; }
+
+    .evaluation-column { gap: 5mm; }
+    .evaluation-column .section-head {
+      min-height: 17mm;
+      padding-block: 2.5mm;
+      font-size: 10mm;
+    }
+    .evaluation-column .section-content {
+      padding: 4mm 3mm 0;
+      font-size: 7.6mm;
+      line-height: 1.36;
+    }
+    .evaluation-column .study-box { min-height: 40mm; padding: 4mm; }
+    .evaluation-column .metric-table th,
+    .evaluation-column .metric-table td { padding: 3.2mm 4mm; }
+    .evaluation-column .chart-placeholder { height: 94mm; }
+    .evaluation-column .scenario { min-height: 26mm; padding: 3mm; }
+    .evaluation-column .ethic { min-height: 29mm; padding: 3mm; }
+    .evaluation-column .mini-panel { min-height: 29mm; padding: 3mm 4mm; }
+    .evaluation-column .boundary { min-height: 28mm; padding: 3mm; }
+    .evaluation-column .closing-statement { padding: 1.8mm 7mm; }
+
+    .section {
+      min-height: 0;
+      flex-shrink: 0;
+    }
+
+    .section.grow { flex: initial; }
+
+    .section-head {
+      min-height: 17mm;
+      padding: 2.7mm 5mm 2.5mm;
+      display: flex;
+      align-items: center;
+      gap: 4mm;
+      background: var(--smbu-navy);
+      color: white;
+      font-size: 10mm;
+      line-height: 1.1;
+      font-weight: 850;
+      letter-spacing: -.1mm;
+    }
+
+    .section-head.red { background: var(--cityu-wine); }
+    .section-head.blue { background: var(--smbu-navy); }
+    .section-head.light {
+      background: var(--bluewash);
+      color: var(--smbu-navy);
+      border-top: 1.1mm solid var(--smbu-blue);
+      border-bottom: .6mm solid var(--smbu-blue);
+    }
+
+    .number {
+      width: 11mm;
+      height: 11mm;
+      flex: 0 0 11mm;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: white;
+      color: var(--cityu-wine);
+      font-size: 6.7mm;
+      font-weight: 900;
+    }
+
+    .section-content {
+      padding: 4mm 3mm 0;
+      font-size: 7.6mm;
+      line-height: 1.36;
+    }
+
+    .subhead {
+      margin: 4mm 0 2.5mm;
+      padding-bottom: 1.5mm;
+      border-bottom: .55mm solid var(--line);
+      color: var(--cityu-wine);
+      font-size: 7.2mm;
+      line-height: 1.2;
+      font-weight: 850;
+      letter-spacing: .05mm;
+    }
+
+    .subhead.blue { color: var(--smbu-navy); }
+
+    .section-content p { margin: 0 0 3mm; }
+    .section-content p:last-child { margin-bottom: 0; }
+    .section-content p,
+    .section-content li,
+    .contribution,
+    .mini-panel,
+    .principle,
+    .contribution-point,
+    .evidence-item,
+    .scenario,
+    .boundary,
+    .ethic { text-wrap: pretty; }
+    .tldr,
+    .finding,
+    .status-panel,
+    .prototype-shot figcaption { text-wrap: pretty; }
+    .research-question,
+    .closing-statement,
+    .node small,
+    .figure-label { text-wrap: balance; }
+
+    ul {
+      margin: 2mm 0 0;
+      padding-left: 9mm;
+    }
+
+    li { margin: 0 0 2.4mm; }
+    li::marker { color: var(--cityu-red); }
+
+    .lead {
+      font-size: 9.1mm;
+      line-height: 1.34;
+      font-weight: 620;
+    }
+
+    .lead strong { color: var(--cityu-wine); }
+
+    .tldr {
+      border-left: 2.4mm solid var(--cityu-red);
+      background: var(--rose);
+      padding: 6mm 7mm;
+      font-size: 9.3mm;
+      line-height: 1.36;
+      font-weight: 650;
+    }
+
+    .research-question {
+      margin-top: 4mm;
+      border-top: .9mm solid var(--smbu-blue);
+      border-bottom: .9mm solid var(--smbu-blue);
+      padding: 5mm 6mm;
+      text-align: center;
+      color: var(--smbu-navy);
+      font-size: 10.2mm;
+      line-height: 1.3;
+      font-weight: 850;
+      background: #f7f9fc;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-top: 4mm;
+    }
+
+    .principle {
+      min-height: 34mm;
+      padding: 4mm 4mm 3mm;
+      border-top: 1mm solid var(--cityu-red);
+      background: var(--warm);
+      text-align: center;
+      font-size: 6.7mm;
+      line-height: 1.25;
+    }
+
+    .principle strong {
+      display: block;
+      color: var(--cityu-wine);
+      font-size: 7.5mm;
+      margin-bottom: 1mm;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4mm;
+      margin-top: 3mm;
+    }
+
+    .mini-panel {
+      padding: 4mm 5mm;
+      border-top: .9mm solid var(--smbu-blue);
+      background: #f7f8fa;
+      font-size: 6.8mm;
+      line-height: 1.3;
+    }
+
+    .mini-panel strong {
+      display: block;
+      color: var(--smbu-navy);
+      font-size: 7.4mm;
+      margin-bottom: 1.4mm;
+    }
+
+    .system-figure {
+      margin-top: 3mm;
+      background: var(--bluewash);
+      border: .8mm solid #b8c4d4;
+      padding: 6mm;
+    }
+
+    .figure-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--smbu-navy);
+      font-size: 7.2mm;
+      line-height: 1.2;
+      font-weight: 820;
+      margin-bottom: 4mm;
+      text-transform: uppercase;
+      letter-spacing: .2mm;
+    }
+
+    .figure-label span:last-child {
+      color: var(--muted);
+      font-size: 5.8mm;
+      font-weight: 600;
+      text-transform: none;
+    }
+
+    .orchestration {
+      display: grid;
+      grid-template-columns: 1fr 15mm 1.2fr 15mm 1fr;
+      align-items: center;
+      gap: 3mm;
+    }
+
+    .stack {
+      display: grid;
+      gap: 3mm;
+    }
+
+    .node {
+      min-height: 28mm;
+      padding: 4mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border: .7mm solid var(--smbu-blue);
+      background: white;
+      text-align: center;
+      color: var(--smbu-navy);
+      font-size: 6.6mm;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .node.core {
+      min-height: 44mm;
+      color: white;
+      border: 0;
+      background: var(--smbu-navy);
+      font-size: 8.2mm;
+    }
+
+    .node small {
+      display: block;
+      margin-top: 1mm;
+      color: inherit;
+      opacity: .75;
+      font-size: 5.1mm;
+      font-weight: 550;
+    }
+
+    .arrow {
+      color: var(--cityu-red);
+      text-align: center;
+      font-size: 12mm;
+      font-weight: 900;
+    }
+
+    .guardrail {
+      margin-top: 5mm;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2.5mm;
+    }
+
+    .guardrail div {
+      min-height: 23mm;
+      padding: 3mm;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      border-bottom: 1mm solid var(--cityu-red);
+      text-align: center;
+      color: var(--cityu-wine);
+      font-size: 6mm;
+      font-weight: 780;
+    }
+
+    .flow-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      margin-top: 3mm;
+      border: .7mm solid var(--soft-line);
+    }
+
+    .flow-step {
+      min-height: 33mm;
+      padding: 5mm 3mm 3mm;
+      position: relative;
+      background: white;
+      text-align: center;
+      font-size: 6.3mm;
+      line-height: 1.23;
+      border-right: .7mm solid var(--soft-line);
+    }
+
+    .flow-step:last-child { border-right: 0; }
+    .flow-step strong {
+      color: var(--smbu-navy);
+      display: block;
+      font-size: 7mm;
+      margin-bottom: 1mm;
+    }
+
+    .flow-step::after {
+      content: "›";
+      position: absolute;
+      right: -3.2mm;
+      top: 7mm;
+      z-index: 2;
+      color: var(--cityu-red);
+      font-size: 9mm;
+      font-weight: 900;
+    }
+    .flow-step:last-child::after { content: ""; }
+
+    .prototype {
+      display: grid;
+      grid-template-columns: 1.12fr .88fr;
+      gap: 4mm;
+      margin-top: 3mm;
+    }
+
+    .prototype-shot {
+      margin: 0;
+      min-width: 0;
+      background: white;
+      border: .8mm solid var(--line);
+      padding: 2.5mm;
+    }
+
+    .prototype-shot img {
+      display: block;
+      width: 100%;
+      height: 129mm;
+      object-fit: cover;
+      object-position: center 48%;
+    }
+
+    .prototype-shot figcaption {
+      margin-top: 2mm;
+      color: var(--muted);
+      font-size: 5.8mm;
+      line-height: 1.22;
+      text-wrap: pretty;
+    }
+
+    .prototype-caption {
+      margin: 4mm 0 0;
+      color: var(--muted);
+      font-size: 6.5mm;
+      line-height: 1.25;
+    }
+
+    .screen-mock {
+      height: 98mm;
+      background: white;
+      border: 1.2mm solid #aeb7c4;
+      padding: 6mm;
+      display: grid;
+      grid-template-rows: 13mm 1fr 16mm;
+      gap: 4mm;
+    }
+
+    .screen-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: .6mm solid var(--soft-line);
+      color: var(--smbu-navy);
+      font-size: 6.2mm;
+      font-weight: 800;
+    }
+
+    .chat-lines { display: grid; align-content: center; gap: 4mm; }
+    .chat-line {
+      width: 78%;
+      height: 13mm;
+      border-radius: 7mm;
+      background: var(--bluewash);
+    }
+    .chat-line.user { margin-left: auto; background: #e8cfd4; width: 62%; }
+    .screen-controls { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 3mm; }
+    .screen-controls span { background: #eef0f2; border-radius: 3mm; }
+    .screen-controls span:last-child { background: var(--smbu-navy); }
+
+    .evidence-list {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4mm;
+    }
+
+    .evidence-item {
+      padding: 5mm;
+      border-left: 1.5mm solid var(--cityu-red);
+      background: var(--rose);
+      font-size: 6.6mm;
+      line-height: 1.25;
+    }
+    .evidence-item strong { display: block; color: var(--cityu-wine); font-size: 7.4mm; margin-bottom: 1mm; }
+
+    .study-map {
+      display: grid;
+      grid-template-columns: 1fr 16mm 1fr 16mm 1fr;
+      align-items: stretch;
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+
+    .study-box {
+      min-height: 48mm;
+      padding: 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: #f7f9fc;
+      border-top: 1.2mm solid var(--smbu-navy);
+      text-align: center;
+      font-size: 6.4mm;
+      line-height: 1.25;
+    }
+    .study-box strong { color: var(--smbu-navy); font-size: 8mm; margin-bottom: 2mm; }
+
+    .metric-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 3mm;
+      font-size: 6.5mm;
+      line-height: 1.24;
+    }
+    .metric-table th, .metric-table td { padding: 3.2mm 4mm; border-bottom: .55mm solid var(--line); }
+    .metric-table th { background: var(--smbu-navy); color: white; text-align: left; }
+    .metric-table td:first-child { font-weight: 760; color: var(--smbu-navy); }
+    .metric-table tr:nth-child(even) td { background: var(--bluewash); }
+
+    .results-board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4mm;
+      margin-top: 3mm;
+    }
+
+    .chart-placeholder {
+      height: 70mm;
+      position: relative;
+      overflow: hidden;
+      border-left: .7mm solid #7c8795;
+      border-bottom: .7mm solid #7c8795;
+      background:
+        repeating-linear-gradient(to top, transparent 0 13mm, #e3e7ec 13mm 13.5mm),
+        repeating-linear-gradient(to right, transparent 0 20mm, #edf0f3 20mm 20.5mm),
+        #fff;
+    }
+
+    .chart-placeholder::before,
+    .chart-placeholder::after {
+      content: "";
+      position: absolute;
+      left: 7mm;
+      right: 4mm;
+      height: 2.2mm;
+      border-radius: 2mm;
+      transform-origin: left center;
+    }
+    .chart-placeholder::before {
+      top: 40mm;
+      background: var(--cityu-red);
+      transform: rotate(-10deg);
+    }
+    .chart-placeholder::after {
+      top: 27mm;
+      background: var(--smbu-blue);
+      transform: rotate(7deg);
+    }
+
+    .finding-cards { display: grid; gap: 3mm; }
+    .finding {
+      min-height: 20mm;
+      padding: 3.5mm 4mm;
+      border: .65mm solid var(--line);
+      font-size: 6.2mm;
+      line-height: 1.22;
+      background: white;
+    }
+    .finding strong { color: var(--cityu-wine); font-size: 7mm; }
+
+    .status-panel {
+      min-height: 63.5mm;
+      padding: 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: var(--bluewash);
+      border-left: 2mm solid var(--smbu-navy);
+      color: var(--ink);
+      font-size: 6.4mm;
+      line-height: 1.28;
+      text-wrap: pretty;
+    }
+
+    .status-panel strong {
+      display: block;
+      color: var(--smbu-navy);
+      font-size: 12mm;
+      line-height: 1;
+      margin-bottom: 3mm;
+    }
+
+    .ps-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .corner-sig {
+      position: absolute;
+      right: 4mm;
+      bottom: 3mm;
+      width: 7mm;
+      height: 7mm;
+      color: var(--ps-mark-ink);
+      opacity: .5;
+      pointer-events: none;
+      user-select: none;
+    }
+    .corner-sig svg { display: block; width: 100%; height: 100%; }
+    [data-ps-mark="woven"] {
+      display: inline-block;
+      width: .82em;
+      height: .82em;
+      vertical-align: -.14em;
+      line-height: 0;
+    }
+    [data-ps-mark="woven"] svg { display: block; width: 100%; height: 100%; }
+
+    .ethics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+    .ethic {
+      min-height: 34mm;
+      padding: 4mm;
+      background: var(--warm);
+      border-top: 1mm solid var(--cityu-orange);
+      font-size: 6.1mm;
+      line-height: 1.23;
+    }
+    .ethic strong { display: block; color: var(--cityu-wine); font-size: 7.1mm; margin-bottom: 1mm; }
+
+    .positioning-table,
+    .agent-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 3mm;
+      font-size: 6.2mm;
+      line-height: 1.22;
+    }
+    .positioning-table th,
+    .positioning-table td,
+    .agent-table th,
+    .agent-table td {
+      padding: 3mm 3.5mm;
+      border-bottom: .5mm solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .positioning-table th,
+    .agent-table th { background: var(--smbu-navy); color: white; }
+    .positioning-table tr:nth-child(even) td,
+    .agent-table tr:nth-child(even) td { background: var(--bluewash); }
+    .positioning-table td:first-child,
+    .agent-table td:first-child { color: var(--cityu-wine); font-weight: 800; }
+
+    .contribution-points {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+    .contribution-point {
+      min-height: 34mm;
+      padding: 4mm;
+      border-left: 1.5mm solid var(--cityu-red);
+      background: var(--rose);
+      font-size: 6.2mm;
+      line-height: 1.25;
+    }
+    .contribution-point strong { display: block; color: var(--cityu-wine); font-size: 7.2mm; margin-bottom: 1mm; }
+
+    .feature-matrix {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2.5mm;
+      margin-top: 3mm;
+    }
+    .feature-cell {
+      min-height: 29mm;
+      padding: 3mm;
+      border-top: .9mm solid var(--smbu-blue);
+      background: #f7f8fa;
+      font-size: 5.8mm;
+      line-height: 1.2;
+    }
+    .feature-cell strong { display: block; color: var(--smbu-navy); font-size: 6.7mm; margin-bottom: 1mm; }
+
+    .layer-stack {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 2.2mm;
+      margin-top: 3mm;
+    }
+    .layer {
+      min-height: 35mm;
+      padding: 3.2mm 2.2mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      background: var(--bluewash);
+      border-bottom: 1mm solid var(--smbu-navy);
+      color: var(--smbu-navy);
+      font-size: 5mm;
+      line-height: 1.2;
+    }
+    .layer strong { font-size: 5.8mm; margin-bottom: 1mm; }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+    .scenario {
+      min-height: 34mm;
+      padding: 4mm;
+      background: #fff;
+      border: .55mm solid var(--line);
+      border-top: 1.1mm solid var(--cityu-red);
+      font-size: 5.9mm;
+      line-height: 1.22;
+    }
+    .scenario strong { display: block; color: var(--cityu-wine); font-size: 6.8mm; margin-bottom: 1mm; }
+
+    .boundary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+    .boundary {
+      padding: 4mm;
+      min-height: 33mm;
+      background: var(--warm);
+      border-left: 1.2mm solid var(--cityu-orange);
+      font-size: 6mm;
+      line-height: 1.23;
+    }
+    .boundary strong { display: block; color: var(--cityu-wine); font-size: 6.9mm; margin-bottom: 1mm; }
+
+    .closing-statement {
+      margin-top: 3mm;
+      padding: 6mm 8mm;
+      background: var(--smbu-navy);
+      color: white;
+      font-size: 8.1mm;
+      line-height: 1.3;
+      text-align: center;
+      font-weight: 760;
+    }
+
+    .concept-map,
+    .evidence-map,
+    .roadmap {
+      display: grid;
+      gap: 3mm;
+      margin-top: 3mm;
+    }
+
+    .concept-map {
+      grid-template-columns: 1fr 15mm 1fr 15mm 1fr;
+      align-items: stretch;
+    }
+
+    .concept-node {
+      min-height: 91mm;
+      padding: 7mm 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      background: var(--bluewash);
+      border-top: 1.2mm solid var(--smbu-blue);
+      color: var(--ink);
+      font-size: 6.7mm;
+      line-height: 1.3;
+    }
+    .concept-node strong { color: var(--smbu-navy); font-size: 8.2mm; margin-bottom: 2mm; }
+    .concept-arrow { display: grid; place-items: center; color: var(--cityu-wine); font-size: 10mm; font-weight: 900; }
+
+    .evidence-map { grid-template-columns: repeat(3, 1fr); }
+    .evidence-item-map {
+      min-height: 48mm;
+      padding: 5mm;
+      background: var(--warm);
+      border-top: 1mm solid var(--cityu-orange);
+      font-size: 6.2mm;
+      line-height: 1.25;
+    }
+    .evidence-item-map strong { display: block; color: var(--cityu-wine); font-size: 7.2mm; margin-bottom: 1mm; }
+
+    .roadmap { grid-template-columns: repeat(4, 1fr); }
+    .roadmap-step {
+      min-height: 36mm;
+      padding: 4mm;
+      background: var(--bluewash);
+      border-bottom: 1mm solid var(--smbu-navy);
+      font-size: 5.9mm;
+      line-height: 1.22;
+    }
+    .roadmap-step strong { display: block; color: var(--smbu-navy); font-size: 6.8mm; margin-bottom: 1mm; }
+
+    .poster-footer {
+      margin: 0 14mm;
+      border-top: 1.2mm solid var(--smbu-navy);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto 190mm;
+      align-items: center;
+      font-size: 6.5mm;
+      color: var(--muted);
+    }
+    .footer-center { color: var(--smbu-navy); font-weight: 820; text-align: center; }
+    .footer-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4mm;
+      min-width: 0;
+      text-align: left;
+    }
+    .footer-qr {
+      width: 21mm;
+      height: 21mm;
+      padding: 1mm;
+      flex: 0 0 auto;
+      object-fit: contain;
+      background: #fff;
+    }
+    .footer-repo {
+      min-width: 0;
+      font-size: 4.4mm;
+      line-height: 1.12;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .footer-repo strong {
+      display: block;
+      margin-bottom: .8mm;
+      color: var(--cityu-wine);
+      font-size: 5.2mm;
+      line-height: 1;
+    }
+    .footer-accent { color: var(--cityu-red); font-weight: 800; }
+
+    .qr {
+      display: inline-grid;
+      place-items: center;
+      width: 18mm;
+      height: 18mm;
+      margin-left: 3mm;
+      vertical-align: middle;
+      color: white;
+      background:
+        linear-gradient(90deg, #111 18%, transparent 18% 35%, #111 35% 56%, transparent 56% 74%, #111 74%),
+        linear-gradient(#111 18%, transparent 18% 35%, #111 35% 56%, transparent 56% 74%, #111 74%),
+        white;
+      border: 1mm solid white;
+      outline: .5mm solid #111;
+    }
+
+    @media print {
+      @page { size: A0 landscape; margin: 0; }
+      html, body { width: 1189mm; height: 841mm; background: white; }
+      body { padding: 0; }
+      .preview-shell { width: 1189mm; height: 841mm; box-shadow: none; }
+      .poster { transform: none; }
+    }
+
+    html.capture body { padding: 0; }
+    html.capture .preview-shell { width: 700px; height: 495px; box-shadow: none; }
+    html.capture .poster { transform: scale(.15573); }
+  </style>
+</head>
+<body>
+  <main class="preview-shell" aria-label="A0 landscape academic poster preview">
+    <article class="poster" data-measure-role="poster"
+      data-posterly-contract="identity-v1" data-ps-identity="on">
+      <svg class="ps-sprite" data-color-exempt="logo" aria-hidden="true"><defs>
+        <symbol id="psReg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" stroke-width="8" />
+          <line x1="50" y1="7" x2="50" y2="93" stroke="currentColor" stroke-width="8" />
+          <line x1="7" y1="50" x2="93" y2="50" stroke="currentColor" stroke-width="8" />
+        </symbol>
+      </defs></svg>
+      <div class="topline" aria-hidden="true"><span class="cityu"></span><span class="smbu"></span></div>
+
+      <header class="poster-header" data-measure-role="header">
+        <div class="logo-box">
+          <img class="cityu-logo" src="assets/cityuhk-logo.svg" alt="City University of Hong Kong" />
+        </div>
+
+        <div class="title-lockup">
+          <div class="eyebrow">CityU MSDS · SDSC6002 Research Project · Summer 2026</div>
+          <h1>Relationship-Aware Orchestration<br />for Older-Adult Reminiscence</h1>
+          <div class="subtitle">A user-named, relationship-first voice companion that helps older adults feel heard, remembered, safe, and in control—without replacing family, caregivers, or clinicians.</div>
+          <div class="authors">Fei Xiaoya · Su Zhikang · An Boxuan · Zhao Ziyi · Supervisor: Yu Lu</div>
+          <div class="affiliations">City University of Hong Kong &nbsp;&nbsp;×&nbsp;&nbsp; Shenzhen MSU-BIT University</div>
+        </div>
+
+        <div class="repo-box" aria-label="Project repository">
+          <div class="repo-meta">
+            <span class="repo-kicker">Project repository ↗</span>
+            <span class="repo-link">github.com/<wbr>zhikangSu/<wbr>nekoneko</span>
+          </div>
+        </div>
+
+      </header>
+
+      <section class="contribution-band" aria-label="Contribution summary">
+        <div class="band-title"><span>Scope &amp;</span><span>Contribution</span></div>
+        <div class="contribution"><strong>01 · Interaction gap</strong>Direct single-agent questions can feel interview-like; uncoordinated personas can become noisy, inauthentic, or intrusive.</div>
+        <div class="contribution"><strong>02 · Prototype contribution</strong>A deterministic scheduler selects up to three visible relationship roles, sequences their cue, and records who speaks, waits, summarizes, or stops.</div>
+        <div class="contribution"><strong>03 · Evaluation contribution</strong>A C1/C2/C3 protocol separates direct questioning, fixed cueing, and dynamic relationship-aware cueing across four evidence layers.<span data-ps-mark="woven" data-color-exempt="logo" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#psReg" /></svg></span></div>
+      </section>
+
+      <div class="poster-body">
+        <div class="column narrative-column" data-measure-role="column">
+          <section class="section" data-measure-role="card">
+            <div class="section-head red"><span class="number">1</span>Why a Single Voice Is Not Enough</div>
+            <div class="section-content">
+              <div class="tldr"><strong>Reminiscence needs an invitation, not an interrogation.</strong> A small social scene may make it easier to join a memory conversation—if the system also knows when to stay silent and stop.</div>
+              <div class="subhead">Design gap</div>
+              <p class="lead">A single companion asking direct questions can create entry pressure. Multiple voices without coordination risk becoming <strong>noisy, fake, chaotic, or boundary-crossing</strong>.</p>
+              <table class="positioning-table" aria-label="Design-space positioning">
+                <thead><tr><th>Approach</th><th>What it offers</th><th>Unresolved interaction issue</th></tr></thead>
+                <tbody>
+                  <tr><td>Single companion</td><td>Clear, efficient dialogue</td><td>One relational stance; direct-question pressure</td></tr>
+                  <tr><td>Fixed multi-role scene</td><td>Social variety and cueing</td><td>Roles do not adapt to topic or boundary</td></tr>
+                  <tr><td>This prototype</td><td>Topic-aware role scheduling</td><td>Must remain explainable, restrained, and user-controlled</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" data-measure-role="card">
+            <div class="section-head blue"><span class="number">2</span>Research Questions</div>
+            <div class="section-content">
+              <div class="research-question">How can a relationship-aware multi-agent system use dynamic role orchestration and brief social cues to invite older adults into reminiscence more naturally?</div>
+              <ul>
+                <li><strong>RQ1 · Relationship orchestration:</strong> Which roles should speak, wait, follow up, summarize, or stop for a given topic and preference?</li>
+                <li><strong>RQ2 · Social cueing:</strong> Does a short role-to-role cue feel more natural and lower-pressure than a direct question?</li>
+                <li><strong>RQ3 · Role interaction:</strong> How can differentiated roles cooperate without noise, inauthenticity, overload, or boundary violations?</li>
+              </ul>
+              <div class="subhead blue">What the prototype must demonstrate</div>
+              <div class="mini-grid">
+                <div class="mini-panel"><strong>Natural entry</strong>The elder joins an ongoing cue instead of answering a cold prompt.</div>
+                <div class="mini-panel"><strong>Explainable turn-taking</strong>Selected, silent, and stopped roles are visible in trace.</div>
+                <div class="mini-panel"><strong>User control</strong>Roles, topics, memory, and follow-up can be rejected or paused.</div>
+                <div class="mini-panel"><strong>Boundary safety</strong>Sensitive content redirects rather than intensifies the scene.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-measure-role="card">
+            <div class="section-head red"><span class="number">3</span>Three Mechanisms, One Boundary</div>
+            <div class="section-content">
+              <div class="principles">
+                <div class="principle"><strong>Well-being over stickiness</strong>The system may end, defer, or remain silent.</div>
+                <div class="principle"><strong>Roles, not people</strong>No persona claims a real age, history, kinship, or lived experience.</div>
+                <div class="principle"><strong>Boundary as ethics</strong>No diagnosis, dosage advice, deceased impersonation, or real emergency action.</div>
+              </div>
+              <div class="subhead">Core system contribution</div>
+              <div class="contribution-points">
+                <div class="contribution-point"><strong>Role taxonomy</strong>Eight visible options: seven relationship functions plus “No Relationship Role.”</div>
+                <div class="contribution-point"><strong>Deterministic scheduling</strong>Topic, preference, turn intent, and risk select a focused cast of at most three roles.</div>
+                <div class="contribution-point"><strong>Traceable evaluation</strong>Role/topic/boundary decisions are exposed for scenario audit and future C1/C2/C3 study.</div>
+              </div>
+              <div class="subhead blue">Per-turn logic</div>
+              <div class="concept-map">
+                <div class="concept-node"><strong>Read the scene</strong>Topic · life experience · role preference · boundary signal</div>
+                <div class="concept-arrow">→</div>
+                <div class="concept-node"><strong>Arrange the cast</strong>Select · order · follow up · summarize · stay silent</div>
+                <div class="concept-arrow">→</div>
+                <div class="concept-node"><strong>Yield the floor</strong>Brief cue · gentle invitation · user control · natural stop</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="column system-column" data-measure-role="column">
+          <section class="section" data-measure-role="card">
+            <div class="section-head blue"><span class="number">4</span>Relationship-Aware Orchestration</div>
+            <div class="section-content">
+              <div class="system-figure">
+                <div class="figure-label"><span>Implemented deterministic policy</span><span>Visible roles are personas, not autonomous agents</span></div>
+                <div class="orchestration">
+                  <div class="stack">
+                    <div class="node">Text / Voice Input<small>topic card · ASR · free text</small></div>
+                    <div class="node">User Context<small>preferences · consented memory</small></div>
+                  </div>
+                  <div class="arrow">→</div>
+                  <div class="stack">
+                    <div class="node core">InputRuleGuard → CoordinatorAgent<small>route · risk · bounded tool policy</small></div>
+                    <div class="node">Relationship scheduler<small>classify topic · select roles · cue style</small></div>
+                  </div>
+                  <div class="arrow">→</div>
+                  <div class="stack">
+                    <div class="node">Role Cue &amp; Invitation<small>respond · follow up · summarize · stop</small></div>
+                    <div class="node">OutputRuleGuard &amp; Trace<small>roles · route · memory · boundary</small></div>
+                  </div>
+                </div>
+                <div class="guardrail"><div>Boundary Guardian role</div><div>GuardianAgent</div><div>SafetyCriticAgent</div><div>User controls</div></div>
+              </div>
+              <div class="subhead">Five-stage cue sequence</div>
+              <div class="flow-strip">
+                <div class="flow-step"><strong>Classify</strong>Topic and sensitivity.</div>
+                <div class="flow-step"><strong>Select</strong>One to three useful roles.</div>
+                <div class="flow-step"><strong>Stage</strong>A brief role-to-role cue.</div>
+                <div class="flow-step"><strong>Invite</strong>One gentle opening.</div>
+                <div class="flow-step"><strong>Yield</strong>Follow up once, summarize, or stop.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-measure-role="card">
+            <div class="section-head red"><span class="number">5</span>Agents, Visible Roles &amp; Supporting Services</div>
+            <div class="section-content">
+              <table class="agent-table" aria-label="Agent responsibility matrix">
+                <thead><tr><th>Autonomous agent</th><th>Primary decision</th><th>Visible evidence</th></tr></thead>
+                <tbody>
+                  <tr><td>CoordinatorAgent</td><td>Route, policy, and bounded tool selection</td><td>Route · agents · tools · guards</td></tr>
+                  <tr><td>CompanionAgent</td><td>Warm response using profile and short history</td><td>Mode · memory · history use</td></tr>
+                  <tr><td>GuardianAgent</td><td>Check in, defer, stay silent, or escalate safely</td><td>StateEvent · reason · cooldown</td></tr>
+                  <tr><td>SafetyCriticAgent</td><td>Review only when risk or uncertainty is high</td><td>Risk level · safe rewrite</td></tr>
+                </tbody>
+              </table>
+              <div class="subhead blue">Eight visible relationship-role options</div>
+              <div class="feature-matrix">
+                <div class="feature-cell"><strong>Same-Age Peer</strong>Era resonance without false lived experience</div>
+                <div class="feature-cell"><strong>Curious Junior</strong>One light, specific follow-up</div>
+                <div class="feature-cell"><strong>Middle-Age Bridge</strong>Receives and carries experience forward</div>
+                <div class="feature-cell"><strong>Elder Mentor</strong>Low-judgment reflection</div>
+                <div class="feature-cell"><strong>Theme Companion</strong>Interest and culture bridge</div>
+                <div class="feature-cell"><strong>Memory Organizer</strong>Faithful summary with consent</div>
+                <div class="feature-cell"><strong>Boundary Guardian</strong>Pause, redirect, or decline</div>
+                <div class="feature-cell"><strong>No Relationship Role</strong>Direct user-named companion response</div>
+              </div>
+              <div class="subhead blue">Core user-facing capabilities</div>
+              <div class="layer-stack">
+                <div class="layer"><strong>Chat &amp; Voice</strong>multi-turn text · ASR/TTS</div>
+                <div class="layer"><strong>Naming &amp; Settings</strong>user-named AI · preferences</div>
+                <div class="layer"><strong>Memory Center</strong>approve · edit · delete · pause</div>
+                <div class="layer"><strong>Reminders</strong>date · time · frequency</div>
+                <div class="layer"><strong>Proactive Care</strong>StateEvent · cooldown · quiet hours</div>
+                <div class="layer"><strong>Retrieval &amp; Trace</strong>current facts · inspectable decisions</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-measure-role="card">
+            <div class="section-head blue"><span class="number">6</span>Implemented Prototype Evidence</div>
+            <div class="section-content">
+              <div class="prototype">
+                <figure class="prototype-shot">
+                  <img src="../../docs/report_assets/2026-07-20/03_agent_trace_relationship.png" alt="Working relationship-aware cue and Agent Trace in the prototype" data-fig-layout="beside-text" />
+                  <figcaption><strong>Working UI:</strong> role-cued reminiscence and its inspectable Agent Trace appear together in the current prototype.</figcaption>
+                </figure>
+                <div class="evidence-list">
+                  <div class="evidence-item"><strong>Auditable casting</strong>Role selection uses rules and templates, not hidden independent LLM agents.</div>
+                  <div class="evidence-item"><strong>Inspectable state</strong><code>relationship_cueing</code>, risk, role-first mode, memory, and retrieval state are visible.</div>
+                  <div class="evidence-item"><strong>Controlled exits</strong>User opt-out, sensitive-topic restraint, and “No Relationship Role” paths are covered.</div>
+                </div>
+              </div>
+              <div class="scenario-grid">
+                <div class="scenario"><strong>Topic-card opening</strong>Initial non-sensitive turn may stage two roles.</div>
+                <div class="scenario"><strong>Focused follow-up</strong>Later turns select the smallest useful speaking set.</div>
+                <div class="scenario"><strong>User opt-out</strong>“No Relationship Role” returns to the named companion.</div>
+                <div class="scenario"><strong>Sensitive topic</strong>Boundary Guardian leads; probing roles stay silent.</div>
+                <div class="scenario"><strong>Controlled memory</strong>Summaries are offered, never silently committed.</div>
+                <div class="scenario"><strong>No retrieval for reminiscence</strong>External lookup remains off for emotional memory talk.</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="column evaluation-column" data-measure-role="column">
+          <section class="section" data-measure-role="card">
+            <div class="section-head red"><span class="number">7</span>Evaluation Protocol &amp; Current Evidence</div>
+            <div class="section-content">
+              <div class="study-map">
+                <div class="study-box"><strong>C1 · Direct</strong>One companion asks a direct reminiscence question.</div>
+                <div class="arrow">→</div>
+                <div class="study-box"><strong>C2 · Fixed</strong>A fixed role or fixed two-role prelude.</div>
+                <div class="arrow">→</div>
+                <div class="study-box"><strong>C3 · Dynamic</strong>Topic-aware selection of two to three roles and a brief cue.</div>
+              </div>
+              <table class="metric-table" aria-label="Planned evaluation measures">
+                <thead><tr><th>Evidence layer</th><th>Primary measures</th><th>Answers</th></tr></thead>
+                <tbody>
+                  <tr><td>Content</td><td>Recall onset; concrete details; comparison; meaning</td><td>Does cueing enrich self-expression?</td></tr>
+                  <tr><td>Experience</td><td>Entry pressure; naturalness; social presence; noise/fakeness</td><td>Does C3 feel easier and more respectful?</td></tr>
+                  <tr><td>Behavior</td><td>Speaking time; elaboration; pauses; refusals; control actions</td><td>How does the user actually respond?</td></tr>
+                  <tr><td>Boundary</td><td>Discomfort; privacy; grief; “do not mention again”</td><td>Does the system stop appropriately?</td></tr>
+                </tbody>
+              </table>
+              <div class="subhead blue">Evidence status — outcomes are not yet claimed</div>
+              <div class="results-board">
+                <div class="status-panel"><strong>382 / 382</strong>Backend tests pass locally, including relationship orchestration, cueing, memory, reminders, sensor adaptation, controlled retrieval, voice-provider selection, trace privacy, and safety regression. Tests are offline and do not call paid APIs.</div>
+                <div class="finding-cards">
+                  <div class="finding"><strong>Implemented.</strong> Deterministic topic classification, role selection, cue templates, user opt-out, and role/topic/boundary trace.</div>
+                  <div class="finding"><strong>Prepared.</strong> Study 1 co-design materials and Study 2 C1/C2/C3 instruments are ready for piloting.</div>
+                  <div class="finding"><strong>Not yet established.</strong> No completed ethics-approved 65+ participant study; naturalness and pressure effects remain hypotheses to test.</div>
+                </div>
+              </div>
+              <div class="subhead blue">Analysis plan</div>
+              <div class="mini-grid">
+                <div class="mini-panel"><strong>Study 1</strong>Qualitative interviews and co-design refine role tone, materials, and sensitive-topic handling.</div>
+                <div class="mini-panel"><strong>Study 2</strong>Counterbalanced C1/C2/C3 comparison over matched reminiscence materials.</div>
+                <div class="mini-panel"><strong>Trace audit</strong>Check role fit, silence, handoff, boundary decision, memory, and retrieval state.</div>
+                <div class="mini-panel"><strong>Triangulation</strong>Connect self-report, content coding, observable behavior, and trace evidence.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-measure-role="card">
+            <div class="section-head blue"><span class="number">8</span>Ethics, Limitations &amp; Next Steps</div>
+            <div class="section-content">
+              <div class="ethics">
+                <div class="ethic"><strong>No impersonation</strong>Roles never claim real kinship, lived history, or the identity of a deceased person.</div>
+                <div class="ethic"><strong>Memory control</strong>Only approved summaries are retained; users can view, edit, delete, pause, or refuse memory.</div>
+                <div class="ethic"><strong>Non-clinical boundary</strong>No diagnosis, dosage change, real emergency dispatch, or caregiver notification.</div>
+              </div>
+              <div class="subhead">Honest prototype boundary</div>
+              <div class="boundary-grid">
+                <div class="boundary"><strong>Deterministic cueing</strong>Current role selection and visible role messages use auditable rules/templates, not independent LLM agents.</div>
+                <div class="boundary"><strong>Research stage</strong>Current evidence is software and role-play/convenience pilot evidence, not older-adult outcome evidence.</div>
+                <div class="boundary"><strong>Demo infrastructure</strong>Sensors are simulated; providers are configurable; offline fake/mock paths remain available.</div>
+                <div class="boundary"><strong>Non-autonomous roles</strong>The eight relationship roles are visible personas scheduled through the companion layer.</div>
+              </div>
+              <div class="subhead">Next research step</div>
+              <div class="mini-grid">
+                <div class="mini-panel"><strong>Refine with older adults</strong>Validate role labels, tone, cue length, and acceptable topic-role pairings.</div>
+                <div class="mini-panel"><strong>Compare mechanisms</strong>Test C1/C2/C3 rather than comparing a whole product against no system.</div>
+                <div class="mini-panel"><strong>Study restraint</strong>Measure silence, refusal, handoff, and stopping as designed behaviors—not failures.</div>
+                <div class="mini-panel"><strong>Extend carefully</strong>Move toward semi-automatic generation only after the deterministic trace and boundary policy remain stable.</div>
+              </div>
+              <div class="closing-statement">The goal is not more conversation. It is the right role, at the right moment, with a clear way for the older adult to pause, redirect, or stop.</div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer class="poster-footer" data-measure-role="footer">
+        <div><span class="footer-accent">Relationship-Aware Reminiscence Companion</span> · course-level HCI research prototype</div>
+        <div class="footer-center">Return willingly, use safely. Companionship first, retrieval when needed, safety always.</div>
+        <div class="footer-right">
+          <img class="footer-qr" src="assets/nekoneko-github-qr-navy.png" alt="QR code for the project GitHub repository" />
+          <div class="footer-repo"><strong>Scan for code</strong>zhikangSu/nekoneko</div>
+        </div>
+      </footer>
+      <span class="corner-sig" data-ps-mark="corner" data-color-exempt="logo" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#psReg" /></svg></span>
+    </article>
+  </main>
+
+  <script>
+    if (new URLSearchParams(location.search).has('capture')) {
+      document.documentElement.classList.add('capture');
+    }
+  </script>
+</body>
+</html>

@@ -83,12 +83,12 @@ def test_manual_role_selection_guides_companion_chat_trace(client):
     assert "陪伴 AI" not in companion_step["summary"]
 
 
-def test_auto_role_selection_guides_companion_chat_trace(client):
+def test_auto_role_selection_trace_respects_loneliness_cue_exclusion(client):
     response = client.post(
         "/api/chat",
         json={
             "user_id": "auto_role_chat",
-            "message": "我今天心情有点复杂，想找人聊聊",
+            "message": "我今天一个人在家，心情有点复杂，想找人聊聊",
             "role_selection_mode": "auto",
         },
     )
@@ -115,10 +115,10 @@ def test_auto_role_selection_guides_companion_chat_trace(client):
         for step in body["agent_trace"]["agents"]
         if step["name"] == "CompanionAgent"
     )
-    assert companion_step["detail"]["auto_role_style"] is True
-    assert companion_step["detail"]["role_labels"]
-    assert "系统分配关系角色" in companion_step["summary"]
-    assert "陪伴 AI" not in companion_step["summary"]
+    assert companion_step["detail"]["auto_role_style"] is False
+    assert companion_step["detail"]["selected_roles"] == []
+    assert companion_step["detail"]["role_labels"] == []
+    assert "系统分配关系角色" not in companion_step["summary"]
 
 
 def test_manual_no_ai_role_does_not_auto_allocate_companion_chat(client):
@@ -136,15 +136,17 @@ def test_manual_no_ai_role_does_not_auto_allocate_companion_chat(client):
     role_trace = body["agent_trace"]["research_trace"]["role"]
     assert role_trace["role_selection_mode"] == "manual"
     assert role_trace["requested_role_ids"] == ["no_ai_role"]
-    assert role_trace["selected_roles"] == ["no_ai_role"]
-    assert role_trace["primary_role"] == "no_ai_role"
+    assert role_trace["candidate_roles"] == []
+    assert role_trace["selected_roles"] == []
+    assert role_trace["silent_roles"] == []
+    assert role_trace["primary_role"] is None
     companion_step = next(
         step
         for step in body["agent_trace"]["agents"]
         if step["name"] == "CompanionAgent"
     )
-    assert "百事通" in companion_step["summary"]
-    assert "陪伴 AI" not in companion_step["summary"]
+    assert "用户命名的 CompanionAgent" in companion_step["summary"]
+    assert "百事通" not in companion_step["summary"]
     assert "RelationshipOrchestratorAgent" not in [
         step["name"] for step in body["agent_trace"]["agents"]
     ]

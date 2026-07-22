@@ -4,6 +4,7 @@ import { AmbientChatStateProvider } from "@/components/chat/AmbientChatScenePane
 import { ChatStateProvider } from "@/components/chat/ChatStateProvider";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProfileProvider } from "@/components/profile/ProfileProvider";
+import { TraceStateProvider } from "@/components/traces/TraceStateProvider";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -21,11 +22,13 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body>
         <ProfileProvider>
-          <ChatStateProvider>
-            <AmbientChatStateProvider>
-              <AppShell>{children}</AppShell>
-            </AmbientChatStateProvider>
-          </ChatStateProvider>
+          <TraceStateProvider>
+            <ChatStateProvider>
+              <AmbientChatStateProvider>
+                <AppShell>{children}</AppShell>
+              </AmbientChatStateProvider>
+            </ChatStateProvider>
+          </TraceStateProvider>
         </ProfileProvider>
       </body>
     </html>

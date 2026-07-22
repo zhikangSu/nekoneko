@@ -4,10 +4,12 @@ import { useCallback, useState } from "react";
 
 import { sendChat } from "@/lib/apiClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { useTraceState } from "@/components/traces/TraceStateProvider";
 import type {
   ChatMessage,
   ChatResponse,
   CompanionMode,
+  ConversationSeedMessage,
   ElderControlAction,
   MemoryScope,
   RelationshipRoleId,
@@ -43,6 +45,7 @@ function visibleCompanionText(response: ChatResponse): string {
 }
 
 export function useChat() {
+  const { publishTrace } = useTraceState();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roleSelectionMode, setRoleSelectionMode] =
     useState<RoleSelectionMode>("auto");
@@ -62,6 +65,8 @@ export function useChat() {
       topic: TopicMaterialContext | null,
       sessionId: string | null,
       memoryScope: MemoryScope,
+      conversationSeed: ConversationSeedMessage[] = [],
+      contextRoleIds: RelationshipRoleId[] = [],
     ): Promise<ChatResponse> => {
       return sendChat({
         user_id: DEFAULT_USER_ID,
@@ -77,6 +82,8 @@ export function useChat() {
         study_session_id: sessionId,
         elder_control_action: DEFAULT_ELDER_CONTROL_ACTION,
         memory_scope: memoryScope,
+        conversation_seed: conversationSeed,
+        context_role_ids: contextRoleIds,
       });
     },
     [roleSelectionMode, selectedRoleIds],
@@ -105,6 +112,7 @@ export function useChat() {
           studySessionId,
           "default",
         );
+        publishTrace(response.agent_trace, "main");
         setMessages((prev) => [
           ...prev,
           {
@@ -140,6 +148,7 @@ export function useChat() {
       selectedRoleIds,
       requestChat,
       studySessionId,
+      publishTrace,
     ],
   );
 
@@ -148,6 +157,8 @@ export function useChat() {
       rawText: string,
       topicOverride?: TopicMaterialContext | null,
       studySessionIdOverride?: string | null,
+      conversationSeed: ConversationSeedMessage[] = [],
+      contextRoleIds: RelationshipRoleId[] = [],
     ): Promise<DetachedChatResult | null> => {
       const text = rawText.trim();
       if (!text) return null;
@@ -161,6 +172,8 @@ export function useChat() {
         // history does not merge into the main chat, but it still uses durable
         // memory so clear preferences like "我喜欢粤剧" appear in Memory Center.
         "default",
+        conversationSeed,
+        contextRoleIds,
       );
       return { text, topic, response };
     },
@@ -183,6 +196,7 @@ export function useChat() {
           studySessionId,
           "default",
         );
+        publishTrace(response.agent_trace, "main");
         setMessages((prev) => [
           ...prev,
           {
@@ -211,7 +225,14 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [isSending, roleSelectionMode, selectedRoleIds, requestChat, studySessionId],
+    [
+      isSending,
+      roleSelectionMode,
+      selectedRoleIds,
+      requestChat,
+      studySessionId,
+      publishTrace,
+    ],
   );
 
   return {
